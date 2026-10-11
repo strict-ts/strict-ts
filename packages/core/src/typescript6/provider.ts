@@ -32,7 +32,7 @@ export function createTypeScript6Provider(
   options: TypeScript6Options,
 ): TypeProvider {
   const checker = program.getTypeChecker();
-  const root = `${options.rootDir.replaceAll('\\', '/').replace(/\/+$/, '')}/`;
+  const root = `${options.rootDir.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
   const displayName = (fileName: string): string => (fileName.startsWith(root) ? fileName.slice(root.length) : fileName);
 
   const literal =
@@ -347,8 +347,12 @@ export function createTypeScript6Provider(
       const member = constructs ? 'new' : (declaration.name?.getText() ?? '');
       // `var URL: { new (…): URL }` and `interface Date { toISOString(): string }` both give `Owner.member`.
       const holder = api.isTypeLiteralNode(declaration.parent) ? declaration.parent.parent : declaration.parent;
+      // A function of a namespace (`Reflect.get`) is named by it too; one of a module declared by its path is not.
+      const named = api.isModuleBlock(holder) && api.isIdentifier(holder.parent.name) ? holder.parent : holder;
       const owner =
-        api.isInterfaceDeclaration(holder) || api.isClassDeclaration(holder) || api.isVariableDeclaration(holder) ? holder.name?.getText() : undefined;
+        api.isInterfaceDeclaration(named) || api.isClassDeclaration(named) || api.isVariableDeclaration(named) || api.isModuleDeclaration(named)
+          ? named.name?.getText()
+          : undefined;
       const file = declaration.getSourceFile();
       const fromPath = /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file.fileName)?.[1];
       return {
@@ -388,7 +392,7 @@ export function createTypeScript6Provider(
 
 /** The project's own source files: what the rules read, by absolute path. For hosts that cache per file. */
 export function checkedFileNames(program: ts.Program, rootDir: string): readonly string[] {
-  const root = `${rootDir.replaceAll('\\', '/').replace(/\/+$/, '')}/`;
+  const root = `${rootDir.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
   return program
     .getSourceFiles()
     .filter(

@@ -1110,8 +1110,24 @@ describe('no-throwing-call', () => {
     expect(found).toEqual(['2 `JSON.parse` throws a SyntaxError on text that is not JSON.']);
   });
 
-  test('known limit: a library function that is not in the table is taken not to throw', () => {
-    expect(safe('export const pad = (n: number): ArrayBuffer => new ArrayBuffer(n);')).toEqual([]);
+  test('a library function that is not in the ledger is refused: nothing shows that it does not throw', () => {
+    expect(safe('export const pad = (n: number): ArrayBuffer => new ArrayBuffer(n);')).toEqual([
+      '1 `ArrayBuffer.new` is not in the effects ledger: nothing shows that it does not throw.',
+    ]);
+  });
+
+  test('an entry may depend on how many arguments are given', () => {
+    expect(
+      safe(
+        'export const a = (n: number): string => n.toString();',
+        'export const b = (n: number, radix: number): string => n.toString(radix);',
+        'export const c = (x: string, y: string): number => x.localeCompare(y);',
+        'export const d = (x: string, y: string, locale: string): number => x.localeCompare(y, locale);',
+      ),
+    ).toEqual([
+      '2 `Number.toString` throws a RangeError on a radix out of range.',
+      '4 `String.localeCompare` throws a RangeError on an unknown locale.',
+    ]);
   });
 
   test('the trust comes from the configuration: a package that is not allowed is not trusted', () => {

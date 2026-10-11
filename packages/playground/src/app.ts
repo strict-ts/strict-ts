@@ -1,6 +1,6 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
-import { type Mut, toJson } from '@strict-ts/std';
+import { attempt, type Mut, toJson } from '@strict-ts/std';
 import type { Data, Scenario } from './data.js';
 import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
 import { compiler, pageData, parseJson } from './unsafe/page.js';
@@ -294,9 +294,12 @@ function renderEditor(): void {
 
 // ── Rendering: panel ─────────────────────────────────
 function renderTabs(): void {
-  for (const tab of document.querySelectorAll<HTMLElement>('.tab')) {
-    tab.setAttribute('aria-selected', String(tab.dataset['tab'] === state.tab));
-  }
+  // The DOM refuses a selector or an attribute name it cannot read by throwing: caught here, the tabs stay as they were.
+  void attempt(() => {
+    for (const tab of document.querySelectorAll<HTMLElement>('.tab')) {
+      tab.setAttribute('aria-selected', String(tab.dataset['tab'] === state.tab));
+    }
+  }, String);
   $('n-problems').textContent = outcome === undefined ? '' : String(diagnostics().length);
 }
 
@@ -429,14 +432,15 @@ function reveal(d: Diagnostic | undefined): void {
   if (editor === undefined) return;
   const [start, end] = range(d, lineStarts(editor.value), editor.value.length);
   editor.focus({ preventScroll: true });
-  editor.setSelectionRange(start, end);
+  void attempt(() => editor.setSelectionRange(start, end), String);
   const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight);
   $('ed-scroll').scrollTop = Math.max(0, (d.start.line - 4) * (Number.isNaN(lineHeight) ? 21 : lineHeight));
   renderCaretBar();
 }
 
 const closest = (event: Event, selector: string): HTMLElement | undefined => {
-  const found = event.target instanceof Element ? event.target.closest(selector) : undefined;
+  const target = event.target;
+  const found = target instanceof Element ? attempt(() => target.closest(selector), String).unwrapOr(undefined) : undefined;
   return found instanceof HTMLElement ? found : undefined;
 };
 
@@ -460,7 +464,7 @@ $('reset').addEventListener('click', () => {
   };
   if (resetArmed === 0) {
     button.textContent = 'Confirm: discard my changes';
-    button.classList.add('danger');
+    void attempt(() => button.classList.add('danger'), String);
     resetArmed = setTimeout(disarm, 4000);
     return;
   }
@@ -526,13 +530,15 @@ if (editor !== undefined) {
   editor.addEventListener('keydown', (event) => {
     if (event.key !== 'Tab' || event.shiftKey || event.metaKey || event.ctrlKey || editor.readOnly) return;
     event.preventDefault();
-    editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end');
+    void attempt(() => editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end'), String);
     editor.dispatchEvent(new Event('input'));
   });
   for (const name of ['keyup', 'click', 'select']) editor.addEventListener(name, renderCaretBar);
 }
 
-document.querySelector('.tabs')?.addEventListener('click', (event) => {
+attempt(() => document.querySelector('.tabs'), String)
+  .unwrapOr(undefined)
+  ?.addEventListener('click', (event) => {
   const tab = closest(event, '[data-tab]')?.dataset['tab'];
   if (tab !== 'problems' && tab !== 'rules' && tab !== 'config') return;
   state.tab = tab;
