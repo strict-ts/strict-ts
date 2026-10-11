@@ -22,5 +22,9 @@
     "@strict-ts/core": "workspace:*",
     "@strict-ts/std": "workspace:*",
     "@typescript/typescript6": "^6.0.2"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-draft-04": "^1.0.0"
   }
 }

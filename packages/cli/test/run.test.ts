@@ -95,7 +95,7 @@ describe('a project that cannot be checked is not reported as safe', () => {
 
   test('option without a value, unknown format', () => {
     expect(unchecked(['--project'])).toContain('--project needs a value');
-    expect(unchecked(['--format', 'sarif'])).toContain('unknown format: sarif (text or json)');
+    expect(unchecked(['--format', 'xml'])).toContain('unknown format: xml (text, json or sarif)');
   });
 
   test('no project at that path', () => {
