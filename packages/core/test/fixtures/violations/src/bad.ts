@@ -56,6 +56,13 @@ export function anyString(s: string): number {
   return 0;
 }
 
+export const isText = (value: unknown): value is string => value !== undefined; // expect: no-type-predicate
+
+declare const injected: number; // expect: no-ambient
+export const copied = injected;
+
+export let late!: string; // expect: no-non-null
+
 // @ts-ignore
 export const masked = 1;
 

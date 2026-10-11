@@ -42,6 +42,11 @@ export interface ExportedValue extends Span {
 export interface TypeProvider {
   /** The files to check: the project's own sources, without declaration files and dependencies. */
   readonly files: readonly SourceFile[];
+  /**
+   * The project's own declaration files (`.d.ts` under its root), by the path shown in diagnostics. They are compiled
+   * and not checked: what they declare is taken on trust.
+   */
+  readonly declarationFiles: readonly string[];
   /** The compiler options in force, by name. */
   readonly compilerOptions: Readonly<Record<string, unknown>>;
   /** What the compiler itself refuses (rule `TS<code>`): strict-ts replaces `tsc --noEmit`. */

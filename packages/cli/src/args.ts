@@ -37,7 +37,7 @@ export const usage = [
 /** The options that take no value. */
 const FLAGS = ['--update-baseline', '--no-baseline', '--strict-baseline'];
 
-const isFormat = (value: string): value is Format => value === 'text' || value === 'json' || value === 'sarif';
+const isFormat = (value: string) => value === 'text' || value === 'json' || value === 'sarif';
 
 /** Reads the arguments after the program name. An argument it does not know is an error, never ignored. */
 export function parseArgs(argv: readonly string[]): Result<Command, string> {

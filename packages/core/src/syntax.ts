@@ -22,7 +22,11 @@ export type Node = NodeBase &
     | { readonly kind: 'any-keyword' }
     | { readonly kind: 'null-keyword' }
     | { readonly kind: 'import-keyword' }
-    | { readonly kind: 'identifier'; readonly text: string }
+    /**
+     * `declaredOutside`: the name refers to a value declared outside the checked files (a declaration file, a
+     * dependency), so nothing checked where its type comes from.
+     */
+    | { readonly kind: 'identifier'; readonly text: string; readonly declaredOutside: boolean }
     | { readonly kind: 'string-literal'; readonly text: string }
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
     | { readonly kind: 'new' }
@@ -31,6 +35,12 @@ export type Node = NodeBase &
     | { readonly kind: 'await' }
     | { readonly kind: 'void' }
     | { readonly kind: 'non-null' }
+    /** `let x!: T` or a class property `x!: T`: a promise that it is assigned, which nobody checks. */
+    | { readonly kind: 'definite-assignment' }
+    /** A written `x is T` or `asserts x is T`. A predicate the compiler infers has no node. */
+    | { readonly kind: 'type-predicate'; readonly asserts: boolean }
+    /** A declaration under `declare`: it states a type for something defined elsewhere. */
+    | { readonly kind: 'ambient-declaration' }
     /** `x as T`; `isConst` for `x as const`. */
     | { readonly kind: 'as'; readonly isConst: boolean }
     /** `<T>x`. */

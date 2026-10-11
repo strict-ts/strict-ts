@@ -19,8 +19,11 @@ export interface FileContext {
 }
 
 export interface ProjectContext {
+  readonly config: Config;
   readonly compilerOptions: Readonly<Record<string, unknown>>;
-  readonly report: (message: string, help: string) => void;
+  readonly declarationFiles: readonly string[];
+  /** Reports about the project as a whole, or about `file` when one is given. */
+  readonly report: (message: string, help: string, file?: string) => void;
 }
 
 export interface Rule {
@@ -35,6 +38,6 @@ export interface Rule {
   readonly visit?: (node: Node, context: FileContext, parent: Node | undefined, ancestors: readonly Node[]) => void;
   /** Called once per file. */
   readonly file?: (context: FileContext) => void;
-  /** Called once, for rules of scope `project`. */
+  /** Called once per run, whatever the rule's scope. */
   readonly project?: (context: ProjectContext) => void;
 }

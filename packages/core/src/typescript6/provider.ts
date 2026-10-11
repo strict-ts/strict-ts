@@ -67,6 +67,13 @@ export function createTypeScript6Provider(
     return self;
   };
 
+  /** The project's own sources: what the rules read. Everything else is compiled and taken on trust. */
+  const isChecked = (sourceFile: ts.SourceFile): boolean =>
+    !sourceFile.isDeclarationFile &&
+    !program.isSourceFileFromExternalLibrary(sourceFile) &&
+    !sourceFile.fileName.includes('/node_modules/') &&
+    sourceFile.fileName.startsWith(root);
+
   const isUnit = (node: ts.Node): boolean =>
     (node.kind >= api.SyntaxKind.FirstStatement && node.kind <= api.SyntaxKind.LastStatement) ||
     api.isFunctionDeclaration(node) ||
@@ -98,7 +105,33 @@ export function createTypeScript6Provider(
       if (node.kind === api.SyntaxKind.AnyKeyword) return { ...base, kind: 'any-keyword' };
       if (node.kind === api.SyntaxKind.NullKeyword) return { ...base, kind: 'null-keyword' };
       if (node.kind === api.SyntaxKind.ImportKeyword) return { ...base, kind: 'import-keyword' };
-      if (api.isIdentifier(node)) return { ...base, kind: 'identifier', text: node.text };
+      if (api.canHaveModifiers(node) && (api.getModifiers(node) ?? []).some((m) => m.kind === api.SyntaxKind.DeclareKeyword)) {
+        return { ...base, kind: 'ambient-declaration' };
+      }
+      if ((api.isVariableDeclaration(node) || api.isPropertyDeclaration(node)) && node.exclamationToken !== undefined) {
+        return { ...base, kind: 'definite-assignment' };
+      }
+      if (api.isTypePredicateNode(node)) return { ...base, kind: 'type-predicate', asserts: node.assertsModifier !== undefined };
+      if (api.isIdentifier(node)) {
+        return {
+          ...base,
+          kind: 'identifier',
+          text: node.text,
+          // Asked of few identifiers, and it needs the checker: computed on demand.
+          get declaredOutside() {
+            const parent: ts.Node & { readonly name?: ts.Node } = node.parent;
+            // `ns` in the type `ns.Member` names a namespace, not a value.
+            let outermost: ts.Node = node;
+            while (api.isQualifiedName(outermost.parent)) outermost = outermost.parent;
+            if (parent.name === node || api.isPartOfTypeNode(outermost) || api.isImportTypeNode(outermost.parent)) return false;
+            const named = checker.getSymbolAtLocation(node);
+            // An import is declared here, but what it names is declared where it comes from.
+            const symbol = named !== undefined && (named.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(named) : named;
+            const declarations = symbol?.getDeclarations() ?? [];
+            return declarations.length > 0 && declarations.every((declaration) => !isChecked(declaration.getSourceFile()));
+          },
+        };
+      }
       if (api.isStringLiteralLike(node)) return { ...base, kind: 'string-literal', text: node.text };
       if (api.isCallExpression(node)) {
         return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part) };
@@ -154,19 +187,24 @@ export function createTypeScript6Provider(
   const sources = new WeakMap<SourceFile, ts.SourceFile>();
   const files = program
     .getSourceFiles()
-    .filter(
-      (sourceFile) =>
-        !sourceFile.isDeclarationFile &&
-        !program.isSourceFileFromExternalLibrary(sourceFile) &&
-        !sourceFile.fileName.includes('/node_modules/') &&
-        sourceFile.fileName.startsWith(root) &&
-        (options.only?.(sourceFile.fileName) ?? true),
-    )
+    .filter((sourceFile) => isChecked(sourceFile) && (options.only?.(sourceFile.fileName) ?? true))
     .map((sourceFile): SourceFile => {
       const file = { name: displayName(sourceFile.fileName), text: sourceFile.text, root: convert(sourceFile, sourceFile) };
       sources.set(file, sourceFile);
       return file;
     });
+
+  const declarationFiles = program
+    .getSourceFiles()
+    .filter(
+      (sourceFile) =>
+        sourceFile.isDeclarationFile &&
+        !program.isSourceFileFromExternalLibrary(sourceFile) &&
+        !program.isSourceFileDefaultLibrary(sourceFile) &&
+        !sourceFile.fileName.includes('/node_modules/') &&
+        sourceFile.fileName.startsWith(root),
+    )
+    .map((sourceFile) => displayName(sourceFile.fileName));
 
   const locators = new Map<ts.SourceFile, (offset: number) => Position>();
   const locatorOf = (sourceFile: ts.SourceFile): ((offset: number) => Position) => {
@@ -208,6 +246,7 @@ export function createTypeScript6Provider(
 
   return {
     files,
+    declarationFiles,
     compilerOptions: program.getCompilerOptions(),
     compilerDiagnostics,
     typeOf: (node) => {

@@ -106,13 +106,12 @@ describe('the sources', () => {
     );
 
   test('hold no rule: the rules come from an import of @strict-ts/core', () => {
-    expect(src.toSorted()).toEqual(['app.ts', 'engine.ts']);
+    expect(src.toSorted()).toEqual(['app.ts', 'data.ts', 'engine.ts']);
     expect(imports('engine.ts')).toEqual(['@strict-ts/core', '@strict-ts/core/typescript6', '@typescript/typescript6']);
-    expect(imports('app.ts')).toEqual(['@strict-ts/core', '@typescript/typescript6', './engine.js']);
+    expect(imports('app.ts')).toEqual(['@strict-ts/core', './data.js', './engine.js', './unsafe/page.js']);
     expect(playground.rules).toBe(rules);
     for (const name of src) {
       const text = readFileSync(`${root}src/${name}`, 'utf8');
-      expect(text).toContain('import type ts from');
       expect(text).not.toMatch(/\bvisit\s*[(:]|\bguarantee\s*:/);
     }
   });

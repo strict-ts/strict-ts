@@ -18,7 +18,7 @@ brings the other four without changing language: the code stays standard TypeScr
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 12 rules behind `TypeProvider`, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 14 rules behind `TypeProvider`, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | text, JSON and SARIF output, `strict-ts.json`, baseline |
 | [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on the five scenarios; not published | builds to one page |
@@ -37,8 +37,8 @@ pnpm install
 pnpm lint && pnpm build && pnpm test && pnpm check
 ```
 
-`pnpm check` runs strict-ts on its own packages, as the CI does: `core` and `cli` pass with nothing recorded, `std`
-and `playground` with a baseline (`strict-ts-baseline.json`) that can only shrink.
+`pnpm check` runs strict-ts on its own packages, as the CI does: all pass with nothing recorded, except `std`, whose
+baseline (`strict-ts-baseline.json`) can only shrink.
 
 To run the gate on a project, here the two versions of the invoice challenge:
 

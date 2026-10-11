@@ -1,5 +1,6 @@
 import type { Diagnostic } from '@strict-ts/core';
 import { err, ok, type Result } from '@strict-ts/std';
+import { asRecord } from './unsafe/record.js';
 
 /**
  * The violations a team accepts for now: a count per rule per file. Counting, rather than recording lines, keeps the
@@ -36,22 +37,20 @@ export const serializeBaseline = (baseline: Baseline): string => `${JSON.stringi
 export const countViolations = (baseline: Baseline): number =>
   Object.values(baseline.files).reduce((sum, rules) => sum + Object.values(rules).reduce((a, b) => a + b, 0), 0);
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
-
 /** Reads the content of a baseline file. A file it does not fully understand is an error: it allows nothing. */
 export function parseBaseline(content: unknown): Result<Baseline, string> {
-  if (!isRecord(content)) return err('object expected at the root');
-  if (content['version'] !== 1) return err('"version": 1 expected');
-  const files = content['files'];
-  if (!isRecord(files)) return err('"files": object expected');
+  const root = asRecord(content);
+  if (!root.some) return err('object expected at the root');
+  if (root.value['version'] !== 1) return err('"version": 1 expected');
+  const files = asRecord(root.value['files']);
+  if (!files.some) return err('"files": object expected');
   const checked: Record<string, Readonly<Record<string, number>>> = {};
-  for (const [file, rules] of Object.entries(files)) {
-    if (!isRecord(rules)) return err(`"${file}": object expected`);
+  for (const [file, content] of Object.entries(files.value)) {
+    const rules = asRecord(content);
+    if (!rules.some) return err(`"${file}": object expected`);
     const counts: Record<string, number> = {};
-    for (const [rule, count] of Object.entries(rules)) {
-      if (!isCount(count)) return err(`"${file}" "${rule}": a positive whole number expected`);
+    for (const [rule, count] of Object.entries(rules.value)) {
+      if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return err(`"${file}" "${rule}": a positive whole number expected`);
       counts[rule] = count;
     }
     checked[file] = counts;
