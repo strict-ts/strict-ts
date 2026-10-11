@@ -77,7 +77,8 @@ function gen(body: () => Generator<unknown, unknown, unknown> | AsyncGenerator<u
       return s.value;
     });
   }
-  if (step.done !== true) steps.return(undefined);
+  // Here the generator is the synchronous one: what `return` gives back is not a promise, and nothing to wait for.
+  if (step.done !== true) void steps.return(undefined);
   return step.value;
 }
 

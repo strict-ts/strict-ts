@@ -1,0 +1,6 @@
+{
+  "unsafeDirs": [],
+  "allowedImports": [
+    "@typescript/typescript6"
+  ]
+}

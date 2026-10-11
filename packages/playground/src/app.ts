@@ -446,7 +446,7 @@ function reveal(d: Diagnostic | undefined): void {
 }
 
 const closest = (event: Event, selector: string): HTMLElement | undefined => {
-  const found = event.target instanceof Element ? event.target.closest(selector) : null;
+  const found = event.target instanceof Element ? event.target.closest(selector) : undefined;
   return found instanceof HTMLElement ? found : undefined;
 };
 

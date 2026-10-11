@@ -1,0 +1,7 @@
+{
+  "unsafeDirs": [],
+  "allowedImports": [
+    "@strict-ts/core",
+    "@typescript/typescript6"
+  ]
+}

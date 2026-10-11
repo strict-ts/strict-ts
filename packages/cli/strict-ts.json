@@ -1,0 +1,9 @@
+{
+  "unsafeDirs": [
+    "src/unsafe"
+  ],
+  "allowedImports": [
+    "@strict-ts/core",
+    "@strict-ts/std"
+  ]
+}
