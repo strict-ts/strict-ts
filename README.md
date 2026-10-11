@@ -238,6 +238,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `attempt(fn, onError)` | For unsafe code: turns an exception or a rejected promise into an `Err` |
 | `Option<T>` | `Option.from(value)`, `some`, `none`; `.map`, `.andThen`, `.unwrapOr`, `.okOr`, `.match` |
 | `s` | Schemas: `s.object`, `s.array`, `s.literal`, `s.optional`, `s.string`, `s.number`, `s.boolean`, `s.date`; `s.Infer<typeof X>` gives the type, read-only |
+| `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
 | `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
 

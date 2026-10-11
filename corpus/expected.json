@@ -28,7 +28,7 @@
   "packages/language-service": {},
   "packages/playground": {},
   "packages/std": {
-    "no-cast": 5,
+    "no-cast": 6,
     "no-throw": 3,
     "no-type-predicate": 4
   },

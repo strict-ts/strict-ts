@@ -88,3 +88,48 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
     },
   };
 }
+
+// ── Constraints carried by the type ────────────────────────────────
+
+/** The key of a brand. It is not exported: outside this file nothing can name it, so nothing can write a brand. */
+const brand: unique symbol = Symbol('strict-ts brand');
+
+/**
+ * A `T` that passed the check named `B`. It is used wherever a `T` is, but a plain `T` is not accepted where it is
+ * asked for: the only way to get one is the schema that checks it.
+ */
+export type Branded<T, B extends string> = T & { readonly [brand]: B };
+
+/**
+ * A schema that also checks `test`, and says so in its type: `s.refine(s.number, 'Even', (n) => n % 2 === 0)` is a
+ * `Schema<Branded<number, 'Even'>>`.
+ */
+export function refine<T, const B extends string>(inner: Schema<T>, name: B, test: (value: T) => boolean): Schema<Branded<T, B>> {
+  return {
+    parse: (input) => {
+      const parsed = inner.parse(input);
+      if (!parsed.ok) return parsed;
+      // The one place a brand is given: the value has just passed the check the brand names.
+      return test(parsed.value) ? new Ok(parsed.value as Branded<T, B>) : fail(name);
+    },
+  };
+}
+
+/** Gives a type its own name without checking more: a `CustomerId` that is not any string. */
+export const branded = <T, const B extends string>(inner: Schema<T>, name: B): Schema<Branded<T, B>> => refine(inner, name, () => true);
+
+/** A string or an array that holds at least one character or item. */
+export const nonEmpty = <T extends { readonly length: number }>(inner: Schema<T>): Schema<Branded<T, 'NonEmpty'>> =>
+  refine(inner, 'NonEmpty', (value) => value.length > 0);
+
+/** A number above zero. */
+export const positive = (inner: Schema<number> = number): Schema<Branded<number, 'Positive'>> =>
+  refine(inner, 'Positive', (value) => value > 0);
+
+/** A whole number. */
+export const integer = (inner: Schema<number> = number): Schema<Branded<number, 'Integer'>> =>
+  refine(inner, 'Integer', (value) => Number.isInteger(value));
+
+/** A number between two bounds, both included. Every range has the same brand: name yours with `refine` to tell two apart. */
+export const between = (min: number, max: number): Schema<Branded<number, 'Between'>> =>
+  refine(number, 'Between', (value) => value >= min && value <= max);

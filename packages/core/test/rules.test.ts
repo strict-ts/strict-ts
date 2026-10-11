@@ -814,6 +814,65 @@ describe('readonly-types', () => {
   });
 });
 
+describe('constrained schemas of the standard library', () => {
+  const header = [
+    'import { s } from "@strict-ts/std";',
+    'const Quantity = s.positive(s.integer());',
+    'type Quantity = s.Infer<typeof Quantity>;',
+    'const CustomerId = s.branded(s.string, "CustomerId");',
+    'type CustomerId = s.Infer<typeof CustomerId>;',
+    'const price = (quantity: Quantity, customer: CustomerId): string => `${customer}: ${quantity * 2}`;',
+  ];
+  const withBody = (...lines: readonly string[]) => checkSafe([...header, ...lines, ''].join('\n'));
+
+  test('a value that went through the schema is accepted where the constrained type is asked', () => {
+    const found = withBody(
+      'export const quote = (raw: unknown, id: unknown) =>',
+      '  Quantity.parse(raw).andThen((quantity) => CustomerId.parse(id).map((customer) => price(quantity, customer)));',
+    );
+    expect(found).toEqual([]);
+  });
+
+  test('a plain value is refused by the compiler: it did not pass the check', () => {
+    expect(refusals(withBody('export const quote = price(2, "c1");'))).toEqual(['TS2345@7']);
+  });
+
+  test('two constraints are not confused, and neither are two branded names', () => {
+    const wrongNumber = withBody(
+      'const Positive = s.positive();',
+      'export const quote = (raw: unknown, id: unknown) =>',
+      '  Positive.parse(raw).andThen((n) => CustomerId.parse(id).map((customer) => price(n, customer)));',
+    );
+    expect(refusals(wrongNumber)).toEqual(['TS2345@9']);
+    const wrongName = withBody(
+      'const OrderId = s.branded(s.string, "OrderId");',
+      'export const quote = (raw: unknown, id: unknown) =>',
+      '  Quantity.parse(raw).andThen((quantity) => OrderId.parse(id).map((order) => price(quantity, order)));',
+    );
+    expect(refusals(wrongName)).toEqual(['TS2345@9']);
+  });
+
+  test('forging one outside unsafe/ needs a cast, which is refused', () => {
+    expect(refusals(withBody('export const quote = price(2 as Quantity, "c1" as CustomerId);'))).toEqual(['no-cast@7', 'no-cast@7']);
+  });
+
+  test('a brand cannot be written by hand: its key is not exported', () => {
+    const found = withBody(
+      'const Tags = s.nonEmpty(s.array(s.string));',
+      'type Tags = s.Infer<typeof Tags>;',
+      'export const forged: Tags = Object.assign(["a"], { brand: "NonEmpty" });',
+    );
+    expect(refusals(found)).toEqual(['TS2322@9']);
+  });
+
+  test('a constrained value is still used as the plain one', () => {
+    const found = withBody(
+      'export const double = (raw: unknown): number => Quantity.parse(raw).map((quantity) => quantity * 2).unwrapOr(0);',
+    );
+    expect(found).toEqual([]);
+  });
+});
+
 describe('strict-compiler-options', () => {
   test('names the required options that are missing', () => {
     const compilerOptions = { noImplicitReturns: false, noImplicitOverride: false };

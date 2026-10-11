@@ -60,6 +60,24 @@ User.parse(input); // Result<User, { path: string; expected: string }>
 `s.string`, `s.number` (finite), `s.boolean`, `s.date` (an ISO string), `s.literal(...)`, `s.array(item)`,
 `s.optional(inner)`, `s.object(shape)`. Unknown keys of an object are dropped.
 
+## Constraints carried by the type
+
+A value that passed a check has a type that says so, and a plain value is not accepted in its place.
+
+```ts
+const Quantity = s.positive(s.integer());
+type Quantity = s.Infer<typeof Quantity>;        // a number, branded Positive and Integer
+const CustomerId = s.branded(s.string, 'CustomerId');
+
+const price = (quantity: Quantity): number => quantity * 2;
+price(2);                                        // refused by the compiler: 2 did not pass the check
+Quantity.parse(input).map(price);                // the only way in
+```
+
+`s.nonEmpty(inner)`, `s.positive(inner?)`, `s.integer(inner?)`, `s.between(min, max)`, `s.refine(inner, 'Name', test)`
+for a check of your own, `s.branded(inner, 'Name')` for a name without a check. The brand exists in the type only;
+outside an unsafe directory, forging one needs a cast, which `no-cast` refuses.
+
 ## panic, unreachable, Mut
 
 `panic(message)` and `unreachable(value)` are for bugs, which are not domain errors: they stop the program instead of
