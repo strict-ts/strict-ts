@@ -40,5 +40,5 @@ test('pureDirs names the directories that must be pure', () => {
 
 test('an assumption is one the rules know', () => {
   expect(read({ assume: ['attached-buffers'] })).toEqual({ ...defaultConfig, assume: ['attached-buffers'] });
-  expect(read({ assume: ['no-bugs'] })).toBe('strict-ts.json: unknown assumption "no-bugs" (attached-buffers)');
+  expect(read({ assume: ['no-bugs'] })).toBe('strict-ts.json: unknown assumption "no-bugs" (attached-buffers, dom-as-observed)');
 });

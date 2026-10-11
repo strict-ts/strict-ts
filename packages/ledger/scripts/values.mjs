@@ -185,9 +185,13 @@ export function instance(type, random, plain, depth = 0) {
     case 'TemplateStringsArray':
       return Object.assign(['a', 'b'], { raw: ['a', 'b'] });
     default:
-      return undefined;
+      // A type this generator does not know: the place it runs in may (a page knows the DOM).
+      return hosts.make?.(type, random, plain);
   }
 }
+
+/** What the place the generator runs in adds: `make(type, random, plain)` gives a value of a type named there. */
+export const hosts = { make: undefined };
 
 /** A value as short text, for an example in the ledger. */
 export function show(value) {

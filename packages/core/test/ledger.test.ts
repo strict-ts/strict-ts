@@ -23,8 +23,23 @@ describe('the effects ledger', () => {
     expect(byHand.length).toBeLessThanOrEqual(40);
   });
 
+  test('the DOM is in the ledger as it was seen in a browser, and never as proven', () => {
+    const dom = entries.filter(([, effect]) => effect.observedOnly === true);
+    expect(dom.length).toBeGreaterThan(600);
+    for (const [name, effect] of dom) expect(effect.evidence, name).toEqual({ runs: expect.any(Number) });
+    expect(effectsLedger['ParentNode.querySelector']).toMatchObject({ verdict: 'throws', evidence: { example: expect.stringContaining('SyntaxError') } });
+    expect(effectsLedger['Document.createElement']?.verdict).toBe('throws');
+    const fill = effectsLedger['CanvasRect.fillRect'];
+    expect(fill).toEqual({ verdict: 'total', observedOnly: true, evidence: { runs: 80 } });
+    expect(fill === undefined ? undefined : threatOf(fill, 4)).toBe('was only seen not to throw (80 calls in a browser): nothing was read that says it cannot');
+    expect(fill === undefined ? undefined : threatOf(fill, 4, false, false, true)).toBeUndefined();
+    // Judged by hand to throw, and never seen to: the judgement stays.
+    expect(effectsLedger['Storage.setItem']?.verdict).toBe('throws');
+  });
+
   test('a function is called safe only when the specification and the runs agree', () => {
-    const safe = entries.filter(([, effect]) => effect.verdict === 'total' && effect.evidence.byHand === undefined);
+    // What was only observed (the DOM) is not called safe: it is refused unless a project takes the runs as enough.
+    const safe = entries.filter(([, effect]) => effect.verdict === 'total' && effect.evidence.byHand === undefined && effect.observedOnly !== true);
     expect(safe.length).toBeGreaterThan(250);
     for (const [name, effect] of safe) {
       // The id of the clause: `sec-…`, or the name itself in the annex of legacy functions.

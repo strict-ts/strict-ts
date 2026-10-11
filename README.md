@@ -177,7 +177,12 @@ either says so. When the two disagree the other way (it threw, and the reading s
 ledger fails until the case is understood and written down. The operators are run the same way, on every pair of
 kinds of operand, and only the combinations the compiler accepts are kept.
 
-A function that is not in the ledger is refused: the DOM, Node, a package that is not in `allowedImports`.
+The DOM has no specification that can be read that way, so its functions are only run, in a browser: 764 were seen
+to throw (`querySelector("")`, `createElement` on a name that is not one), and are refused like any other. 700 never
+threw: that is not a proof, so they are refused too, unless the project writes `"assume": ["dom-as-observed"]`.
+
+A function that is not in the ledger is refused: Node, the parts of the DOM a bare page cannot run (audio, WebGL,
+service workers), a package that is not in `allowedImports`.
 
 ## Ownership: a value with one owner
 
@@ -246,7 +251,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw. `react` covers `@types/react` |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
 | `testDirs` | `["test", "tests"]` | The directories that hold tests. A file named `*.test.*` or `*.spec.*`, or under `__tests__`, is a test wherever it is. A test is checked like any code, except that it may throw, call what throws and import what it needs |
-| `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that |
+| `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that. `dom-as-observed`: a function of the DOM that never threw when it was run in a browser is taken not to throw |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
 | `$schema` | none | The JSON schema, for completion and validation in the editor |
@@ -265,8 +270,10 @@ games), strict-ts refuses from 9 to 35 places per 100 lines. In order of what it
    minutes there.
 5. **By hand**: `null`, `!`, casts, and what throws.
 
-What you cannot fix today: calls into the DOM and into Node. They have no entry in the effects ledger and are
-refused, so a browser application cannot reach zero.
+For a browser application, `"assume": ["dom-as-observed"]` accepts the functions of the DOM that never threw when
+they were run in a browser: 378 of the calls refused in the six applications. What stays refused whatever you do:
+61 calls into what a bare page cannot run (audio, service workers, `Intl`), and calls into Node unless `"node"` is
+in `allowedImports`.
 
 ### The baseline
 
@@ -397,7 +404,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
 | [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on eleven scenarios; not published | builds to one page, or to one file with the compiler inside |
-| [`@strict-ts/ledger`](packages/ledger) | Builds the effects ledger: runs the standard library and reads the specification; a tool of this repo | 802 of 844 functions run, 797 entries |
+| [`@strict-ts/ledger`](packages/ledger) | Builds the effects ledger: runs the standard library and reads the specification; a tool of this repo | 802 of 844 functions of ECMAScript run, 797 entries; 1,464 functions of the DOM run in a browser |
 | [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
 | `@strict-ts/flow` | Flow analysis across `await` and aliases. The single-use rule does not need it: it follows each function on the syntax tree of `core` | not started |
 
@@ -405,8 +412,9 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- The effects ledger covers ECMAScript only. The DOM, Node and `Intl` are not read: their functions are refused, or
-  classified by hand (a few dozen). A method of a typed array throws once its buffer is detached: it is refused
+- The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
+  there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
+  Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused
   unless the project writes `"assume": ["attached-buffers"]`.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.

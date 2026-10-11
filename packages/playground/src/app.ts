@@ -460,7 +460,7 @@ $('reset').addEventListener('click', () => {
     clearTimeout(resetArmed);
     resetArmed = 0;
     button.textContent = 'Reset';
-    button.classList.remove('danger');
+    void attempt(() => button.classList.remove('danger'), String);
   };
   if (resetArmed === 0) {
     button.textContent = 'Confirm: discard my changes';

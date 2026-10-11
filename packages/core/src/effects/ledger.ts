@@ -33,6 +33,12 @@ export interface Effect {
    * it never detaches one (`assume: ["attached-buffers"]`) may make the call.
    */
   readonly detached?: true;
+  /**
+   * For `total`: only seen not to throw, in runs. Nothing was read that says it cannot. So for the DOM, which has
+   * no specification this project reads. The call is refused unless the project takes the runs as enough
+   * (`assume: ["dom-as-observed"]`).
+   */
+  readonly observedOnly?: true;
   readonly evidence: Evidence;
 }
 
@@ -43,8 +49,11 @@ export type Ledger = Readonly<Record<string, Effect>>;
  * of the call are all plain values, as far as their types tell; `attached`, whether the project says that no buffer
  * is ever detached.
  */
-export function threatOf(effect: Effect, argumentCount: number, plain = false, attached = false): string | undefined {
-  if (effect.verdict === 'total') return undefined;
+export function threatOf(effect: Effect, argumentCount: number, plain = false, attached = false, observed = false): string | undefined {
+  if (effect.verdict === 'total') {
+    if (effect.observedOnly !== true || observed) return undefined;
+    return `was only seen not to throw (${effect.evidence.runs ?? 0} calls in a browser): nothing was read that says it cannot`;
+  }
   if (effect.below !== undefined && argumentCount >= effect.below) return undefined;
   if (effect.atLeast !== undefined && argumentCount < effect.atLeast) return undefined;
   if (effect.unprintable === true && plain) return undefined;
