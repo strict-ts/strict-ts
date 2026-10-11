@@ -35,8 +35,24 @@ export type Node = NodeBase &
          * that parameter's type asks for mutation with `Mut<…>`.
          */
         readonly parameter: 'none' | 'readonly' | 'mutable';
+        /**
+         * Where the variable or the parameter the name refers to is declared, as an offset in this file: two names
+         * with the same offset are the same variable. Absent for anything else.
+         */
+        readonly declaredAt: number | undefined;
       }
     | { readonly kind: 'string-literal'; readonly text: string }
+    /** A block of statements, or a whole file: its children run one after the other, and names declared in it end with it. */
+    | { readonly kind: 'block' }
+    /** Parentheses, a `const`/`let` statement and its list of declarations: children that run one after the other, each once. */
+    | { readonly kind: 'sequence' }
+    /** One declared variable: `name = initializer`. `name` is an identifier, or a pattern (`other`). */
+    | { readonly kind: 'variable'; readonly name: Node; readonly isConst: boolean; readonly initializer: Node | undefined }
+    /** A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns). */
+    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined }
+    /** `if (condition) whenTrue else whenFalse`. */
+    | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
+    | { readonly kind: 'return'; readonly expression: Node | undefined }
     /** A call. A tagged template is one too: its arguments are the template, then each substitution. */
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
     /** `new Callee(…)`, with the number of arguments written. */

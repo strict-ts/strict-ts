@@ -87,6 +87,12 @@ export function createTypeScript6Provider(
       isAny: (type.flags & api.TypeFlags.Any) !== 0,
       isLiteral: (type.flags & literal) !== 0,
       isBooleanLiteral: (type.flags & api.TypeFlags.BooleanLiteral) !== 0,
+      get isOnce() {
+        // The mark is an object type intersected with the value's own: only an intersection can carry it, and only
+        // its small parts need be asked.
+        const members = type.isUnion() ? type.types : [type];
+        return members.some((member) => member.isIntersection() && member.types.some((part) => (part.flags & api.TypeFlags.Object) !== 0 && part.getProperty('__once') !== undefined));
+      },
       get isPlain() {
         return kindsOf(type, 0).every(isPlainKind);
       },
@@ -211,6 +217,13 @@ export function createTypeScript6Provider(
               written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
             return asksForMutation ? 'mutable' : 'readonly';
           },
+          get declaredAt() {
+            const owner = node.parent;
+            const symbol = api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node);
+            const declaration = symbol?.valueDeclaration;
+            const declares = declaration !== undefined && (api.isVariableDeclaration(declaration) || api.isParameter(declaration));
+            return declares && declaration.getSourceFile() === sourceFile ? declaration.getStart(sourceFile) : undefined;
+          },
           get declaredOutside() {
             const parent: ts.Node & { readonly name?: ts.Node } = node.parent;
             // `ns` in the type `ns.Member` names a namespace, not a value.
@@ -291,6 +304,21 @@ export function createTypeScript6Provider(
         const specifier = api.isLiteralTypeNode(node.argument) ? part(node.argument.literal) : undefined;
         return { ...base, kind: 'module-reference', specifier };
       }
+      if (api.isBlock(node) || api.isSourceFile(node) || api.isModuleBlock(node)) return { ...base, kind: 'block' };
+      if (api.isVariableStatement(node) || api.isVariableDeclarationList(node) || api.isParenthesizedExpression(node)) return { ...base, kind: 'sequence' };
+      if (api.isVariableDeclaration(node)) {
+        const list = node.parent;
+        const isConst = api.isVariableDeclarationList(list) && (list.flags & api.NodeFlags.Const) !== 0;
+        return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer) };
+      }
+      if (api.isFunctionLike(node) && !api.isTypeNode(node) && !api.isTypeElement(node)) {
+        const body = 'body' in node ? node.body : undefined;
+        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body) };
+      }
+      if (api.isIfStatement(node)) {
+        return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };
+      }
+      if (api.isReturnStatement(node)) return { ...base, kind: 'return', expression: node.expression === undefined ? undefined : part(node.expression) };
       return { ...base, kind: 'other' };
     };
 
@@ -369,6 +397,7 @@ export function createTypeScript6Provider(
     isAny: true,
     isLiteral: false,
     isBooleanLiteral: false,
+    isOnce: false,
     isPlain: false,
     kinds: ['object'],
     isPromise: false,
@@ -396,6 +425,12 @@ export function createTypeScript6Provider(
       const source = origin.get(node);
       const calls = source !== undefined && (api.isCallExpression(source) || api.isNewExpression(source) || api.isTaggedTemplateExpression(source));
       return calls ? readCallee(source) : undefined;
+    },
+    expectedOf: (node) => {
+      const source = origin.get(node);
+      if (source === undefined || !api.isExpression(source)) return undefined;
+      const expected = checker.getContextualType(source);
+      return expected === undefined ? undefined : wrapType(expected);
     },
     exportsOf: (file) => {
       const sourceFile = sources.get(file);

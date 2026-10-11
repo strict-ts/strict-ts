@@ -18,6 +18,7 @@ import { pureDomain } from './pure-domain.js';
 import { safetyComment } from './safety-comment.js';
 import { strictCompilerOptions } from './strict-compiler-options.js';
 import { unsafeBoundary } from './unsafe-boundary.js';
+import { useOnce } from './use-once.js';
 
 /** The catalogue. A new rule goes at the end: hosts number the rules by their place here. */
 export const rules: readonly Rule[] = [
@@ -40,4 +41,5 @@ export const rules: readonly Rule[] = [
   pureDomain,
   noThrowingCall,
   noThrowingOperator,
+  useOnce,
 ];

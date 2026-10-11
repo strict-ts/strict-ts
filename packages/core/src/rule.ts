@@ -15,6 +15,7 @@ export interface FileContext {
   readonly config: Config;
   readonly typeOf: (node: Node) => Type;
   readonly calleeOf: (node: Node) => Callee | undefined;
+  readonly expectedOf: (node: Node) => Type | undefined;
   readonly exports: () => readonly ExportedValue[];
   readonly report: Report;
 }
