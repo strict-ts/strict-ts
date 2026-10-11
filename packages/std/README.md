@@ -88,6 +88,30 @@ adding a case to every error type.
 
 `Mut<T>` asks for mutation, in the manner of Rust's `&mut`. It is `T` itself: a marker the rules read.
 
+## Once, end
+
+`Once<T>` marks a value with one owner, given away exactly once: a transaction, a lock, a handle. It is `T` with a
+mark the rule `use-once` reads, so a function makes one by saying so in its return type, without a cast.
+
+```ts
+export function begin(): Once<Transaction> { return new Transaction(); }
+export function commit(tx: Once<Transaction>): Result<void, DbError> {
+  const raw = end(tx); // the one place a Once becomes a plain value again
+  return raw.flush();
+}
+```
+
+## Without their exceptions
+
+| | In place of | Which throws on |
+|---|---|---|
+| `textOf(value)` | `String(value)`, `` `${value}` `` | A symbol in an array, an object without a prototype |
+| `record(pairs)` | `Object.fromEntries(pairs)` | A key that cannot be converted |
+| `parseJson(text)`, `toJson(value)` | `JSON.parse`, `JSON.stringify` | Text that is not JSON; a cycle, a bigint |
+| `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | `a / b`, `a % b`, `a ** b` on bigints | A zero divisor, a negative exponent |
+
+The first two return a value, the others a `Result` or an `Option`.
+
 ## To know
 
 - A `Result` is iterable (that is what `yield*` uses). Spreading an `Err` throws, and a generic deep-equality compares

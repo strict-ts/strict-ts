@@ -124,9 +124,13 @@ describe('the built page', () => {
     execFileSync(process.execPath, [`${root}scripts/build.mjs`], { cwd: root });
   }, 60_000);
 
-  test('is one page and the compiler beside it', () => {
-    expect(readdirSync(`${root}dist`).toSorted()).toEqual(['index.html', 'typescript.js']);
+  test('is one page and the compiler beside it, and the same page as one file', () => {
+    expect(readdirSync(`${root}dist`).toSorted()).toEqual(['index.html', 'playground.html', 'typescript.js']);
     expect(existsSync(`${root}dist/typescript.js`)).toBe(true);
+    const single = readFileSync(`${root}dist/playground.html`, 'utf8');
+    // The one file asks for nothing: the compiler is inside it.
+    expect(single).not.toContain('<script src=');
+    expect(single.length).toBeGreaterThan(readFileSync(`${root}dist/typescript.js`, 'utf8').length);
   });
 
   test('loads nothing but its own files', () => {
