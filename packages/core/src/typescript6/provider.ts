@@ -304,6 +304,7 @@ export function createTypeScript6Provider(
         const specifier = api.isLiteralTypeNode(node.argument) ? part(node.argument.literal) : undefined;
         return { ...base, kind: 'module-reference', specifier };
       }
+      if (api.isObjectLiteralExpression(node) || api.isArrayLiteralExpression(node)) return { ...base, kind: 'literal' };
       if (api.isBlock(node) || api.isSourceFile(node) || api.isModuleBlock(node)) return { ...base, kind: 'block' };
       if (api.isVariableStatement(node) || api.isVariableDeclarationList(node) || api.isParenthesizedExpression(node)) return { ...base, kind: 'sequence' };
       if (api.isVariableDeclaration(node)) {

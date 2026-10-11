@@ -1,5 +1,6 @@
 import type { Rule } from '../rule.js';
 import { exhaustiveSwitch } from './exhaustive-switch.js';
+import { freezeFresh } from './freeze-fresh.js';
 import { mustUse } from './must-use.js';
 import { noAmbient } from './no-ambient.js';
 import { noAny } from './no-any.js';
@@ -42,4 +43,5 @@ export const rules: readonly Rule[] = [
   noThrowingCall,
   noThrowingOperator,
   useOnce,
+  freezeFresh,
 ];

@@ -80,3 +80,6 @@ export function leak(): number {
   const held = open();
   return held.id; // expect: use-once
 }
+
+const shared = [1, 2];
+export const sealed = Object.freeze(shared); // expect: freeze-fresh

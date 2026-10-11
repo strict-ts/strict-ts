@@ -82,7 +82,8 @@
           "pure-domain",
           "no-throwing-call",
           "no-throwing-operator",
-          "use-once"
+          "use-once",
+          "freeze-fresh"
         ]
       },
       "uniqueItems": true,
