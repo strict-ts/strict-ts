@@ -883,6 +883,77 @@ describe('constrained schemas of the standard library', () => {
   });
 });
 
+describe('pure-domain', () => {
+  const config = { ...defaultConfig, pureDirs: ['src/domain'] };
+  const inDomain = (code: string, others: Readonly<Record<string, string>> = {}) =>
+    checkFiles({ 'src/domain/price.ts': code, ...others }, { config }).map((d) => `${d.file}:${d.start.line} ${d.rule} ${d.message}`);
+
+  test('refuses the clock, randomness, the console and the network', () => {
+    const code = [
+      'export const stamp = (): number => Date.now();',
+      'export const today = (): Date => new Date();',
+      'export const dice = (): number => Math.random();',
+      'export const log = (text: string): void => console.log(text);',
+      'export const load = async (url: string): Promise<number> => (await fetch(url)).status;',
+      'export const home = (): string | undefined => process.env["HOME"];',
+    ].join('\n');
+    expect(inDomain(code)).toEqual([
+      'src/domain/price.ts:1 pure-domain `Date.now` reads the clock: not allowed in a pure directory.',
+      'src/domain/price.ts:2 pure-domain `new Date()` reads the clock: not allowed in a pure directory.',
+      'src/domain/price.ts:3 pure-domain `Math.random` is a source of randomness: not allowed in a pure directory.',
+      'src/domain/price.ts:4 pure-domain `console` writes to the console: not allowed in a pure directory.',
+      'src/domain/price.ts:5 pure-domain `fetch` reaches the network: not allowed in a pure directory.',
+      'src/domain/price.ts:6 pure-domain `process` reads the process: not allowed in a pure directory.',
+    ]);
+  });
+
+  test('refuses module-level state', () => {
+    const code = 'let calls = 0;\nexport const count = (): number => calls;\nexport const limit = 3;\n';
+    expect(inDomain(code)).toEqual(['src/domain/price.ts:1 pure-domain Module-level state in a pure directory.']);
+  });
+
+  test('refuses an import from outside the pure directories, however the path is written', () => {
+    const others = { 'src/clock.ts': 'export const zero = 0;\n', 'src/domain/tax.ts': 'export const rate = 0.2;\n' };
+    const code = [
+      'import { zero } from "../clock.js";',
+      'import { rate } from "./tax.js";',
+      'import { zero as again } from "./../../src/clock.js";',
+      'export const price = (net: number): number => net * (1 + rate) + zero + again;',
+    ].join('\n');
+    expect(inDomain(code, others)).toEqual([
+      'src/domain/price.ts:1 pure-domain Import of "../clock.js", which is outside the pure directories.',
+      'src/domain/price.ts:3 pure-domain Import of "./../../src/clock.js", which is outside the pure directories.',
+    ]);
+  });
+
+  test('accepts computation: a date given as a value, Math, a local, a parameter named like a global', () => {
+    const code = [
+      'import { err, ok, type Result } from "@strict-ts/std";',
+      'export const year = (iso: string): number => new Date(iso).getUTCFullYear();',
+      'export const round = (value: number): number => Math.round(value * 100) / 100;',
+      'export const total = (prices: readonly number[]): number => {',
+      '  let sum = 0;',
+      '  for (const price of prices) sum += price;',
+      '  return sum;',
+      '};',
+      'export const half = (n: number): Result<number, "odd"> => (n % 2 === 0 ? ok(n / 2) : err("odd"));',
+      'export const stamp = (now: number, console: { readonly lines: number }): number => now + console.lines;',
+    ].join('\n');
+    expect(inDomain(code)).toEqual([]);
+  });
+
+  test('says nothing outside the pure directories, and nothing when none is declared', () => {
+    const code = 'export const stamp = (): number => Date.now();\n';
+    expect(checkFiles({ 'src/app.ts': code }, { config })).toEqual([]);
+    expect(checkFiles({ 'src/domain/price.ts': code })).toEqual([]);
+  });
+
+  test('the domain of the conforming fixture is pure', () => {
+    const files = { 'src/domain/user.ts': 'import { panic } from "@strict-ts/std";\nexport const need = (name?: string): string => name ?? panic("no name");\n' };
+    expect(checkFiles(files, { config })).toEqual([]);
+  });
+});
+
 describe('strict-compiler-options', () => {
   test('names the required options that are missing', () => {
     const compilerOptions = { noImplicitReturns: false, noImplicitOverride: false };

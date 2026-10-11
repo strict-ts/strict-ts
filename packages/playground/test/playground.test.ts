@@ -54,7 +54,9 @@ describe('the five scenarios, checked as the page checks them', () => {
   test('the challenge is refused twenty times, the scenario of violations by every rule', () => {
     expect(playground.check(request('challenge')).diagnostics).toHaveLength(20);
     const triggered = new Set(playground.check(request('violations')).diagnostics.map((d) => d.rule));
-    expect([...triggered].toSorted()).toEqual(rules.map((rule) => rule.name).toSorted());
+    // pure-domain only runs in directories a project declares pure, and the page declares none.
+    const expected = rules.map((rule) => rule.name).filter((name) => name !== 'pure-domain');
+    expect([...triggered].toSorted()).toEqual(expected.toSorted());
   });
 
   test.each(['challenge-solution', 'challenge-solution-detailed', 'clean'])('%s is conforming', (id) => {

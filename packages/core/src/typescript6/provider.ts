@@ -181,7 +181,13 @@ export function createTypeScript6Provider(
       if (api.isCallExpression(node)) {
         return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part) };
       }
-      if (api.isNewExpression(node)) return { ...base, kind: 'new' };
+      if (api.isNewExpression(node)) {
+        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0 };
+      }
+      if (api.isVariableStatement(node) && api.isSourceFile(node.parent) && (node.declarationList.flags & api.NodeFlags.Const) === 0) {
+        const ambient = (api.getModifiers(node) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword);
+        if (!ambient) return { ...base, kind: 'module-state' };
+      }
       if (api.isPropertyAccessExpression(node)) {
         return { ...base, kind: 'property-access', object: part(unwrapped(node.expression)), name: node.name.text };
       }

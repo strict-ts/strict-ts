@@ -21,6 +21,7 @@ const File = s.object({
   $schema: s.optional(s.string),
   unsafeDirs: s.optional(s.array(s.string)),
   allowedImports: s.optional(s.array(s.string)),
+  pureDirs: s.optional(s.array(s.string)),
   rules: s.optional(s.array(s.string)),
   baseline: s.optional(s.string),
 });
@@ -44,8 +45,9 @@ export function readSettings(content: Option<unknown>): Result<Settings, string>
     unsafeDirs: file.unsafeDirs ?? defaultConfig.unsafeDirs,
     allowedImports: file.allowedImports ?? defaultConfig.allowedImports,
   };
+  const placed = file.pureDirs === undefined ? base : { ...base, pureDirs: file.pureDirs };
   return ok({
-    config: file.rules === undefined ? base : { ...base, rules: file.rules },
+    config: file.rules === undefined ? placed : { ...placed, rules: file.rules },
     baseline: file.baseline ?? BASELINE_FILE,
   });
 }

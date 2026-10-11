@@ -122,6 +122,7 @@ is both, `project` is once for the whole project.
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
+| `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
 
 The compiler's own errors are reported too, as `TS2322` and the like. There is no comment that silences a rule, by
 design: what cannot conform goes to an unsafe directory with its reason, or to the baseline.
@@ -160,6 +161,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
   "$schema": "./node_modules/@strict-ts/cli/strict-ts.schema.json",
   "unsafeDirs": ["src/unsafe"],
   "allowedImports": ["@strict-ts/std"],
+  "pureDirs": ["src/domain"],
   "rules": ["no-any", "no-cast"],
   "baseline": "strict-ts-baseline.json"
 }
@@ -169,6 +171,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 |---|---|---|
 | `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json` |
 | `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import |
+| `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
 | `$schema` | none | The JSON schema, for completion and validation in the editor |
@@ -246,7 +249,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 16 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 17 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline; no incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
