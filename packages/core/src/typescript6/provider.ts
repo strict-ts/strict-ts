@@ -230,6 +230,9 @@ export function createTypeScript6Provider(
             let outermost: ts.Node = node;
             while (api.isQualifiedName(outermost.parent)) outermost = outermost.parent;
             if (parent.name === node || api.isPartOfTypeNode(outermost) || api.isImportTypeNode(outermost.parent)) return false;
+            // `div` in `<div>` names an element of the page, not a value: what a framework types its elements as is
+            // not something this name brought in.
+            if ((api.isJsxOpeningLikeElement(parent) || api.isJsxClosingElement(parent)) && parent.tagName === node && /^[a-z]/.test(node.text)) return false;
             const named = checker.getSymbolAtLocation(node);
             // An import is declared here, but what it names is declared where it comes from.
             const symbol = named !== undefined && (named.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(named) : named;
