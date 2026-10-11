@@ -28,8 +28,11 @@ export interface Rule {
   readonly guarantee: Guarantee;
   readonly description: string;
   readonly scope: Scope;
-  /** Called for every node of a file, parents first. `parent` is absent for the root. */
-  readonly visit?: (node: Node, context: FileContext, parent: Node | undefined) => void;
+  /**
+   * Called for every node of a file, parents first. `parent` is absent for the root; `ancestors` goes from the root
+   * down to the parent.
+   */
+  readonly visit?: (node: Node, context: FileContext, parent: Node | undefined, ancestors: readonly Node[]) => void;
   /** Called once per file. */
   readonly file?: (context: FileContext) => void;
   /** Called once, for rules of scope `project`. */

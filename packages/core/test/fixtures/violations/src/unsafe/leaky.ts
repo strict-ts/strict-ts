@@ -6,7 +6,11 @@ export function readConfig(path: string): string { // expect: unsafe-boundary
 }
 
 // An export of type any.
+// SAFETY: none: the reason is given so that only the boundary is refused here.
 export const raw: any = JSON.parse("{}"); // expect: unsafe-boundary
+
+// A cast with no reason above it.
+export const port = (value: unknown) => ({ ok: true as const, value: value as number }); // expect: safety-comment
 
 // Conforming: the error is turned into a value. `throw` and `any` are allowed inside unsafe/.
 export function safeRead(path: string): { ok: true; value: string } | { ok: false; error: string } {

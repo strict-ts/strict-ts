@@ -9,6 +9,11 @@ export interface Span {
 
 interface NodeBase extends Span {
   readonly children: readonly Node[];
+  /**
+   * Whether the node is a statement, a declaration or a member of a class or of a type: the smallest piece of code
+   * a comment on the line above is about.
+   */
+  readonly isUnit: boolean;
 }
 
 export type Node = NodeBase &
