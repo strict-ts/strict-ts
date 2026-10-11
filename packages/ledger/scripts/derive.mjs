@@ -65,7 +65,7 @@ export function derive(library, observed, specified = new Map(), acknowledged = 
     const { plain, any } = result.modes;
     const threwPlain = sum(plain, 'threw') > 0;
     const threwOdd = sum(any, 'threw') > 0;
-    if ((threwPlain || threwOdd) && spec !== undefined && spec.real.length === 0 && !spec.converts) {
+    if ((threwPlain || threwOdd) && spec !== undefined && spec.real.length === 0 && spec.converts === 'no') {
       counts.contradictions++;
       contradictions.push({ name: declared.name, seen: example(threwPlain ? plain : any), spec: spec.id, acknowledged: acknowledged[declared.name] });
     }
@@ -84,6 +84,11 @@ export function derive(library, observed, specified = new Map(), acknowledged = 
     } else if (spec.real.length > 0) {
       counts.throwsBySpecificationOnly++;
       entries.push({ name: declared.name, verdict: 'throws', why: `may throw by the specification (${spec.real[0].slice(0, 90)})`, evidence: { runs, ...cited } });
+    } else if (spec.converts === 'object') {
+      // By the specification a conversion may meet an object it refuses, and the declared types let one in. No run
+      // found it; a run cannot try every object.
+      counts.throwsUnlessPlain++;
+      entries.push({ name: declared.name, verdict: 'throws', why: UNPRINTABLE, unprintable: true, evidence: { runs, ...cited } });
     } else if (spec.detached) {
       // Never threw, and by the specification it throws on a detached buffer only, which the runs do not make.
       counts.throwsWhenDetached++;

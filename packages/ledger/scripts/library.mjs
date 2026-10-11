@@ -52,6 +52,8 @@ function describe(checker, type, depth) {
   if (type.isIntersection()) return describe(checker, type.types[0], depth + 1);
   if (checker.isTupleType(type)) return { k: 'tuple', of: checker.getTypeArguments(type).map((item) => describe(checker, item, depth + 1)) };
   if (checker.isArrayType(type)) return { k: 'array', of: describe(checker, checker.getTypeArguments(type)[0], depth + 1) };
+  // A class, or anything `new` works on.
+  if (type.getConstructSignatures().length > 0 && type.getCallSignatures().length === 0) return { k: 'library', name: 'NewableFunction' };
   const signatures = type.getCallSignatures();
   if (signatures.length > 0) {
     const signature = signatures[0];

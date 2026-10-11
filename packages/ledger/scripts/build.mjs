@@ -9,7 +9,7 @@ import { derive } from './derive.mjs';
 import { fuzz } from './fuzz.mjs';
 import { readLibrary } from './library.mjs';
 import { CLASS_KINDS, operators } from './operators.mjs';
-import { analyse, declaredNames, throwingGetters } from './spec.mjs';
+import { analyse, declaredNames, resolve, throwingGetters } from './spec.mjs';
 
 const target = fileURLToPath(new URL('../../core/src/effects/generated.ts', import.meta.url));
 const args = new Set(process.argv.slice(2));
@@ -19,11 +19,15 @@ const observed = await fuzz(library);
 
 // What the specification says, read from the facts kept in the repo (`node scripts/spec-facts.mjs` rewrites them).
 const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
-const declared = new Set(library.map((entry) => entry.name));
+const declared = new Map(library.map((entry) => [entry.name, entry]));
 const specified = new Map();
 const verdictsOfSpec = analyse(read('../spec/facts.json').clauses);
 for (const [specName, verdict] of verdictsOfSpec) {
-  for (const name of declaredNames(specName)) if (declared.has(name)) specified.set(name, verdict);
+  // The same clause may be declared more than once (`Array`, `ReadonlyArray`): each with its own parameter types.
+  for (const name of declaredNames(specName)) {
+    const entry = declared.get(name);
+    if (entry !== undefined) specified.set(name, resolve(verdict, entry));
+  }
 }
 const acknowledged = read('../acknowledged.json');
 const { entries, quiet, contradictions, summary } = derive(library, observed, specified, acknowledged);

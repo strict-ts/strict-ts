@@ -7,6 +7,8 @@
   "Array.toString": "calls `join` by its name, which the reader does not follow",
   "ReadonlyArray.toString": "calls `join` by its name, which the reader does not follow",
   "AsyncGenerator.throw": "returns a rejected promise: a rejection is not a throw in the specification, and is one for the caller",
+  "ObjectConstructor.assign": "writes to its target with `Set`, which the reader takes for a plain write; it throws when the target is frozen. A write to a frozen object is a known limit of the rules",
+  "String.localeCompare": "given locales, it is the function another specification (ECMA-402) defines in its place, and that one throws on a locale that is not valid",
   "Int8ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
   "Uint8ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
   "Uint8ClampedArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
@@ -17,5 +19,6 @@
   "Float32ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
   "Float64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
   "BigInt64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
-  "BigUint64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given"
+  "BigUint64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Reflect.construct": "given an object that says it is longer than it is, it builds more arguments than the machine takes: a limit of the machine, which the runs count as a throw here"
 }

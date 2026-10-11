@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { derive } from '../scripts/derive.mjs';
-import { analyse, clauses, declaredNames, facts } from '../scripts/spec.mjs';
+import { analyse, clauses, declaredNames, facts, REFUSES, resolve } from '../scripts/spec.mjs';
 import { generate, sequence, show } from '../scripts/values.mjs';
 
 const page = `
@@ -56,6 +56,11 @@ const page = `
 
 describe('reading the specification', () => {
   const read = analyse(facts(page));
+  const declared = (...kinds: readonly (readonly object[])[]) => ({ signatures: kinds.map((params) => ({ params: params.map((type) => ({ type, optional: false, rest: false })) })) });
+  const string = { k: 'string' };
+  const number = { k: 'number' };
+  const anything = { k: 'any' };
+  const callback = { k: 'function', arity: 1, returns: { k: 'any' } };
 
   test('splits the document into clauses, each with its own algorithm', () => {
     expect(clauses(page).map((clause) => clause.id)).toEqual([
@@ -67,20 +72,41 @@ describe('reading the specification', () => {
       'sec-mystery',
       'sec-outer',
     ]);
-    expect(facts(page).find((clause) => clause.name === 'String.prototype.repeat')?.calls).toEqual(['RequireObjectCoercible:this', 'ToIntegerOrInfinity', 'ToString']);
+  });
+
+  test('follows where each value comes from: the receiver, a parameter, a primitive the algorithm made', () => {
+    const repeat = facts(page).find((clause) => clause.name === 'String.prototype.repeat');
+    expect(repeat?.params).toEqual(['count']);
+    expect(repeat?.passes).toEqual([
+      { to: 'RequireObjectCoercible', given: ['this'] },
+      { to: 'ToString', given: ['this'] },
+      { to: 'ToIntegerOrInfinity', given: ['param:count'] },
+    ]);
+    // `_n_` was made by a conversion: the step that throws tests a primitive, not the argument.
+    expect(repeat?.throws[0]?.about).toEqual(['plain']);
   });
 
   test('a step that throws on a value is a real way to throw', () => {
-    expect(read.get('String.prototype.repeat')).toMatchObject({ id: 'sec-string.prototype.repeat', converts: true });
     expect(read.get('String.prototype.repeat')?.real[0]).toMatch(/^RangeError: If _n_ /);
+    expect(read.get('String.prototype.repeat')?.conversions).toEqual([{ op: 'ToIntegerOrInfinity', on: 'param:count' }]);
   });
 
-  test('a wrong receiver and a callback that is not callable are not: the types exclude them', () => {
-    expect(read.get('Array.prototype.map')).toEqual({ id: 'sec-array.prototype.map', real: [], converts: false, detached: false });
+  test('a check that a parameter is callable is asked of its declared type', () => {
+    const map = read.get('Array.prototype.map');
+    expect(map?.real).toEqual([]);
+    expect(map?.guards).toEqual([{ on: 'param:callbackfn', accepts: ['function'], reason: 'TypeError: If IsCallable(_callbackfn_) is *false*, throw a *TypeError* exception.' }]);
+    expect(map === undefined ? undefined : resolve(map, declared([callback, anything])).real).toEqual([]);
+    // Declared loosely, the same function could be given what the check refuses.
+    expect(map === undefined ? undefined : resolve(map, declared([anything, anything])).real[0]).toMatch(/the declared type admits string, number/);
   });
 
-  test('a conversion of an argument is kept apart: whether it can fail depends on the types', () => {
-    expect(read.get('Math.abs')).toEqual({ id: 'sec-math.abs', real: [], converts: true, detached: false });
+  test('a conversion can fail only on what the declared type lets in', () => {
+    const abs = read.get('Math.abs');
+    expect(abs?.conversions).toEqual([{ op: 'ToNumber', on: 'param:x' }]);
+    expect(abs === undefined ? undefined : resolve(abs, declared([number])).converts).toBe('no');
+    expect(abs === undefined ? undefined : resolve(abs, declared([string])).converts).toBe('no');
+    expect(abs === undefined ? undefined : resolve(abs, declared([{ k: 'bigint' }])).converts).toBe('primitive');
+    expect(abs === undefined ? undefined : resolve(abs, declared([anything])).converts).toBe('object');
   });
 
   test('what an operation throws is handed on to the function that calls it with `?`', () => {
@@ -92,6 +118,31 @@ describe('reading the specification', () => {
     expect(read.get('Mystery.run')?.real).toEqual(['? SomethingThisReaderDoesNotKnow']);
   });
 
+  test('each conversion refuses what running it refuses', () => {
+    const values: Readonly<Record<string, unknown>> = { undefined, null: null, string: 'a', number: 1, bigint: 1n, boolean: true, symbol: Symbol('s'), object: Object.create(null) };
+    const run: Readonly<Record<string, (value: unknown) => unknown>> = {
+      ToString: (value) => `${value as string}`,
+      ToNumber: (value) => Math.abs(value as number),
+      ToNumeric: (value) => -(value as number),
+      ToIntegerOrInfinity: (value) => 'a'.repeat(value as number),
+      ToObject: (value) => Object.keys(value as object),
+      ToPropertyKey: (value) => ({})[value as string],
+      ToBigInt: (value) => new BigInt64Array(1).fill(value as bigint),
+      ToUint32: (value) => Math.clz32(value as number),
+    };
+    for (const [op, convert] of Object.entries(run)) {
+      const refused = Object.entries(values).filter(([, value]) => {
+        try {
+          convert(value);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+      expect(refused.map(([kind]) => kind).toSorted(), op).toEqual([...(REFUSES[op] ?? [])].toSorted());
+    }
+  });
+
   test('names are those of the compiler\'s declarations', () => {
     expect(declaredNames('Array.prototype.map')).toEqual(['Array.map', 'ReadonlyArray.map']);
     expect(declaredNames('String.fromCodePoint')).toEqual(['StringConstructor.fromCodePoint']);
@@ -100,6 +151,7 @@ describe('reading the specification', () => {
     expect(declaredNames('decodeURIComponent')).toEqual(['decodeURIComponent']);
     expect(declaredNames('parseInt')).toEqual(['parseInt', 'NumberConstructor.parseInt']);
     expect(declaredNames('Array.prototype [ @@iterator ]')).toEqual([]);
+    expect(declaredNames('%TypedArray%.prototype.at')).toHaveLength(11);
   });
 
   test('the facts kept in the repo are those of ECMAScript 2023, and say what is known of a few functions', () => {
@@ -107,10 +159,17 @@ describe('reading the specification', () => {
     expect(kept.edition).toBe('es2023');
     const all = analyse(kept.clauses);
     expect(all.size).toBeGreaterThan(600);
-    expect(all.get('Array.prototype.map')).toMatchObject({ real: [], converts: false });
+    expect(all.get('Array.prototype.map')).toMatchObject({ real: [], conversions: [] });
     expect(all.get('String.prototype.repeat')?.real.join()).toContain('RangeError');
     expect(all.get('decodeURIComponent')?.real.join()).toContain('URIError');
-    expect(all.get('Math.round')).toMatchObject({ real: [], converts: true });
+    expect(all.get('Math.round')).toMatchObject({ real: [], conversions: [{ op: 'ToNumber', on: 'param:x' }] });
+    // `padEnd` hands its arguments to an operation, which converts them: said of the arguments of `padEnd`.
+    expect(all.get('String.prototype.padEnd')?.conversions).toEqual([
+      { op: 'ToLength', on: 'param:maxLength' },
+      { op: 'ToString', on: 'param:fillString' },
+    ]);
+    // What a comparator returns is converted to a number: its declared return type says whether that can fail.
+    expect(all.get('Array.prototype.sort')?.conversions).toContainEqual({ op: 'ToNumber', on: 'returns:comparefn' });
   });
 });
 
@@ -119,7 +178,7 @@ describe('deriving entries', () => {
   const never = { located: true, modes: { plain: { 1: { runs: 300, threw: 0 } }, any: { 1: { runs: 300, threw: 0 } } } };
   const threw = { located: true, modes: { plain: { 1: { runs: 300, threw: 9, example: '("%") → URIError' } }, any: { 1: { runs: 300, threw: 9 } } } };
   const odd = { located: true, modes: { plain: { 0: { runs: 300, threw: 0 } }, any: { 0: { runs: 300, threw: 4, example: '[Symbol()] · () → TypeError' } } } };
-  const spec = (real: readonly string[], converts = false) => ({ id: 'sec-x', real, converts });
+  const spec = (real: readonly string[], converts: 'no' | 'primitive' | 'object' = 'no') => ({ id: 'sec-x', real, converts, detached: false });
   const entryOf = (observed: object, specified?: object, acknowledged: Record<string, string> = {}) => {
     const { entries, contradictions, quiet } = derive([declared('f')], { f: observed }, new Map(specified === undefined ? [] : [['f', specified]]), acknowledged);
     return { entry: entries[0], contradictions, quiet };
@@ -127,7 +186,10 @@ describe('deriving entries', () => {
 
   test('total needs both: a specification without a way to throw, and runs that never threw', () => {
     expect(entryOf(never, spec([])).entry).toEqual({ name: 'f', verdict: 'total', evidence: { runs: 600, spec: 'sec-x' } });
-    expect(entryOf(never, spec([], true)).entry?.verdict).toBe('total');
+    // A conversion that refuses a kind the runs always try (a number where a bigint is wanted), and never threw.
+    expect(entryOf(never, spec([], 'primitive')).entry?.verdict).toBe('total');
+    // One that refuses some objects, which the declared types let in: no run can try every object.
+    expect(entryOf(never, spec([], 'object')).entry).toMatchObject({ verdict: 'throws', unprintable: true });
     expect(entryOf(never).entry).toBeUndefined();
     expect(entryOf(never).quiet).toEqual({ f: 600 });
   });
@@ -138,14 +200,14 @@ describe('deriving entries', () => {
 
   test('what was seen to throw says so, with the call', () => {
     expect(entryOf(threw, spec(['URIError: …'])).entry).toMatchObject({ verdict: 'throws', why: 'throws a URIError, as seen with ("%")' });
-    expect(entryOf(odd, spec([], true)).entry).toMatchObject({ verdict: 'throws', unprintable: true });
+    expect(entryOf(odd, spec([], 'object')).entry).toMatchObject({ verdict: 'throws', unprintable: true });
   });
 
   test('a function that threw although the specification gives it no way to is a contradiction', () => {
     expect(entryOf(threw, spec([])).contradictions).toEqual([{ name: 'f', seen: '("%") → URIError', spec: 'sec-x', acknowledged: undefined }]);
     expect(entryOf(threw, spec([]), { f: 'understood' }).contradictions[0]?.acknowledged).toBe('understood');
     expect(entryOf(threw, spec([])).entry?.verdict).toBe('throws');
-    expect(entryOf(threw, spec([], true)).contradictions).toEqual([]);
+    expect(entryOf(threw, spec([], 'object')).contradictions).toEqual([]);
   });
 
   test('the condition on the number of arguments comes from the runs', () => {
