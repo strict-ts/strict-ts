@@ -20,7 +20,7 @@ brings the other four without changing language: the code stays standard TypeScr
 |---|---|---|
 | [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | skeleton |
 | [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | skeleton |
-| [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | skeleton |
+| [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
 | `@strict-ts/language-service` | Errors underlined in the editor | phase 1 |
 | `@strict-ts/codemod` | Automatic fixes and migration of existing code | phase 1 |
 | `@strict-ts/wrap` | Generates the `unsafe/` wrappers from `.d.ts` files | phase 1 |

@@ -179,6 +179,12 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5))
 
+  examples/invoice:
+    dependencies:
+      '@strict-ts/std':
+        specifier: workspace:*
+        version: link:../../packages/std
+
   packages/cli:
     dependencies:
       '@strict-ts/core':
