@@ -126,7 +126,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the eighteen rules, each with a guarantee and a description', () => {
+  test('holds the twenty rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
@@ -147,9 +147,10 @@ describe('the catalogue of rules', () => {
       'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',
+      'use-once',
     ]);
     for (const rule of rules) {
-      expect(['typing', 'errors', 'mutability']).toContain(rule.guarantee);
+      expect(['typing', 'errors', 'mutability', 'ownership']).toContain(rule.guarantee);
       expect(rule.description.length).toBeGreaterThan(20);
     }
   });

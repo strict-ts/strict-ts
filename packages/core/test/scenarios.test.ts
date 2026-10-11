@@ -116,6 +116,7 @@ describe('one violation per rule', () => {
       'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',
+      'use-once',
     ]);
   });
 });

@@ -21,6 +21,8 @@ export interface Type {
    * libraries (`Date`, `Map`), or `object` for anything else. A type parameter admits what its constraint does.
    */
   readonly kinds: readonly string[];
+  /** Marked `Once<…>`: a value with one owner, given away exactly once. True of a union when a member is. */
+  readonly isOnce: boolean;
   /** `Promise` or `PromiseLike`. */
   readonly isPromise: boolean;
   /** The members of a union, or the type itself. */
@@ -86,4 +88,9 @@ export interface TypeProvider {
    * a declaration behind it.
    */
   readonly calleeOf: (node: Node) => Callee | undefined;
+  /**
+   * The type the place of an expression expects: the type of the parameter for an argument, the return type of the
+   * function for a returned value, the declared type for an initializer. Absent where nothing is expected.
+   */
+  readonly expectedOf: (node: Node) => Type | undefined;
 }

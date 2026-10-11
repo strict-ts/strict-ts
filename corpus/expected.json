@@ -41,7 +41,8 @@
     "no-any": 1,
     "no-cast": 6,
     "no-throw": 3,
-    "no-type-predicate": 4
+    "no-type-predicate": 4,
+    "use-once": 2
   },
   "packages/wrap": {},
   "zod@3.23.8": {

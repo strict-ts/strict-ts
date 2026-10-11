@@ -81,7 +81,8 @@
           "readonly-types",
           "pure-domain",
           "no-throwing-call",
-          "no-throwing-operator"
+          "no-throwing-operator",
+          "use-once"
         ]
       },
       "uniqueItems": true,

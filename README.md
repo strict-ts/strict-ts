@@ -21,7 +21,7 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 | Safe typing, nothing unchecked outside `unsafe` | No `any`, cast, `declare` or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Prototype |
 | No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use` | Prototype |
 | Explicit mutability | Types read-only unless they say `Mut<T>`, no mutation of parameters | Prototype |
-| Ownership, no uncontrolled concurrent access | Single-use resources, state shared across `await` and workers | Research: nothing written |
+| Ownership, no uncontrolled concurrent access | A value typed `Once<T>` has one owner and is given away exactly once (`use-once`). State shared across `await` and workers: nothing yet | Research: a first rule, on a small subset |
 
 « Prototype » means the rules exist and are tested, and known ways around them remain (see
 [Known limits](#known-limits)). No guarantee is « Acquired » by strict-ts yet.
@@ -129,6 +129,7 @@ is both, `project` is once for the whole project.
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
 | `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function the effects ledger does not show to be safe, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
 | `no-throwing-operator` | errors | all | An operator or a read that may throw on what its operands may be (a bigint `/`, `%` or `**`, the conversion of a value that is not plain in a template, a `+` or a comparison, an array length that is not a literal, a property of the library that runs code) is written in a `try` with a `catch` |
+| `use-once` | ownership | all | A value typed `Once<…>` has one owner: it is used through its members, given away exactly once (to a parameter or a return type that is `Once<…>`), and never lost. Giving it away in a loop, a `try`, a condition inside an expression or a closure is refused |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
@@ -289,12 +290,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | The three bigint operators that throw, giving an `Option` |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
 | `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
+| `Once<T>`, `end(value)` | A value with one owner, in the manner of a value Rust moves; `end` is where the function that finishes it takes it back as a plain `T` |
 
 ## Packages
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 19 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 20 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -303,7 +305,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page |
 | [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
-| `@strict-ts/flow` | Flow analysis: single use, mutations across `await` | not started |
+| `@strict-ts/flow` | Flow analysis across `await` and aliases. The single-use rule does not need it: it follows each function on the syntax tree of `core` | not started |
 
 ## Known limits
 
@@ -314,6 +316,9 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   600 runs on generated values never threw. That reading is a judgement, and the two could be wrong the same way.
   The DOM, Node and `Intl` are not read: their functions are refused, or classified by hand. A method of a typed
   array throws once its buffer is detached: it is refused unless the project writes `"assume": ["attached-buffers"]`.
+- `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
+  the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
+  twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.
 - `no-throwing-operator` knows the operators and the accessors of ECMAScript. A property of the DOM that throws when
   read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run, nor a
   write to a frozen object. Running out of stack or of memory is outside what any rule covers, as in Rust.

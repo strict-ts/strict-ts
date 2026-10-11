@@ -4,7 +4,7 @@ import { checkFiles as checkEverything, checkSafe as checkSafeEverything, checkU
 
 // Each block below is about one rule, and many of its examples call JSON.parse or fetch as plain code does. What
 // no-throwing-call says of those calls is left out here; its own block, at the end, reads everything.
-const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator');
+const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator' && d.rule !== 'use-once');
 const checkFiles = (files: Readonly<Record<string, string>>, project?: Project) => quiet(checkEverything(files, project));
 const checkSafe = (text: string, project?: Project) => quiet(checkSafeEverything(text, project));
 const checkUnsafe = (text: string, project?: Project) => quiet(checkUnsafeEverything(text, project));
@@ -1325,6 +1325,115 @@ describe('no-throwing-operator', () => {
     expect(helps).toEqual([
       'Use `quotient`, `remainder` or `power` from @strict-ts/std, which give an Option, or write the divisor as a literal.',
       'Convert the value yourself first: `textOf(value)` from @strict-ts/std gives its text and never throws.',
+    ]);
+  });
+});
+
+describe('use-once', () => {
+  const prelude = [
+    'import { end, type Once } from "@strict-ts/std";',
+    'export class Tx { query(text: string): number { return text.length; } readonly id = 1; }',
+    'export const begin = (): Once<Tx> => new Tx();',
+    'export const commit = (tx: Once<Tx>): number => end(tx).id;',
+    'export const rollback = (tx: Once<Tx>): number => end(tx).id;',
+    'export const log = (tx: Tx): number => tx.id;',
+  ];
+  const said = (...lines: readonly string[]) =>
+    checkSafeEverything([...prelude, ...lines, ''].join('\n'))
+      .filter((d) => d.rule === 'use-once')
+      .map((d) => `${d.start.line - prelude.length} ${d.message}`);
+
+  test('accepts a value used through its members and given away once', () => {
+    expect(
+      said(
+        'export function a(): number { const tx = begin(); tx.query("x"); return commit(tx); }',
+        'export function b(failed: boolean): number { const tx = begin(); if (failed) { return rollback(tx); } return commit(tx); }',
+        'export function c(failed: boolean): number { const tx = begin(); if (failed) rollback(tx); else commit(tx); return 1; }',
+        'export const d = (tx: Once<Tx>): number => commit(tx);',
+        'export const e = (): Once<Tx> => { const tx = begin(); tx.query("x"); return tx; };',
+        'export const f = (tx: Once<Tx>): number => { const mine: Once<Tx> = tx; return commit(mine); };',
+        'export const g = (): number => commit(begin());',
+        'export async function h(make: () => Promise<Once<Tx>>): Promise<number> { const tx = await make(); return commit(tx); }',
+        'export function i(items: readonly string[]): number { const tx = begin(); for (const item of items) tx.query(item); return commit(tx); }',
+        'export function j(items: readonly string[]): number { let n = 0; for (const item of items) { const tx = begin(); tx.query(item); n += commit(tx); } return n; }',
+      ),
+    ).toEqual([]);
+  });
+
+  test('refuses losing it: a path that ends without giving it away', () => {
+    expect(
+      said(
+        'export function a(): number { const tx = begin(); return tx.query("x"); }',
+        'export function b(failed: boolean): number { const tx = begin(); if (failed) return 0; return commit(tx); }',
+        'export function c(failed: boolean): void { const tx = begin(); if (failed) commit(tx); }',
+        'export function d(tx: Once<Tx>): void { tx.query("x"); }',
+        'export function e(): void { begin(); }',
+        'export function f(): number { return begin().query("x"); }',
+      ),
+    ).toEqual([
+      '1 `tx` has one owner and is not given away before this `return`: it would be lost.',
+      '2 `tx` has one owner and is not given away before this `return`: it would be lost.',
+      '3 `tx` has one owner and is not given away on every path to the end of its block: it would be lost.',
+      '4 `tx` has one owner and is not given away on every path to the end of the function: it would be lost.',
+      '5 A value with one owner is made here and not kept: it is lost at once.',
+      '6 A value with one owner is made here and not kept: it is lost at once.',
+    ]);
+  });
+
+  test('refuses using it after it was given away, or may have been', () => {
+    expect(
+      said(
+        'export function a(): number { const tx = begin(); commit(tx); return tx.query("x"); }',
+        'export function b(): number { const tx = begin(); commit(tx); return commit(tx); }',
+        'export function c(failed: boolean): number { const tx = begin(); if (failed) rollback(tx); return commit(tx); }',
+      ),
+    ).toEqual([
+      '1 `tx` is used after it was given away.',
+      '2 `tx` is used after it was given away.',
+      // Given away on one path only: it is neither usable after, nor surely ended.
+      '3 `tx` has one owner and is not given away before this `return`: it would be lost.',
+      '3 `tx` is used after it may have been given away.',
+    ]);
+  });
+
+  test('refuses a second owner, or an owner who does not know', () => {
+    expect(
+      said(
+        'export function a(): number { const tx = begin(); log(tx); return commit(tx); }',
+        'export function b(): number { const tx = begin(); const other = tx; return commit(other); }',
+        'export function c(): number { const tx = begin(); const held = { tx }; return commit(held.tx); }',
+        'export function d(): number { const tx = begin(); const plain = tx as Tx; return plain.id + commit(tx); }',
+      ).map((line) => line.replace(/^(\d) `(\w+)` has one owner: it is used through its members, or given away whole\.$/, '$1 $2: not whole')),
+    ).toEqual([
+      '1 tx: not whole',
+      '2 tx: not whole',
+      '2 `tx` has one owner and is not given away before this `return`: it would be lost.',
+      '3 tx: not whole',
+      '3 `tx` has one owner and is not given away before this `return`: it would be lost.',
+      '4 tx: not whole',
+    ]);
+  });
+
+  test('refuses giving it away where the analysis does not follow', () => {
+    expect(
+      said(
+        'export function a(items: readonly string[]): void { const tx = begin(); for (const item of items) { item.length; commit(tx); } }',
+        'export function b(ok: boolean): void { const tx = begin(); ok && commit(tx); }',
+        'export function c(ok: boolean): number { const tx = begin(); return ok ? commit(tx) : rollback(tx); }',
+        'export function d(): () => number { const tx = begin(); return () => commit(tx); }',
+        'export function e(): number { let tx = begin(); return commit(tx); }',
+      ).map((line) => line.replace(/ has one owner.*| is given away where.*/, (rest) => (rest.includes('where') ? ': not followed' : rest.includes('another function') ? ': captured' : rest.includes('`let`') ? ': let' : ': lost'))),
+    ).toEqual([
+      '1 `tx`: lost',
+      '1 `tx`: not followed',
+      '2 `tx`: lost',
+      '2 `tx`: not followed',
+      '3 `tx`: lost',
+      '3 `tx`: not followed',
+      '3 `tx`: not followed',
+      '4 `tx`: lost',
+      '4 `tx`: captured',
+      '5 `tx`: let',
     ]);
   });
 });

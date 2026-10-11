@@ -73,3 +73,10 @@ export const masked = 1;
 export const config = readFileSync;
 
 export const share = (total: bigint, parts: bigint): bigint => total / parts; // expect: no-throwing-operator
+
+type Held = { readonly id: number } & { readonly __once?: never };
+declare const open: () => Held; // expect: no-ambient
+export function leak(): number {
+  const held = open();
+  return held.id; // expect: use-once
+}

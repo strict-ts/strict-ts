@@ -4,6 +4,9 @@
     "src/json.ts": {
       "no-any": 1
     },
+    "src/once.ts": {
+      "use-once": 2
+    },
     "src/panic.ts": {
       "no-throw": 2
     },
