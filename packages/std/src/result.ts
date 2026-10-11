@@ -7,6 +7,7 @@
  * - Each variant is iterable: `yield*` in `Result.gen` plays the role of the `?` operator.
  */
 import { panic } from './panic.js';
+import { textOf } from './text.js';
 
 abstract class ResultMethods {
   map<T, E, U>(this: Result<T, E>, f: (value: T) => U): Result<U, E> {
@@ -24,6 +25,13 @@ abstract class ResultMethods {
   }
   match<T, E, A, B>(this: Result<T, E>, arms: { readonly ok: (value: T) => A; readonly err: (error: E) => B }): A | B {
     return this.ok ? arms.ok(this.value) : arms.err(this.error);
+  }
+  /**
+   * Rust's `expect`: the value, or the program stops, saying `what` was expected and the error. For an error that
+   * is a bug and not a case the caller handles: a row of your own database that is not what you wrote there.
+   */
+  expect<T, E>(this: Result<T, E>, what: string): T {
+    return this.ok ? this.value : panic(`${what}: ${textOf(this.error)}`);
   }
 }
 

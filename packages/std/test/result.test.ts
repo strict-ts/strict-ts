@@ -165,3 +165,9 @@ describe('v1 free functions', () => {
     await expect(attemptAsync(async () => 1, String)).resolves.toEqual(ok(1));
   });
 });
+
+test('expect gives the value, or stops the program saying what was expected', () => {
+  expect(ok(3).expect('a count')).toBe(3);
+  expect(() => err('no such table').expect('the rows of messages')).toThrow('panic: the rows of messages: no such table');
+  expect(() => err({ path: '.id', expected: 'string' }).expect('a row')).toThrow(/^panic: a row: /);
+});

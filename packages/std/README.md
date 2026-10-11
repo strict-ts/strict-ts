@@ -61,7 +61,8 @@ User.parse(input); // Result<User, { path: string; expected: string }>
 ```
 
 `s.string`, `s.number` (finite), `s.boolean`, `s.date` (an ISO string), `s.literal(...)`, `s.array(item)`,
-`s.optional(inner)`, `s.object(shape)`. Unknown keys of an object are dropped.
+`s.optional(inner)`, `s.object(shape)`, `s.record(value)` (an object used as a table: any names, values of one kind).
+Unknown keys of an object are dropped.
 
 ## Constraints carried by the type
 
@@ -87,6 +88,16 @@ outside an unsafe directory, forging one needs a cast, which `no-cast` refuses.
 adding a case to every error type.
 
 `Mut<T>` asks for mutation, in the manner of Rust's `&mut`. It is `T` itself: a marker the rules read.
+
+## expect
+
+`result.expect(what)` and `option.expect(what)` give the value, or stop the program saying what was expected, as in
+Rust. For a failure that is a bug and not a case the caller handles: a row of your own database that is not what you
+wrote there.
+
+```ts
+const rows = sql.all('select * from messages').expect('the rows of messages');
+```
 
 ## Once, end
 

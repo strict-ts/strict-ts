@@ -90,6 +90,27 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
   };
 }
 
+/**
+ * An object used as a table: any names, each with a value of the same kind. `s.record(s.number)` reads
+ * `{ "spam": 0.9, "promo": 0.1 }`. A name `__proto__` is left out: as a property it would change what the object is.
+ */
+export function record<V>(value: Schema<V>): Schema<Readonly<Record<string, V>>> {
+  return {
+    parse: (input) => {
+      if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
+      const given = input as Readonly<Record<string, unknown>>;
+      const out: Mut<Record<string, V>> = {};
+      for (const key of Object.keys(given)) {
+        if (key === '__proto__') continue;
+        const r = value.parse(given[key]);
+        if (!r.ok) return new Err({ path: `.${key}${r.error.path}`, expected: r.error.expected });
+        out[key] = r.value;
+      }
+      return new Ok(out);
+    },
+  };
+}
+
 // ── Constraints carried by the type ────────────────────────────────
 
 /** The key of a brand. It is not exported: outside this file nothing can name it, so nothing can write a brand. */

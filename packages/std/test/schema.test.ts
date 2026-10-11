@@ -88,3 +88,19 @@ describe('object', () => {
     }
   });
 });
+
+test('a record reads any names, each with a value of the same kind', () => {
+  const scores = s.record(s.number);
+  expect(scores.parse({ spam: 0.9, promo: 0.1 }).unwrapOr(undefined)).toEqual({ spam: 0.9, promo: 0.1 });
+  expect(scores.parse({}).unwrapOr(undefined)).toEqual({});
+  const failure = (read: ReturnType<typeof scores.parse> | ReturnType<ReturnType<typeof s.object>['parse']>) => (read.ok ? undefined : read.error);
+  expect(failure(scores.parse({ spam: '0.9' }))).toEqual({ path: '.spam', expected: 'number' });
+  expect(failure(scores.parse([1]))).toEqual({ path: '', expected: 'object' });
+  expect(scores.parse(null).ok).toBe(false);
+  // Nested, the path says where.
+  expect(failure(s.object({ by: s.record(s.array(s.string)) }).parse({ by: { a: ['x', 1] } }))).toEqual({ path: '.by.a[1]', expected: 'string' });
+  // A name that would change what the object is does not get in.
+  const read = scores.parse(JSON.parse('{"__proto__": 1, "a": 2}')).unwrapOr({});
+  expect(Object.keys(read)).toEqual(['a']);
+  expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
+});
