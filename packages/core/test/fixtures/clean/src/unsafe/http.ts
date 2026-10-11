@@ -1,8 +1,8 @@
-import { attempt, err, Result } from "@strict-ts/std";
+import { attempt, err, Result, textOf } from "@strict-ts/std";
 
 export type HttpError = { kind: "network"; message: string } | { kind: "status"; status: number };
 
-const network = (cause: unknown): HttpError => ({ kind: "network", message: String(cause) });
+const network = (cause: unknown): HttpError => ({ kind: "network", message: textOf(cause) });
 
 /** `fetch` and `res.text()` may throw: everything is enclosed in Results. */
 export const fetchText = (url: string) =>

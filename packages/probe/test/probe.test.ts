@@ -58,7 +58,9 @@ describe('instrumented code', () => {
   const report = () => {
     const read = readEvents(directory, 'events.jsonl');
     if (!read.ok) throw new Error(read.error);
-    return summarise(read.value, effectsLedger);
+    // As if a person had judged `join` safe, which the generated ledger knows better than.
+    const judged = { ...effectsLedger, 'ReadonlyArray.join': { verdict: 'total', evidence: { byHand: 'judged safe, for this test' } } } as const;
+    return summarise(read.value, judged);
   };
   const said = (findings: readonly { site: { file: string; line: number; name: string }; detail: string }[]) =>
     findings.map((finding) => `${finding.site.file}:${finding.site.line} ${finding.site.name}: ${finding.detail}`);

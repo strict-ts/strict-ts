@@ -9,6 +9,11 @@ export interface Type {
   /** A string, number, boolean or enum literal, or `undefined`: a member a finite union can be made of. */
   readonly isLiteral: boolean;
   readonly isBooleanLiteral: boolean;
+  /**
+   * A plain value, by its type: a string, a number, a boolean, a bigint, null or undefined, a union of those, or an
+   * array of those. Converting one to text or to a number does not throw.
+   */
+  readonly isPlain: boolean;
   /** `Promise` or `PromiseLike`. */
   readonly isPromise: boolean;
   /** The members of a union, or the type itself. */

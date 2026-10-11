@@ -5,12 +5,12 @@ import { err, ok, type Result } from "@strict-ts/std";
 type Status = "draft" | "sent" | "paid";
 
 export function loose(x: any): string { // expect: no-any
-  return String(x);
+  return String(x); // expect: no-throwing-call
 }
 
 export function parsed(text: string): string {
   const data = JSON.parse(text); // expect: no-any, no-throwing-call
-  return String(data);
+  return String(data); // expect: no-throwing-call
 }
 
 export function cast(value: unknown): string {

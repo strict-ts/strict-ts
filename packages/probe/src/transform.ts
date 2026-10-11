@@ -1,7 +1,7 @@
 // The compile-time half: a TypeScript transformer that puts probes where strict-ts takes something on trust.
 // It changes no behaviour: a probe hands back the value it was given, and throws again what it caught.
 import { type Callee, type Config, isUnsafe } from '@strict-ts/core';
-import type { Mut } from '@strict-ts/std';
+import { type Mut, record } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Shape, Site } from './events.js';
 
@@ -93,7 +93,7 @@ export function instrument(
       if ((flags & api.TypeFlags.Object) === 0 || type.getCallSignatures().length > 0 || type.getConstructSignatures().length > 0) return { k: 'unknown' };
       const declaredInLibrary = (type.getSymbol()?.getDeclarations() ?? []).some((declaration) => declaration.getSourceFile().isDeclarationFile);
       if (declaredInLibrary) return { k: 'object', props: {} };
-      const props = Object.fromEntries(
+      const props = record(
         type.getProperties().flatMap((property) => {
           const name = property.getName();
           // A property keyed by a symbol (a brand) has no name a value can be asked for.

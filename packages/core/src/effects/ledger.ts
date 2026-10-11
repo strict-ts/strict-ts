@@ -22,15 +22,25 @@ export interface Effect {
   readonly below?: number;
   /** For `throws`: only when called with at least this many arguments (`toString` given a radix). */
   readonly atLeast?: number;
+  /**
+   * For `throws`: only on a value that cannot be converted to text or to a number: a symbol, an object without a
+   * prototype, a cycle. A call whose receiver and arguments are all plain (strings, numbers, booleans, bigints,
+   * null, undefined, and arrays of those) is then safe.
+   */
+  readonly unprintable?: true;
   readonly evidence: Evidence;
 }
 
 export type Ledger = Readonly<Record<string, Effect>>;
 
-/** Whether an entry makes a call with that many arguments a possible exception, and why. */
-export function threatOf(effect: Effect, argumentCount: number): string | undefined {
+/**
+ * Whether an entry makes a call a possible exception, and why. `plain` says whether the receiver and the arguments
+ * of the call are all plain values, as far as their types tell.
+ */
+export function threatOf(effect: Effect, argumentCount: number, plain = false): string | undefined {
   if (effect.verdict === 'total') return undefined;
   if (effect.below !== undefined && argumentCount >= effect.below) return undefined;
   if (effect.atLeast !== undefined && argumentCount < effect.atLeast) return undefined;
+  if (effect.unprintable === true && plain) return undefined;
   return effect.why ?? 'may throw';
 }

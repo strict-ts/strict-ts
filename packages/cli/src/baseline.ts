@@ -1,5 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
-import { err, type Mut, ok, type Result } from '@strict-ts/std';
+import { err, type Mut, ok, record, type Result } from '@strict-ts/std';
 import { json } from './json.js';
 import { asRecord } from './unsafe/record.js';
 
@@ -19,7 +19,7 @@ export interface Baseline {
 export const isRecordable = (diagnostic: Diagnostic): boolean => diagnostic.file !== '' && !/^TS\d+$/.test(diagnostic.rule);
 
 const sorted = <T>(entries: readonly (readonly [string, T])[]): Readonly<Record<string, T>> =>
-  Object.fromEntries(entries.toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  record(entries.toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
 /** Counts the recordable diagnostics per rule per file, files and rules sorted. */
 export function toBaseline(found: readonly Diagnostic[]): Baseline {

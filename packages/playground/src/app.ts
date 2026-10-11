@@ -1,6 +1,6 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
-import { attempt, type Mut, toJson } from '@strict-ts/std';
+import { attempt, type Mut, record, textOf, toJson } from '@strict-ts/std';
 import type { Data, Scenario } from './data.js';
 import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
 import { compiler, pageData, parseJson } from './unsafe/page.js';
@@ -39,7 +39,7 @@ const split = (list: string): readonly string[] =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
-const message = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+const message = textOf;
 
 let playground: Playground | undefined;
 let outcome: Outcome | undefined;
@@ -484,7 +484,7 @@ $('files').addEventListener('click', (event) => {
   const removed = closest(event, '[data-del]')?.dataset['del'];
   if (removed === undefined) return;
   const current = workspace();
-  current.files = Object.fromEntries(Object.entries(current.files).filter(([path]) => path !== removed));
+  current.files = { ...record(Object.entries(current.files).filter(([path]) => path !== removed)) };
   if (current.active === removed) current.active = Object.keys(current.files).toSorted()[0] ?? `${STD_PREFIX}index.ts`;
   save();
   renderAll(false);

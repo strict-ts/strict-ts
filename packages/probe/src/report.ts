@@ -1,5 +1,5 @@
 import { type Ledger, threatOf } from '@strict-ts/core';
-import type { Mut } from '@strict-ts/std';
+import { type Mut, record } from '@strict-ts/std';
 import type { Event, Site } from './events.js';
 
 /** What the runs showed, sorted by what it means for what strict-ts took on trust. */
@@ -61,7 +61,7 @@ export function summarise(events: readonly Event[], ledger: Ledger): Report {
     miscasts: of('miscasts'),
     unknownThrows: of('unknownThrows'),
     confirmed: of('confirmed'),
-    quiet: Object.fromEntries(Object.entries(quiet).toSorted(([a], [b]) => (a < b ? -1 : 1))),
+    quiet: record(Object.entries(quiet).toSorted(([a], [b]) => (a < b ? -1 : 1))),
   };
 }
 

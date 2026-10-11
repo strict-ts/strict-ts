@@ -17,6 +17,6 @@ export function safeRead(path: string): { ok: true; value: string } | { ok: fals
   try {
     return { ok: true, value: readFileSync(path, "utf8") };
   } catch (e) {
-    return { ok: false, error: String(e) };
+    return { ok: false, error: String(e) }; // expect: no-throwing-call
   }
 }

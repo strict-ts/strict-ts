@@ -1,5 +1,5 @@
 import { check, compareDiagnostics, type Diagnostic, rules } from '@strict-ts/core';
-import { ok, Option } from '@strict-ts/std';
+import { ok, Option, record } from '@strict-ts/std';
 import { parseArgs, usage } from './args.js';
 import { compare, countViolations, isRecordable, parseBaseline, serializeBaseline, toBaseline } from './baseline.js';
 import { type Cache, parseCache, stillValid } from './cache.js';
@@ -76,13 +76,13 @@ export function run(argv: readonly string[], io: Io): number {
   const fresh = check(loaded.value.provider(useCache ? toCheck : undefined), settings.value.config);
   const found = [...fresh, ...[...reused.values()].flat()].toSorted(compareDiagnostics);
   if (facts !== undefined) {
-    const record: Cache = {
+    const kept: Cache = {
       version: 1,
       environment: facts.environment,
-      files: Object.fromEntries(files.map((file) => [file, { key: facts.keys[file] ?? '', diagnostics: found.filter((d) => d.file === file) }])),
+      files: record(files.map((file) => [file, { key: facts.keys[file] ?? '', diagnostics: found.filter((d) => d.file === file) }])),
     };
     // A cache that cannot be written costs the next run its speed, not its result.
-    void writeTextFile(rootDir, CACHE_FILE, json(record));
+    void writeTextFile(rootDir, CACHE_FILE, json(kept));
   }
   if (timing) {
     const milliseconds = Date.now() - started;

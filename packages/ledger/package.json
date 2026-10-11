@@ -1,0 +1,15 @@
+{
+  "name": "@strict-ts/ledger",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Builds the effects ledger: runs every function of the standard library on generated values, reads the specification, and writes what core reads.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check"
+  },
+  "devDependencies": {
+    "@typescript/typescript6": "^6.0.2"
+  }
+}

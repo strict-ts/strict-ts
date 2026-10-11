@@ -19,8 +19,24 @@ describe('the effects ledger', () => {
 
   test('how many entries are still judgements, and not derived', () => {
     const byHand = entries.filter(([, effect]) => effect.evidence.spec === undefined && effect.evidence.runs === undefined);
-    // To bring down: each one of these is a person's word.
-    expect(byHand.length).toBeLessThanOrEqual(205);
+    // What is left by hand: the DOM, and the few functions the generator does not run. To bring down.
+    expect(byHand.length).toBeLessThanOrEqual(45);
+    const backedByRuns = entries.filter(([, effect]) => effect.evidence.runs !== undefined);
+    expect(backedByRuns.length).toBeGreaterThan(180);
+  });
+
+  test('what the runs showed wins over a judgement: join was judged safe, and throws on a symbol', () => {
+    expect(effectsLedger['Array.join']).toMatchObject({ verdict: 'throws', unprintable: true });
+    expect(effectsLedger['ReadonlyArray.reduce']).toMatchObject({ verdict: 'throws', below: 2 });
+    expect(effectsLedger['Number.toString']).toMatchObject({ verdict: 'throws', atLeast: 1 });
+    expect(effectsLedger['String.padEnd']?.verdict).toBe('total');
+    expect(effectsLedger['String.padEnd']?.evidence.runs).toBe(600);
+  });
+
+  test('a function that only throws on what it cannot convert is safe on plain values', () => {
+    const join = effectsLedger['Array.join'];
+    expect(join === undefined ? undefined : threatOf(join, 0, true)).toBeUndefined();
+    expect(join === undefined ? undefined : threatOf(join, 0, false)).toMatch(/cannot convert/);
   });
 
   test('threatOf reads the conditions on the number of arguments', () => {

@@ -34,7 +34,7 @@
     "no-any": 2,
     "no-cast": 9,
     "no-throw": 1,
-    "no-throwing-call": 3,
+    "no-throwing-call": 4,
     "readonly-types": 30
   },
   "packages/std": {
@@ -57,7 +57,7 @@
     "no-null": 73,
     "no-param-mutation": 10,
     "no-throw": 17,
-    "no-throwing-call": 18,
+    "no-throwing-call": 23,
     "no-type-predicate": 8,
     "readonly-types": 583
   }

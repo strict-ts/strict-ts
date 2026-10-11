@@ -3,7 +3,7 @@ import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
 import { type Config, isUnsafe } from '@strict-ts/core';
-import { attempt, err, type Mut, none, ok, type Option, type Result, some } from '@strict-ts/std';
+import { attempt, err, type Mut, none, ok, type Option, type Result, some, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { applyEdits, type Fix, keepWhatHolds } from '../fix.js';
 import { readonlyFixes } from '../fixes/readonly-types.js';
@@ -28,7 +28,7 @@ export interface Place {
   readonly column: number;
 }
 
-const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+const describe = textOf;
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 
 function readJson(path: string): Result<Option<unknown>, string> {

@@ -983,7 +983,10 @@ describe('strict-compiler-options', () => {
 });
 
 describe('no-throwing-call', () => {
-  const said = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule === 'no-throwing-call').map((d) => `${d.start.line} ${d.message}`);
+  const ours = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule === 'no-throwing-call');
+  // The function named, and how it fails: the rest of a generated message is the example it was seen on.
+  const said = (found: ReturnType<typeof checkEverything>) =>
+    ours(found).map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
   const safe = (...lines: readonly string[]) => said(checkSafeEverything([...lines, ''].join('\n')));
   const unsafe = (...lines: readonly string[]) => said(checkUnsafeEverything(['import { attempt, ok } from "@strict-ts/std";', ...lines, ''].join('\n')));
 
@@ -999,13 +1002,38 @@ describe('no-throwing-call', () => {
         'export const g = (text: string): bigint => BigInt(text);',
       ),
     ).toEqual([
-      '1 `decodeURIComponent` throws a URIError on a malformed sequence.',
-      '2 `RegExp.new` throws a SyntaxError on an invalid pattern.',
-      '3 `Date.toISOString` throws a RangeError on an invalid date.',
-      '4 `String.repeat` throws a RangeError on a negative or infinite count.',
-      '5 `Number.toFixed` throws a RangeError on digits out of range.',
-      '6 `JSON.stringify` throws a TypeError on a cycle or a BigInt.',
-      '7 `BigInt` throws on a number that is not whole or a string that is not a number.',
+      '1 `decodeURIComponent` throws a URIError.',
+      '2 `RegExp.new` throws a SyntaxError.',
+      '3 `Date.toISOString` throws a RangeError.',
+      '4 `String.repeat` throws a RangeError.',
+      '5 `Number.toFixed` throws a RangeError.',
+      '6 `JSON.stringify` throws on a value it cannot convert: a symbol, an object without a prototype, a cycle.',
+      '7 `BigInt` throws a SyntaxError.',
+    ]);
+  });
+
+  test('a generated entry says what was seen: the error, and the call it was seen on', () => {
+    const [found] = ours(checkSafeEverything('export const a = (text: string): string => decodeURIComponent(text);\n'));
+    expect(found?.message).toBe('`decodeURIComponent` throws a URIError, as seen with ("%").');
+  });
+
+  test('a function that only throws on what it cannot convert is safe on plain values', () => {
+    expect(
+      safe(
+        'export const a = (names: readonly string[]): string => names.join(", ");',
+        'export const b = (ids: readonly (number | undefined)[]): string => String(ids);',
+        'export const c = (things: readonly unknown[]): string => things.join(", ");',
+        'export const d = (thing: unknown): string => String(thing);',
+        'export const e = (things: readonly symbol[]): string => things.join(", ");',
+        'export const f = (rows: readonly string[]): readonly string[] => [...rows].sort();',
+        'export const g = (rows: readonly object[]): readonly object[] => [...rows].sort();',
+        'export const h = (rows: readonly object[]): readonly object[] => [...rows].sort(() => 0);',
+      ),
+    ).toEqual([
+      '3 `ReadonlyArray.join` throws on a value it cannot convert: a symbol, an object without a prototype, a cycle.',
+      '4 `String` throws on a value it cannot convert: a symbol, an object without a prototype, a cycle.',
+      '5 `ReadonlyArray.join` throws on a value it cannot convert: a symbol, an object without a prototype, a cycle.',
+      '7 `Array.sort` throws on a value it cannot convert: a symbol, an object without a prototype, a cycle.',
     ]);
   });
 
@@ -1015,12 +1043,12 @@ describe('no-throwing-call', () => {
         'export const sum = (prices: readonly number[]): number => prices.reduce((a, b) => a + b);',
         'export const total = (prices: readonly number[]): number => prices.reduce((a, b) => a + b, 0);',
       ),
-    ).toEqual(['1 `ReadonlyArray.reduce` throws a TypeError on an empty array when given no starting value.']);
+    ).toEqual(['1 `ReadonlyArray.reduce` throws a TypeError.']);
   });
 
   test('refuses a rejected promise made by hand: an exception by another name', () => {
     expect(safe('export const fail = (): Promise<number> => Promise.reject(new Error("no"));')).toEqual([
-      '1 `Promise.reject` makes a rejected promise: an exception by another name.',
+      '1 `Promise.reject` throws an Error.',
     ]);
   });
 
@@ -1087,9 +1115,9 @@ describe('no-throwing-call', () => {
         '};',
       ),
     ).toEqual([
-      '4 `decodeURIComponent` throws a URIError on a malformed sequence.',
-      '6 `decodeURIComponent` throws a URIError on a malformed sequence.',
-      '13 `decodeURIComponent` throws a URIError on a malformed sequence.',
+      '4 `decodeURIComponent` throws a URIError.',
+      '6 `decodeURIComponent` throws a URIError.',
+      '13 `decodeURIComponent` throws a URIError.',
     ]);
   });
 
@@ -1107,7 +1135,7 @@ describe('no-throwing-call', () => {
       'const parse = (text: string): unknown => JSON.parse(text);',
       'export const safe = (text: string) => attempt(() => parse(text), String);',
     );
-    expect(found).toEqual(['2 `JSON.parse` throws a SyntaxError on text that is not JSON.']);
+    expect(found).toEqual(['2 `JSON.parse` throws a SyntaxError.']);
   });
 
   test('a library function that is not in the ledger is refused: nothing shows that it does not throw', () => {
@@ -1125,8 +1153,8 @@ describe('no-throwing-call', () => {
         'export const d = (x: string, y: string, locale: string): number => x.localeCompare(y, locale);',
       ),
     ).toEqual([
-      '2 `Number.toString` throws a RangeError on a radix out of range.',
-      '4 `String.localeCompare` throws a RangeError on an unknown locale.',
+      '2 `Number.toString` throws a RangeError.',
+      '4 `String.localeCompare` throws a RangeError.',
     ]);
   });
 
