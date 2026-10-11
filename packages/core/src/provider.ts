@@ -67,6 +67,12 @@ export interface Callee {
   /** `Owner.member` for a method (`Date.toISOString`), `Owner.new` for a constructor, the bare name for a function. */
   readonly name: string;
   readonly origin: Origin;
+  /**
+   * The package the called name is imported from, when it is imported from one: `vue` for `ref`, which
+   * `@vue/reactivity` declares, and the same for a global declared as `typeof import('vue').ref`. A package is
+   * allowed for what it exports, wherever it keeps it.
+   */
+  readonly importedFrom?: string;
 }
 
 /**
@@ -92,6 +98,11 @@ export interface TypeProvider {
    * a declaration behind it.
    */
   readonly calleeOf: (node: Node) => Callee | undefined;
+  /**
+   * Whether the module a specifier names is one of the project's own sources, which the rules read, as a path alias
+   * of the configuration (`@/lib/types`) is. False for a declaration file, and when the compiler does not resolve it.
+   */
+  readonly isOwnModule: (specifier: Node) => boolean;
   /**
    * The type the place of an expression expects: the type of the parameter for an argument, the return type of the
    * function for a returned value, the declared type for an initializer. Absent where nothing is expected.

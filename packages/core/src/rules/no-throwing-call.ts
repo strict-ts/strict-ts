@@ -13,8 +13,9 @@ function threat(callee: Callee, argumentCount: number, plain: () => boolean, con
   // The console is the same object whoever declares it (the DOM library, the types of Node, a fixture).
   if (callee.name.startsWith('Console.') || callee.name.startsWith('console.')) return undefined;
   if (callee.origin.kind === 'package') {
-    // An allowed package is trusted as the standard library of conforming code is.
-    if (isTrusted(callee.origin.package, config)) return undefined;
+    // An allowed package is trusted as the standard library of conforming code is, for all it exports: what is
+    // imported from `vue` is trusted with it, although another package of its own declares it.
+    if (isTrusted(callee.origin.package, config) || isTrusted(callee.importedFrom, config)) return undefined;
     const from = callee.origin.package === undefined ? 'a declaration file' : `"${callee.origin.package}"`;
     return `is declared in ${from}, whose types do not say whether it throws`;
   }

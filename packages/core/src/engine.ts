@@ -41,6 +41,7 @@ export function check(
           config,
           typeOf: provider.typeOf,
           calleeOf: provider.calleeOf,
+          isOwnModule: provider.isOwnModule,
           expectedOf: provider.expectedOf,
           asksForMutation: provider.asksForMutation,
           valuesOf: provider.valuesOf,

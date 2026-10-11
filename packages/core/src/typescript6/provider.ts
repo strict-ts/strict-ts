@@ -507,6 +507,14 @@ export function createTypeScript6Provider(
       const source = origin.get(node);
       return source === undefined ? unknownOrigin : wrapType(checker.getTypeAtLocation(source));
     },
+    isOwnModule: (node) => {
+      const source = origin.get(node);
+      if (source === undefined || !api.isStringLiteralLike(source)) return false;
+      const modules = checker.getSymbolAtLocation(source)?.declarations ?? [];
+      // Only a source the rules read: a declaration file, even one the project keeps, says what a dependency is,
+      // and a module declared by its name (`declare module "x"`) is no file at all.
+      return modules.length > 0 && modules.every((module) => api.isSourceFile(module) && isChecked(module));
+    },
     calleeOf: (node) => {
       const source = origin.get(node);
       const calls = source !== undefined && (api.isCallExpression(source) || api.isNewExpression(source) || api.isTaggedTemplateExpression(source));
@@ -597,6 +605,26 @@ export function calleeReader(
 ): (call: ts.CallExpression | ts.NewExpression | ts.TaggedTemplateExpression) => Callee | undefined {
   const checker = program.getTypeChecker();
   const checked = new Set(checkedFileNames(program, rootDir));
+  const packageOf = (fileName: string): string | undefined =>
+    packageNameOf?.(fileName) ?? /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(fileName)?.[1];
+  /**
+   * The package a call's name is imported from: for `name(…)`, for `all.name(…)` after `import * as all`, and for a
+   * global that a framework declares as `const name: typeof import('vue').name`.
+   */
+  const importedFrom = (called: ts.Expression): string | undefined => {
+    const head = api.isPropertyAccessExpression(called) ? called.expression : called;
+    if (!api.isIdentifier(head)) return undefined;
+    const binding = checker.getSymbolAtLocation(head)?.declarations?.[0];
+    if (binding === undefined || (head !== called && !api.isNamespaceImport(binding))) return undefined;
+    const declared = api.isVariableDeclaration(binding) ? binding.type : undefined;
+    const specifier =
+      declared !== undefined && api.isImportTypeNode(declared) && declared.isTypeOf && api.isLiteralTypeNode(declared.argument)
+        ? declared.argument.literal
+        : api.findAncestor(binding, api.isImportDeclaration)?.moduleSpecifier;
+    const module = specifier === undefined ? undefined : checker.getSymbolAtLocation(specifier)?.declarations?.[0];
+    // Only a module found in a dependency says which package it is: a path of the project names none.
+    return module !== undefined && api.isSourceFile(module) && module.fileName.includes('/node_modules/') ? packageOf(module.fileName) : undefined;
+  };
   return (call) => {
     const declaration = checker.getResolvedSignature(call)?.declaration;
     if (declaration === undefined || api.isJSDocSignature(declaration)) return undefined;
@@ -611,14 +639,16 @@ export function calleeReader(
         ? named.name?.getText()
         : undefined;
     const file = declaration.getSourceFile();
-    const fromPath = /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file.fileName)?.[1];
+    const origin: Callee['origin'] = checked.has(file.fileName)
+      ? { kind: 'project' }
+      : program.isSourceFileDefaultLibrary(file)
+        ? { kind: 'library' }
+        : { kind: 'package', package: packageOf(file.fileName) };
+    const through = origin.kind === 'package' ? importedFrom(api.isTaggedTemplateExpression(call) ? call.tag : call.expression) : undefined;
     return {
       name: owner === undefined ? member : `${owner}.${member}`,
-      origin: checked.has(file.fileName)
-        ? { kind: 'project' }
-        : program.isSourceFileDefaultLibrary(file)
-          ? { kind: 'library' }
-          : { kind: 'package', package: packageNameOf?.(file.fileName) ?? fromPath },
+      origin,
+      ...(through === undefined ? {} : { importedFrom: through }),
     };
   };
 }

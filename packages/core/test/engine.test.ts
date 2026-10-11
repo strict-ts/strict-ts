@@ -92,6 +92,7 @@ describe('check', () => {
       typeOf: () => expect.unreachable('the spy asks for no type'),
       exportsOf: () => [],
       calleeOf: () => undefined,
+      isOwnModule: () => false,
     };
     expect(check(provider, defaultConfig, [spy])).toEqual([]);
     expect(seen).toEqual(['file src/a.ts', 'null in binary']);
