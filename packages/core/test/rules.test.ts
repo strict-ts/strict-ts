@@ -1183,6 +1183,26 @@ describe('no-throwing-call', () => {
   });
 });
 
+describe('no-throwing-call and the packages a project allows', () => {
+  const said = (allowedImports: readonly string[]) =>
+    checkEverything(
+      {
+        'src/a.ts': 'import { render } from "react";\nimport { join } from "@scope/paths";\nexport const a = render("x") + join("a");\n',
+        'node_modules/@types/react/index.d.ts': 'export declare function render(x: string): string;\n',
+        'node_modules/@types/scope__paths/index.d.ts': 'export declare function join(x: string): string;\n',
+      },
+      { config: { unsafeDirs: ['src/unsafe'], allowedImports } },
+    )
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => d.message);
+
+  test('a package whose types come in another one is allowed under its own name', () => {
+    expect(said([])).toHaveLength(2);
+    expect(said(['react'])).toEqual(['`join` is declared in "@types/scope__paths", whose types do not say whether it throws.']);
+    expect(said(['react', '@scope/paths'])).toEqual([]);
+  });
+});
+
 describe('no-throwing-operator', () => {
   const said = (found: ReturnType<typeof checkEverything>) =>
     found.filter((d) => d.rule === 'no-throwing-operator').map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);

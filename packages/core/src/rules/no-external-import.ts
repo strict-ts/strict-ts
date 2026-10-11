@@ -20,6 +20,7 @@ export const noExternalImport: Rule = {
   guarantee: 'typing',
   description: 'Dependencies (npm, node:*) are imported from unsafe/ only: the equivalent of an FFI boundary.',
   scope: 'safe',
+  inTests: false,
   visit(node, { config, report }) {
     if (node.kind === 'module-reference') {
       checkSpecifier(node.specifier, config, report);

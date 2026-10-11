@@ -1,7 +1,7 @@
 // The rule engine. Nothing here may import from Node or from a given TypeScript version: rules read the program
 // through `TypeProvider`, so moving from the TS 6 API to the TS 7.1 one rewrites no rule.
 
-export { type Assumption, type Config, assumptions, defaultConfig, isPure, isUnsafe } from './config.js';
+export { type Assumption, type Config, assumptions, defaultConfig, isPure, isTest, isUnsafe } from './config.js';
 export { type Diagnostic, type Position, compareDiagnostics, diagnosticAt, locator } from './diagnostic.js';
 export { type Effect, type Evidence, type Ledger, threatOf } from './effects/ledger.js';
 export { ledger as effectsLedger } from './effects/index.js';

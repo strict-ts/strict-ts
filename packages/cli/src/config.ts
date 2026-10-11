@@ -22,6 +22,7 @@ const File = s.object({
   unsafeDirs: s.optional(s.array(s.string)),
   allowedImports: s.optional(s.array(s.string)),
   pureDirs: s.optional(s.array(s.string)),
+  testDirs: s.optional(s.array(s.string)),
   assume: s.optional(s.array(s.string)),
   rules: s.optional(s.array(s.string)),
   baseline: s.optional(s.string),
@@ -49,7 +50,8 @@ export function readSettings(content: Option<unknown>): Result<Settings, string>
   const unknownAssumption = file.assume?.find((name) => !assumptions.some((known) => known === name));
   if (unknownAssumption !== undefined) return err(`${CONFIG_FILE}: unknown assumption "${unknownAssumption}" (${assumptions.join(', ')})`);
   const pure = file.pureDirs === undefined ? base : { ...base, pureDirs: file.pureDirs };
-  const placed = file.assume === undefined ? pure : { ...pure, assume: assumptions.filter((known) => file.assume?.includes(known) === true) };
+  const tested = file.testDirs === undefined ? pure : { ...pure, testDirs: file.testDirs };
+  const placed = file.assume === undefined ? tested : { ...tested, assume: assumptions.filter((known) => file.assume?.includes(known) === true) };
   return ok({
     config: file.rules === undefined ? placed : { ...placed, rules: file.rules },
     baseline: file.baseline ?? BASELINE_FILE,

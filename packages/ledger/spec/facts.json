@@ -32500,6 +32500,204 @@
      ]
     }
    ]
+  },
+  {
+   "id": "sec-number.parsefloat",
+   "name": "Number.parseFloat",
+   "operation": false,
+   "inWords": true,
+   "same": "parseFloat",
+   "params": [
+    "string"
+   ],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-number.parseint",
+   "name": "Number.parseInt",
+   "operation": false,
+   "inWords": true,
+   "same": "parseInt",
+   "params": [
+    "string",
+    "radix"
+   ],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-math.random",
+   "name": "Math.random",
+   "operation": false,
+   "inWords": true,
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-date.now",
+   "name": "Date.now",
+   "operation": false,
+   "inWords": true,
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-date.parse",
+   "name": "Date.parse",
+   "operation": false,
+   "inWords": true,
+   "params": [
+    "string"
+   ],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": [
+    {
+     "to": "ToString",
+     "given": [
+      "param:string"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sec-date.prototype.toisostring",
+   "name": "Date.prototype.toISOString",
+   "operation": false,
+   "inWords": true,
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [
+    {
+     "kind": "RangeError",
+     "step": "that cannot be represented in the Date Time String Format, this method throws a *RangeError* exception. Otherwise, it re",
+     "about": [
+      "unknown"
+     ]
+    }
+   ],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-string.prototype.touppercase",
+   "name": "String.prototype.toUpperCase",
+   "operation": false,
+   "inWords": true,
+   "same": "String.prototype.toLowerCase",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-%typedarray%.prototype.tostring",
+   "name": "%TypedArray%.prototype.toString",
+   "operation": false,
+   "inWords": true,
+   "same": "Array.prototype.toString",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-set.prototype.keys",
+   "name": "Set.prototype.keys",
+   "operation": false,
+   "inWords": true,
+   "same": "Set.prototype.values",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "String.prototype.trimleft",
+   "name": "String.prototype.trimLeft",
+   "operation": false,
+   "inWords": true,
+   "same": "String.prototype.trimStart",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "String.prototype.trimright",
+   "name": "String.prototype.trimRight",
+   "operation": false,
+   "inWords": true,
+   "same": "String.prototype.trimEnd",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
+  },
+  {
+   "id": "sec-date.prototype.togmtstring",
+   "name": "Date.prototype.toGMTString",
+   "operation": false,
+   "inWords": true,
+   "same": "Date.prototype.toUTCString",
+   "params": [],
+   "tolerates": {
+    "undefined": [],
+    "null": []
+   },
+   "throws": [],
+   "calls": [],
+   "passes": []
   }
  ]
 }
