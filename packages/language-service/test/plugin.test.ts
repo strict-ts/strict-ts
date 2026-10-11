@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 /** A language service on a project directory, wrapped by the plugin as tsserver would. */
-function editor(directory: string) {
+function editor(directory: string, config: object = {}) {
   const parsed = ts.getParsedCommandLineOfConfigFile(join(directory, 'tsconfig.json'), undefined, {
     ...ts.sys,
     onUnRecoverableConfigFileDiagnostic: () => {},
@@ -49,7 +49,7 @@ function editor(directory: string) {
     languageService: plain,
     project: { getCurrentDirectory: () => directory },
     serverHost: ts.sys,
-    config: {},
+    config,
   });
   const diagnostics = (file: string) =>
     service.getSemanticDiagnostics(join(directory, file)).map((d) => {
@@ -112,6 +112,16 @@ describe('the plugin', () => {
     expect(diagnostics('src/billing.ts')).toHaveLength(1);
     edit('src/billing.ts', 'export const firstAmount = (amounts: readonly number[]) => amounts[0] ?? 0;\n');
     expect(diagnostics('src/billing.ts')).toEqual([]);
+  });
+
+  test('loaded for every project by an editor extension, it only speaks in a project that has a strict-ts.json', () => {
+    const directory = project('legacy');
+    const everywhere = { name: '@strict-ts/language-service', global: true };
+    expect(editor(directory, everywhere).diagnostics('src/orders.ts')).toEqual([]);
+    // Named in tsconfig.json, it was asked for.
+    expect(editor(directory, { name: '@strict-ts/language-service' }).diagnostics('src/orders.ts').length).toBeGreaterThan(0);
+    writeFileSync(join(directory, 'strict-ts.json'), '{}');
+    expect(editor(directory, everywhere).diagnostics('src/orders.ts').length).toBeGreaterThan(0);
   });
 
   test('reads strict-ts.json: rules and unsafe directories', () => {

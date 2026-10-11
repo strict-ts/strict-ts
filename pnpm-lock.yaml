@@ -309,6 +309,12 @@ importers:
 
   packages/std: {}
 
+  packages/vscode:
+    devDependencies:
+      '@strict-ts/language-service':
+        specifier: workspace:*
+        version: link:../language-service
+
   packages/wrap:
     dependencies:
       '@strict-ts/std':

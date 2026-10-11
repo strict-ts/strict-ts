@@ -15,5 +15,10 @@ diagnostics, with the same engine, messages and helps as the command line.
 ## To know
 
 - The editor must use the workspace's TypeScript, 6 or earlier. A native TypeScript 7 server has no plugin API.
-- It is tested against the language service API on real projects, and has not been tried in an editor yet.
+- A plugin named in `tsconfig.json` is looked for beside the TypeScript server's own files, not beside the project:
+  it is found only when the workspace has its own TypeScript 6 and the editor uses it. [`@strict-ts/vscode`](../vscode)
+  is the way that works whatever TypeScript runs.
+- Loaded for every project by an editor extension, it only speaks in a project that has a `strict-ts.json`.
+- It is tested against the language service API, and was tried against a real TypeScript 5.9 server. It has not been
+  opened in an editor yet.
 - Each request checks the file again: there is no cache.
