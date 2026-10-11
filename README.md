@@ -19,7 +19,7 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 |---|---|---|
 | Memory safety | The runtime's garbage collector | Acquired |
 | Safe typing, nothing unchecked outside `unsafe` | No `any`, cast, `declare` or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Prototype |
-| No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use` | Prototype |
+| No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use`; a call or an operator that may throw is caught where it is written | Prototype |
 | Explicit mutability | Types read-only unless they say `Mut<T>`, no mutation of parameters | Prototype |
 | Ownership, no uncontrolled concurrent access | A value typed `Once<T>` has one owner and is given away exactly once (`use-once`). State shared across `await` and workers: nothing yet | Research: a first rule, on a small subset |
 
@@ -137,6 +137,56 @@ is both, `project` is once for the whole project.
 The compiler's own errors are reported too, as `TS2322` and the like. There is no comment that silences a rule, by
 design: what cannot conform goes to an unsafe directory with its reason, or to the baseline.
 
+## How strict-ts knows what throws
+
+`no-throw` forbids writing `throw`. That is not enough: `JSON.parse(text)`, `new RegExp(source)`, `1n / 0n` and
+`` `${value}` `` throw too, and their types do not say so. Two rules cover what a program calls and computes.
+
+```
+src/price.ts:4:10 no-throwing-call `Number.toFixed` throws a RangeError, as seen with -2147483648 · (2147483648).
+src/price.ts:9:22 no-throwing-call `fetchRates` is declared in "rates-client", whose types do not say whether it throws.
+src/price.ts:12:18 no-throwing-operator `/` throws a RangeError, as seen with 0n / 0n.
+src/price.ts:15:31 no-throwing-operator A template throws a TypeError, as seen with `${Object.create(null)}`.
+```
+
+Each is accepted inside `attempt(() => …, onError)` or a `try` with a `catch`: the failure then becomes a `Result`.
+
+What a function of the standard library does is not a list someone wrote. It is derived, by
+[`packages/ledger`](packages/ledger), from two readings that must agree:
+
+| | How | What it gives |
+|---|---|---|
+| **Runs** | Each of 802 functions is called 600 times on values generated from the types of its parameters | « It threw, on this call », or « it never threw » |
+| **The specification** | The ECMAScript specification is read, every `throw` and every failure handed on; where each value comes from is followed, and each check is asked of the declared types | « It has a way to throw », or « it has none » |
+
+A function is called safe only when the specification gives it no way to throw **and** no run threw. It throws when
+either says so. When the two disagree the other way (it threw, and the reading says it cannot), the build of the
+ledger fails until the case is understood and written down. The operators are run the same way, on every pair of
+kinds of operand, and only the combinations the compiler accepts are kept.
+
+A function that is not in the ledger is refused: the DOM, Node, a package that is not in `allowedImports`.
+
+## Ownership: a value with one owner
+
+A transaction that is neither committed nor rolled back, a lock released twice, a handle used after it was closed:
+all compile. `Once<T>` marks a value that has one owner and is given away exactly once, as a value Rust moves.
+
+```ts
+import { end, type Once } from '@strict-ts/std';
+
+export function begin(): Once<Transaction> { … }
+export function commit(tx: Once<Transaction>): Result<void, DbError> { const raw = end(tx); … }
+
+const tx = begin();
+tx.query('…');                        // used through its members: fine
+if (failed) return err('failed');     // refused: `tx` is not given away before this `return`
+commit(tx);
+tx.query('…');                        // refused: `tx` is used after it was given away
+```
+
+The rule `use-once` accepts a small subset, which it can prove: a value given away in plain sequence, or in both
+branches of an `if`. In a loop, a `try`, a condition inside an expression or a closure, it refuses rather than guess.
+
 ## Unsafe directories
 
 `unsafe/` is to strict-ts what `unsafe` is to Rust: the only place where unchecked code may live. By default it is
@@ -188,7 +238,24 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
 | `$schema` | none | The JSON schema, for completion and validation in the editor |
 
-## Adopting it on existing code: the baseline
+## Adopting it on existing code
+
+Run on six applications that were not written for it (4,400 to 29,800 lines: Hono, Next, Nuxt, Three.js, two canvas
+games), strict-ts refuses from 9 to 35 places per 100 lines. In order of what it takes:
+
+1. **Allow your frameworks.** A call into a package strict-ts knows nothing of is refused. List the ones you trust in
+   `allowedImports`: `"react"` also covers `@types/react`.
+2. **Tests need nothing.** A file under `test/` or `tests/`, named `*.test.*` or `*.spec.*`, or under `__tests__`, may
+   throw, call what throws and import what it needs. Everything else is checked in it.
+3. **Record the rest** in a baseline (below), so that the gate only fails on what is new.
+4. **Let the fixer shrink it.** On a 17,400-line game it fixed 709 of 867 `readonly-types` refusals. It is slow: 16
+   minutes there.
+5. **By hand**: `null`, `!`, casts, and what throws.
+
+What you cannot fix today: calls into the DOM and into Node. They have no entry in the effects ledger and are
+refused, so a browser application cannot reach zero.
+
+### The baseline
 
 ```sh
 strict-ts --update-baseline     # records today's violations, exits with 0
@@ -298,12 +365,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 |---|---|---|
 | [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 20 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
-| [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
+| [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
 | [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
-| [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page |
+| [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page, or to one file with the compiler inside |
+| [`@strict-ts/ledger`](packages/ledger) | Builds the effects ledger: runs the standard library and reads the specification; a tool of this repo | 802 of 844 functions run, 797 entries |
 | [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
 | `@strict-ts/flow` | Flow analysis across `await` and aliases. The single-use rule does not need it: it follows each function on the syntax tree of `core` | not started |
 
@@ -311,11 +379,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. A
-  function is called safe there only when our reading of the ECMAScript specification gives it no way to throw and
-  600 runs on generated values never threw. That reading is a judgement, and the two could be wrong the same way.
-  The DOM, Node and `Intl` are not read: their functions are refused, or classified by hand. A method of a typed
-  array throws once its buffer is detached: it is refused unless the project writes `"assume": ["attached-buffers"]`.
+- The effects ledger covers ECMAScript only. The DOM, Node and `Intl` are not read: their functions are refused, or
+  classified by hand (a few dozen). A method of a typed array throws once its buffer is detached: it is refused
+  unless the project writes `"assume": ["attached-buffers"]`.
+- The reading of the specification still holds three short lists that are a judgement: the operations taken to run
+  the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
+- A write to a frozen object throws, and no rule sees it: `Object.freeze(list)` leaves the name `list` typed as
+  mutable, and the ledger calls `push` safe.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.
