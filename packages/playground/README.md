@@ -1,6 +1,6 @@
 # @strict-ts/playground
 
-strict-ts in the browser: five scenarios to edit, with their diagnostics as you type. Not published.
+strict-ts in the browser: eleven scenarios to edit (the four examples of the repo, classic and conforming), with their diagnostics as you type. Not published.
 
 ```sh
 pnpm build            # at the root; or: pnpm --filter playground build

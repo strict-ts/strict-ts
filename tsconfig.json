@@ -24,6 +24,9 @@
     },
     {
       "path": "examples/invoice"
-    }
+    },
+    { "path": "examples/report" },
+    { "path": "examples/cart" },
+    { "path": "examples/transfer" }
   ]
 }

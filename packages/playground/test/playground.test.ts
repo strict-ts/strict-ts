@@ -23,13 +23,19 @@ const request = (id: string, change: Partial<Request> = {}): Request => {
   };
 };
 
-describe('the five scenarios, checked as the page checks them', () => {
-  test('there are five, each with a label, an intro and files', () => {
+describe('the scenarios, checked as the page checks them', () => {
+  test('there are eleven, each with a label, an intro and files', () => {
     expect(data.scenarios.map((scenario: { id: string }) => scenario.id)).toEqual([
       'challenge',
       'challenge-solution',
       'challenge-solution-detailed',
       'clean',
+      'report',
+      'report-solution',
+      'cart',
+      'cart-solution',
+      'transfer',
+      'transfer-solution',
       'violations',
     ]);
     for (const scenario of data.scenarios) {
@@ -59,7 +65,14 @@ describe('the five scenarios, checked as the page checks them', () => {
     expect([...triggered].toSorted()).toEqual(expected.toSorted());
   });
 
-  test.each(['challenge-solution', 'challenge-solution-detailed', 'clean'])('%s is conforming', (id) => {
+  test('each example is refused by the rules it is about', () => {
+    const refusedBy = (id: string) => new Set(playground.check(request(id)).diagnostics.map((d: { rule: string }) => d.rule));
+    expect([...refusedBy('report')]).toEqual(expect.arrayContaining(['no-throwing-call', 'no-throwing-operator', 'no-any']));
+    expect([...refusedBy('cart')]).toEqual(expect.arrayContaining(['no-param-mutation', 'readonly-types']));
+    expect([...refusedBy('transfer')]).toEqual(expect.arrayContaining(['no-throw', 'readonly-types']));
+  });
+
+  test.each(['challenge-solution', 'challenge-solution-detailed', 'clean', 'report-solution', 'cart-solution', 'transfer-solution'])('%s is conforming', (id) => {
     expect(playground.check(request(id)).diagnostics).toEqual([]);
   });
 
@@ -151,7 +164,7 @@ describe('the built page', () => {
     expect(html).not.toContain('<!--MARK-->');
     expect(html).not.toContain('<!--FAVICON-->');
     const embedded = /<script id="st-data" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
-    expect(JSON.parse(embedded).scenarios).toHaveLength(5);
+    expect(JSON.parse(embedded).scenarios).toHaveLength(11);
     expect(html).toContain('no-external-import');
   });
 });

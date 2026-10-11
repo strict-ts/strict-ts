@@ -57,6 +57,18 @@ export const parseInvoice = (json: string) => parseJson(json).andThen(Invoice.pa
 The whole example is in [`examples/invoice`](examples/invoice): the classic version is 58 lines and is refused 22
 times; the conforming one is 39 lines. A test keeps both numbers.
 
+## Examples
+
+Four small programs, each written twice, classic and conforming, compiled, checked and run by the tests:
+[`examples/`](examples).
+
+| Example | About |
+|---|---|
+| [`invoice`](examples/invoice) | Typing and errors: the challenge above, 58 lines against 39 |
+| [`report`](examples/report) | What throws without saying so: `JSON.parse`, a pattern, a bigint division, a template |
+| [`cart`](examples/cart) | Explicit mutability: who changes what, and a pure directory |
+| [`transfer`](examples/transfer) | Ownership: a transaction with one owner |
+
 ## Try it
 
 ```sh
@@ -370,7 +382,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
 | [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
-| [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page, or to one file with the compiler inside |
+| [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on eleven scenarios; not published | builds to one page, or to one file with the compiler inside |
 | [`@strict-ts/ledger`](packages/ledger) | Builds the effects ledger: runs the standard library and reads the specification; a tool of this repo | 802 of 844 functions run, 797 entries |
 | [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
 | `@strict-ts/flow` | Flow analysis across `await` and aliases. The single-use rule does not need it: it follows each function on the syntax tree of `core` | not started |

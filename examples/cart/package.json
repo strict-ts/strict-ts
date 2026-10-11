@@ -1,0 +1,11 @@
+{
+  "name": "@strict-ts/example-cart",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Explicit mutability: a cart that changes what it is given, against a version whose types say what may change.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@strict-ts/std": "workspace:*"
+  }
+}

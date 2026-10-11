@@ -1,0 +1,4 @@
+{
+  "unsafeDirs": ["unsafe"],
+  "pureDirs": ["domain"]
+}

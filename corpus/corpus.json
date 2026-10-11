@@ -45,6 +45,30 @@
       "path": "examples/invoice/strict"
     },
     {
+      "name": "examples/report/classic",
+      "path": "examples/report/classic"
+    },
+    {
+      "name": "examples/report/strict",
+      "path": "examples/report/strict"
+    },
+    {
+      "name": "examples/cart/classic",
+      "path": "examples/cart/classic"
+    },
+    {
+      "name": "examples/cart/strict",
+      "path": "examples/cart/strict"
+    },
+    {
+      "name": "examples/transfer/classic",
+      "path": "examples/transfer/classic"
+    },
+    {
+      "name": "examples/transfer/strict",
+      "path": "examples/transfer/strict"
+    },
+    {
       "name": "fixtures/legacy",
       "path": "packages/cli/test/fixtures/legacy"
     },
