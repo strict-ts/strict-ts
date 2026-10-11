@@ -179,8 +179,9 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | Key | Default | Meaning |
 |---|---|---|
 | `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json` |
-| `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw |
+| `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw. `react` covers `@types/react` |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
+| `testDirs` | `["test", "tests"]` | The directories that hold tests. A file named `*.test.*` or `*.spec.*`, or under `__tests__`, is a test wherever it is. A test is checked like any code, except that it may throw, call what throws and import what it needs |
 | `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |

@@ -16,6 +16,13 @@ export interface Config {
    */
   readonly pureDirs?: readonly string[];
   /**
+   * The directories that hold tests, relative to the project root; `test` and `tests` when absent. A file named
+   * `*.test.*` or `*.spec.*`, or under a `__tests__` directory, is a test wherever it is. A test is checked like any
+   * code, except that it may throw, call what throws and import what it needs to test: as in Rust, where a test
+   * may panic.
+   */
+  readonly testDirs?: readonly string[];
+  /**
    * What the project says of itself and that no rule can check. Each is a risk the project takes in writing:
    * `attached-buffers`: no buffer is ever detached (transferred to another thread, resized away), so the methods of
    * typed arrays and of `DataView` do not throw for that.
@@ -42,4 +49,9 @@ export function isUnsafe(fileName: string, config: Config): boolean {
 /** Whether a file belongs to a directory declared pure. */
 export function isPure(fileName: string, config: Config): boolean {
   return isUnder(fileName, config.pureDirs ?? []);
+}
+
+/** Whether a file is a test: see `Config.testDirs`. */
+export function isTest(fileName: string, config: Config): boolean {
+  return isUnder(fileName, config.testDirs ?? ['test', 'tests']) || /(?:^|\/)__tests__\//.test(fileName) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fileName);
 }

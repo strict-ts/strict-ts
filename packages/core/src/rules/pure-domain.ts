@@ -43,6 +43,7 @@ export const pureDomain: Rule = {
   guarantee: 'mutability',
   description: 'In a directory declared pure: no I/O, no clock, no randomness, no global state, and no import of code that is not pure.',
   scope: 'safe',
+  inTests: false,
   visit(node, { file, config, report }) {
     if (!isPure(file.name, config)) return;
     if (node.kind === 'module-state') {

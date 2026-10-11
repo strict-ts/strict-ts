@@ -27,7 +27,8 @@ describe('the effects ledger', () => {
     const safe = entries.filter(([, effect]) => effect.verdict === 'total' && effect.evidence.byHand === undefined);
     expect(safe.length).toBeGreaterThan(250);
     for (const [name, effect] of safe) {
-      expect(effect.evidence.spec, name).toMatch(/^sec-/);
+      // The id of the clause: `sec-…`, or the name itself in the annex of legacy functions.
+      expect(effect.evidence.spec, name).toMatch(/^(?:sec-|String\.prototype\.)/);
       expect(effect.evidence.runs, name).toBeGreaterThan(100);
     }
   });

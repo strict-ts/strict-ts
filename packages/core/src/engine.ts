@@ -1,4 +1,4 @@
-import { type Config, defaultConfig, isUnsafe } from './config.js';
+import { type Config, defaultConfig, isTest, isUnsafe } from './config.js';
 import { compareDiagnostics, type Diagnostic, diagnosticAt, locator } from './diagnostic.js';
 import type { Mut } from './mut.js';
 import type { TypeProvider } from './provider.js';
@@ -31,8 +31,10 @@ export function check(
   for (const file of provider.files) {
     const unsafe = isUnsafe(file.name, config);
     const locate = locator(file.text);
+    const test = isTest(file.name, config);
     const active = enabled
       .filter((rule) => rule.scope === 'all' || rule.scope === (unsafe ? 'unsafe' : 'safe'))
+      .filter((rule) => !test || rule.inTests !== false)
       .map((rule) => {
         const context: FileContext = {
           file,

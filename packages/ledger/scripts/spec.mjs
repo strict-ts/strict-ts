@@ -32,6 +32,8 @@ export function clauses(html) {
         attributes: closed.attributes,
         header: header.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
         algorithms: [...closed.text.matchAll(/<emu-alg[^>]*>([\s\S]*?)<\/emu-alg>/g)].map((alg) => alg[1]),
+        // What the clause says in words, after its header: all there is to read when it has no algorithm.
+        prose: closed.text.replace(/<h1>[\s\S]*?<\/h1>/, '').replace(/<emu-note>[\s\S]*?<\/emu-note>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1500),
       });
     }
   }
@@ -107,7 +109,46 @@ function parameters(header) {
  * values they test come from), and the operations it calls with `?` (with where their arguments come from).
  */
 export function facts(html) {
-  return clauses(html)
+  const all = clauses(html);
+  // Where a name has an algorithm, the algorithm is what is read.
+  const read = withAlgorithm(all);
+  const names = new Set(read.map((clause) => clause.name));
+  return [...read, ...inWords(all).filter((clause) => !names.has(clause.name))];
+}
+
+/**
+ * The functions the specification describes in words, without an algorithm (`Math.random`, `Date.now`). What can
+ * be read of them: that they are another function (« behaves in exactly the same way as »), the exceptions and the
+ * conversions the words name. A conversion is taken to be of the first argument.
+ */
+function inWords(all) {
+  return all
+    .filter((clause) => clause.algorithms.length === 0 && /^[\w%.]+ \(/.test(clause.header) && !clause.header.includes('. . .') && !/type="/.test(clause.attributes) && clause.prose !== '')
+    .map((clause) => {
+      const params = parameters(clause.header);
+      const same = /(?:behaves in exactly the same way as|is the same function object as|property is) `?%?([\w.]+)%?`?/.exec(clause.prose)?.[1];
+      const first = params[0] === undefined ? 'unknown' : `param:${params[0]}`;
+      return {
+        id: clause.id,
+        name: clause.header.slice(0, clause.header.indexOf('(')).trim(),
+        operation: false,
+        inWords: true,
+        ...(same === undefined ? {} : { same }),
+        params,
+        tolerates: { undefined: [], null: [] },
+        // Any error the words name is one the function may throw.
+        throws: [...clause.prose.matchAll(/\*(\w*Error)\*/g)].map((thrown) => ({ kind: thrown[1], step: clause.prose.slice(Math.max(0, thrown.index - 80), thrown.index + 40), about: ['unknown'] })),
+        calls: [],
+        passes: Object.keys(REFUSES).filter((op) => new RegExp(`\\b${op}\\b`).test(clause.prose)).map((op) => ({ to: op, given: [first] })),
+      };
+    })
+    // Words say enough of a function that is another one, of one that takes nothing, and of one whose words name
+    // what it does to its argument. Of any other, they are not read as a proof.
+    .filter((clause) => clause.same !== undefined || clause.params.length === 0 || clause.passes.length > 0);
+}
+
+function withAlgorithm(all) {
+  return all
     // A function has its parameters in its header; an accessor (`get RegExp.prototype.flags`) has none.
     .filter((clause) => clause.algorithms.length > 0 && (clause.header.includes('(') || /^[gs]et /.test(clause.header)))
     .map((clause) => {
@@ -242,6 +283,13 @@ export function analyse(all) {
   const visit = (clause, path) => {
     if (known.has(clause.name)) return known.get(clause.name);
     if (path.includes(clause.name)) return empty;
+    // Described as another function: what is known of that one.
+    const same = clause.same === undefined ? undefined : byName.get(clause.same);
+    if (same !== undefined) {
+      const result = visit(same, [...path, clause.name]);
+      known.set(clause.name, result);
+      return result;
+    }
     const real = [];
     const conversions = [];
     const guards = [];

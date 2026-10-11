@@ -32,6 +32,10 @@ the operations a function hands its arguments to, and then asks the declared typ
 - a conversion (`? ToString(_x_)`) can fail only on a kind of value the conversion refuses and the declared type
   lets in. What each conversion refuses is a table of ten lines, which a test checks by running each conversion.
 
+A few functions have no algorithm: the specification describes them in words (`Math.random`, `Date.now`,
+`toUpperCase`). The words are read where they say enough: that the function is another one (« behaves in exactly the
+same way as »), that it takes nothing and names no error, or which conversion it applies to its argument.
+
 What is left to judgement is three short lists: the operations that run the caller's own code (a callback, a
 getter), the checks of the receiver's class, and the sizes no machine holds. `scripts/spec-facts.mjs` fetches the
 specification (ECMAScript 2023) and writes what it found to `spec/facts.json`, kept in the repo so that a build
@@ -61,11 +65,11 @@ The reader of the specification also reads its 32 accessors: two can throw on th
 
 ## Where it stands
 
-778 generated entries for the 844 functions:
+797 generated entries for the 844 functions:
 
 | Entries | Verdict | On what |
 |---|---|---|
-| 291 | `total` | The clause of the specification and 600 runs that never threw |
+| 310 | `total` | The clause of the specification and 600 runs that never threw |
 | 196 | `throws` | A call that was seen to throw, or a conversion that may meet an object it refuses; 25 of them only on what is not plain |
 | 284 | `throws` with `detached` | The specification: only on a buffer that was detached. The runs never threw |
 | 7 | `throws` | The specification only: no run found it |

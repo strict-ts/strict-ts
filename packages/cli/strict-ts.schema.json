@@ -37,6 +37,17 @@
       "default": [],
       "description": "The directories whose code must be pure, relative to the project root: no I/O, no clock, no randomness, no global state, no import of code that is not pure."
     },
+    "testDirs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "test",
+        "tests"
+      ],
+      "description": "The directories that hold tests, relative to the project root. A file named *.test.* or *.spec.*, or under a __tests__ directory, is a test wherever it is. A test may throw, call what throws and import what it needs."
+    },
     "assume": {
       "type": "array",
       "items": {

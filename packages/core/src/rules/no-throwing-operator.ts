@@ -44,6 +44,7 @@ export const noThrowingOperator: Rule = {
   description:
     'An operator or a read that may throw on what its operands may be is caught where it is written: a bigint division, the conversion of a value that may not convert, a property that runs code.',
   scope: 'all',
+  inTests: false,
   visit(node, { config, calleeOf, typeOf, report }, _parent, ancestors) {
     const caught = (): boolean => isCaught(node, ancestors, calleeOf, config);
     if (node.kind === 'binary') {

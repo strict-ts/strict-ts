@@ -32,7 +32,7 @@ function locate(job) {
 
 const settle = (value) =>
   typeof value?.then === 'function'
-    ? Promise.race([Promise.resolve(value).then(() => undefined, (error) => error ?? new Error('rejected')), new Promise((resolve) => setTimeout(resolve, 20))])
+    ? Promise.race([Promise.resolve(value).then(() => undefined, (error) => error ?? new Error('rejected')), new Promise((resolve) => setTimeout(resolve, 1))])
     : undefined;
 
 for (const job of jobs) {

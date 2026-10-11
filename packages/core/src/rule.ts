@@ -33,6 +33,11 @@ export interface Rule {
   readonly description: string;
   readonly scope: Scope;
   /**
+   * `false` for a rule that does not run in a test: one about exceptions, which a test is free to raise, or about
+   * what may be imported. Every other rule runs in tests as anywhere.
+   */
+  readonly inTests?: false;
+  /**
    * Called for every node of a file, parents first. `parent` is absent for the root; `ancestors` goes from the root
    * down to the parent.
    */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { check, compareDiagnostics, defaultConfig, isUnsafe, locator, type Node, type Rule, rules, type TypeProvider } from '../src/index.js';
+import { check, compareDiagnostics, type Config, defaultConfig, isUnsafe, locator, type Node, type Rule, rules, type TypeProvider } from '../src/index.js';
 import { checkFiles, checkSafe, fixture, refusals } from './project.js';
 
 describe('check', () => {
@@ -173,5 +173,24 @@ describe('locator', () => {
     expect(locate(3)).toEqual({ line: 2, column: 1 });
     expect(locate(7)).toEqual({ line: 3, column: 1 });
     expect(locate(9)).toEqual({ line: 4, column: 2 });
+  });
+});
+
+describe('tests', () => {
+  const body = 'import { helper } from "outside";\nexport const run = (text: string): unknown => { if (text === "") throw new Error("empty"); return helper(decodeURIComponent(text)) ?? null; };\n';
+  const rulesOf = (file: string, config?: Config) => [...new Set(checkFiles({ [file]: body, 'node_modules/outside/index.d.ts': 'export declare const helper: (x: string) => unknown;\n' }, config === undefined ? {} : { config }).filter((d) => d.file === file).map((d) => d.rule))].toSorted();
+
+  test('a test may throw, call what throws and import what it needs; the rest is checked as anywhere', () => {
+    expect(rulesOf('src/run.ts')).toEqual(['no-external-import', 'no-null', 'no-throw', 'no-throwing-call']);
+    expect(rulesOf('src/run.test.ts')).toEqual(['no-null']);
+    expect(rulesOf('test/run.ts')).toEqual(['no-null']);
+    expect(rulesOf('src/__tests__/run.ts')).toEqual(['no-null']);
+    expect(rulesOf('src/run.spec.tsx')).toEqual(['no-null']);
+  });
+
+  test('the directories that hold tests are the project\'s to name', () => {
+    const config = { ...defaultConfig, testDirs: ['checks'] };
+    expect(rulesOf('checks/run.ts', config)).toEqual(['no-null']);
+    expect(rulesOf('test/run.ts', config)).toEqual(['no-external-import', 'no-null', 'no-throw', 'no-throwing-call']);
   });
 });

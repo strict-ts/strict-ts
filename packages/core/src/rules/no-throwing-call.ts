@@ -29,6 +29,7 @@ export const noThrowingCall: Rule = {
   description:
     'A call that may throw without its type saying so is caught where it is made: inside `attempt`, or in a `try` with a `catch`.',
   scope: 'all',
+  inTests: false,
   visit(node, { config, calleeOf, typeOf, report }, _parent, ancestors) {
     if (node.kind !== 'call' && node.kind !== 'new') return;
     const callee = calleeOf(node);
