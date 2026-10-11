@@ -4,16 +4,16 @@ import { parseArgs } from '../src/index.js';
 const parsed = (...argv: readonly string[]) => parseArgs(argv).match({ ok: (command) => command, err: (error) => error });
 
 test('no argument checks the current directory as text', () => {
-  expect(parsed()).toEqual({ kind: 'check', project: undefined, format: 'text', updateBaseline: false });
+  expect(parsed()).toEqual({ kind: 'check', project: undefined, format: 'text', baseline: 'use' });
 });
 
 test('options take their value from the next argument or after =', () => {
-  expect(parsed('-p', 'app', '--format', 'json')).toEqual({ kind: 'check', project: 'app', format: 'json', updateBaseline: false });
+  expect(parsed('-p', 'app', '--format', 'json')).toEqual({ kind: 'check', project: 'app', format: 'json', baseline: 'use' });
   expect(parsed('--project=app/tsconfig.json', '--format=text')).toEqual({
     kind: 'check',
     project: 'app/tsconfig.json',
     format: 'text',
-    updateBaseline: false,
+    baseline: 'use',
   });
 });
 
@@ -30,7 +30,12 @@ test('what is not understood is an error', () => {
 });
 
 test('--update-baseline is a flag, and refuses a format', () => {
-  expect(parsed('--update-baseline', '-p', 'app')).toEqual({ kind: 'check', project: 'app', format: 'text', updateBaseline: true });
+  expect(parsed('--update-baseline', '-p', 'app')).toEqual({ kind: 'check', project: 'app', format: 'text', baseline: 'update' });
   expect(parsed('--update-baseline', '--format', 'json')).toBe('--update-baseline cannot be combined with --format');
   expect(parsed('--update-baseline=yes')).toBe('unknown argument: --update-baseline=yes');
+});
+
+test('--no-baseline ignores the baseline, and cannot go with --update-baseline', () => {
+  expect(parsed('--no-baseline')).toEqual({ kind: 'check', project: undefined, format: 'text', baseline: 'ignore' });
+  expect(parsed('--no-baseline', '--update-baseline')).toBe('--update-baseline cannot be combined with --no-baseline');
 });

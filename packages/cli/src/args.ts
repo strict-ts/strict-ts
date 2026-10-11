@@ -2,14 +2,16 @@ import { err, ok, type Result } from '@strict-ts/std';
 
 export type Format = 'text' | 'json';
 
+export type BaselineMode = 'use' | 'ignore' | 'update';
+
 export type Command =
   | { readonly kind: 'help' }
   | {
       readonly kind: 'check';
       readonly project: string | undefined;
       readonly format: Format;
-      /** Record today's violations instead of failing on them. */
-      readonly updateBaseline: boolean;
+      /** `use` the baseline file when there is one, `ignore` it, or `update` it with today's violations. */
+      readonly baseline: BaselineMode;
     };
 
 export const usage = [
@@ -22,8 +24,12 @@ export const usage = [
   '  -p, --project <path>   A tsconfig.json, or a directory that holds one (default: the current directory)',
   '      --format <format>  text (default) or json',
   '      --update-baseline  Record the violations found in the baseline file, and exit with 0',
+  '      --no-baseline      Ignore the baseline file: refuse every violation',
   '  -h, --help             Show this help',
 ].join('\n');
+
+/** The options that take no value. */
+const FLAGS = ['--update-baseline', '--no-baseline'];
 
 const isFormat = (value: string): value is Format => value === 'text' || value === 'json';
 
@@ -31,12 +37,12 @@ const isFormat = (value: string): value is Format => value === 'text' || value =
 export function parseArgs(argv: readonly string[]): Result<Command, string> {
   let project: string | undefined;
   let format: Format | undefined;
-  let updateBaseline = false;
+  const flags = new Set<string>();
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? '';
     if (arg === '-h' || arg === '--help') return ok({ kind: 'help' });
-    if (arg === '--update-baseline') {
-      updateBaseline = true;
+    if (FLAGS.includes(arg)) {
+      flags.add(arg);
       continue;
     }
     const equals = arg.startsWith('--') ? arg.indexOf('=') : -1;
@@ -51,6 +57,9 @@ export function parseArgs(argv: readonly string[]): Result<Command, string> {
       project = value;
     }
   }
-  if (updateBaseline && format !== undefined) return err('--update-baseline cannot be combined with --format');
-  return ok({ kind: 'check', project, format: format ?? 'text', updateBaseline });
+  const update = flags.has('--update-baseline');
+  if (update && format !== undefined) return err('--update-baseline cannot be combined with --format');
+  if (update && flags.has('--no-baseline')) return err('--update-baseline cannot be combined with --no-baseline');
+  const baseline = update ? 'update' : flags.has('--no-baseline') ? 'ignore' : 'use';
+  return ok({ kind: 'check', project, format: format ?? 'text', baseline });
 }

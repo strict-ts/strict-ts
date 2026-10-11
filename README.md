@@ -49,7 +49,7 @@ beside `tsconfig.json` sets `unsafeDirs`, `allowedImports`, `rules` and `baselin
 could not be checked.
 
 `--update-baseline` records today's violations in `strict-ts-baseline.json`, a count per rule per file, and exits
-with 0. The gate does not read that file yet.
+with 0. From then on the gate refuses only what goes beyond that record; `--no-baseline` shows everything.
 
 `pnpm build` also writes the playground to `packages/playground/dist`: open `index.html` in a browser, it needs no
 server and no network.
