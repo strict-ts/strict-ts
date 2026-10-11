@@ -1,5 +1,5 @@
 /** See `Config.assume`. */
-export const assumptions = ['attached-buffers'] as const;
+export const assumptions = ['attached-buffers', 'dom-as-observed'] as const;
 export type Assumption = (typeof assumptions)[number];
 
 export interface Config {
@@ -26,6 +26,8 @@ export interface Config {
    * What the project says of itself and that no rule can check. Each is a risk the project takes in writing:
    * `attached-buffers`: no buffer is ever detached (transferred to another thread, resized away), so the methods of
    * typed arrays and of `DataView` do not throw for that.
+   * `dom-as-observed`: a function of the DOM that was called in a browser on generated values and never threw is
+   * taken not to throw, although no specification was read for it.
    */
   readonly assume?: readonly Assumption[];
   /** The names of the rules to run; all of them when absent. */

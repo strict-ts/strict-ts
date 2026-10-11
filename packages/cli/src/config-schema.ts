@@ -46,7 +46,7 @@ export const configSchema = {
       uniqueItems: true,
       default: [],
       description:
-        'What the project says of itself and that no rule can check. "attached-buffers": no buffer is ever detached, so the methods of typed arrays and of DataView do not throw for that.',
+        'What the project says of itself and that no rule can check. "attached-buffers": no buffer is ever detached, so the methods of typed arrays and of DataView do not throw for that. "dom-as-observed": a function of the DOM that never threw when it was run in a browser is taken not to throw, although no specification was read for it.',
     },
     rules: {
       type: 'array',

@@ -1203,6 +1203,39 @@ describe('no-throwing-call and the packages a project allows', () => {
   });
 });
 
+describe('no-throwing-call in a page', () => {
+  const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
+  const lines = [
+    'export const a = (root: ParentNode, selector: string): Element | undefined => root.querySelector(selector) ?? undefined;',
+    'export const b = (canvas: CanvasRenderingContext2D): void => canvas.fillRect(0, 0, 10, 10);',
+    'export const c = (run: () => void): number => requestAnimationFrame(run) + setTimeout(run, 10);',
+    'export const d = (element: Element): void => element.scrollIntoView();',
+    'export const e = (context: AudioContext): OscillatorNode => context.createOscillator();',
+  ];
+  const said = (assume?: readonly ('attached-buffers' | 'dom-as-observed')[]) =>
+    checkSafeEverything([...lines, ''].join('\n'), { ...page, config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], ...(assume === undefined ? {} : { assume }) } })
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+
+  test('a function of the DOM that was seen to throw is refused; one that was only seen not to is refused too, with that reason', () => {
+    expect(said()).toEqual([
+      '1 `ParentNode.querySelector` throws a SyntaxError.',
+      '2 `CanvasRect.fillRect` was only seen not to throw (80 calls in a browser): nothing was read that says it cannot.',
+      // `setTimeout` on the same line was judged by a person, and the runs did not contradict it.
+      '3 `requestAnimationFrame` was only seen not to throw (80 calls in a browser): nothing was read that says it cannot.',
+      '4 `Element.scrollIntoView` was only seen not to throw (80 calls in a browser): nothing was read that says it cannot.',
+      '5 `BaseAudioContext.createOscillator` is not in the effects ledger: nothing shows that it does not throw.',
+    ]);
+  });
+
+  test('a project may take what was observed as enough: what threw, and what was never run, stay refused', () => {
+    expect(said(['dom-as-observed'])).toEqual([
+      '1 `ParentNode.querySelector` throws a SyntaxError.',
+      '5 `BaseAudioContext.createOscillator` is not in the effects ledger: nothing shows that it does not throw.',
+    ]);
+  });
+});
+
 describe('no-throwing-operator', () => {
   const said = (found: ReturnType<typeof checkEverything>) =>
     found.filter((d) => d.rule === 'no-throwing-operator').map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);

@@ -22,6 +22,8 @@ export const RUNNABLE = new Set([
 const NEVER = new Set(['eval', 'FunctionConstructor.new', 'FunctionConstructor.', 'Function.new']);
 
 const MAX_DEPTH = 3;
+/** Whether option bags are described by their properties: set by `readLibrary`. */
+let dictionaries = false;
 
 /**
  * A type as a generator needs it. `any` stands for a value whose type says nothing (any, unknown, a type parameter,
@@ -61,7 +63,10 @@ function describe(checker, type, depth) {
   }
   const name = type.getSymbol()?.getName();
   const inLibrary = (type.getSymbol()?.getDeclarations() ?? []).some((declaration) => declaration.getSourceFile().isDeclarationFile);
-  if (inLibrary && name !== undefined && name !== '__type' && name !== '__object') {
+  // In the DOM an interface with no value behind it is a bag of options the caller writes: described by its
+  // properties, so that a generator can make one.
+  const written = dictionaries && (type.getSymbol()?.flags ?? 0) & ts.SymbolFlags.Value ? false : dictionaries && type.getProperties().every((property) => (property.flags & ts.SymbolFlags.Method) === 0);
+  if (inLibrary && !written && name !== undefined && name !== '__type' && name !== '__object') {
     const [first, second] = (type.flags & F.Object) !== 0 && (type.objectFlags & ts.ObjectFlags.Reference) !== 0 ? checker.getTypeArguments(type) : [];
     return {
       k: 'library',
@@ -78,9 +83,13 @@ function describe(checker, type, depth) {
   return { k: 'object', props };
 }
 
-/** Every callable declaration of the ES libraries: `{ name, owner, member, runnable, signatures }`. */
-export function readLibrary() {
-  const options = { target: ts.ScriptTarget.ES2023, lib: ['lib.es2023.d.ts'], types: [], noEmit: true, strict: true };
+/**
+ * Every callable declaration of the ES libraries, or with `dom` of the DOM ones: `{ name, owner, member, runnable,
+ * signatures }`, and `isStatic` for a member of the object a class is declared as (`URL.canParse`).
+ */
+export function readLibrary({ dom = false } = {}) {
+  dictionaries = dom;
+  const options = { target: ts.ScriptTarget.ES2023, lib: dom ? ['lib.es2023.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'] : ['lib.es2023.d.ts'], types: [], noEmit: true, strict: true };
   const host = ts.createCompilerHost(options);
   const probe = '/__ledger__.ts';
   const program = ts.createProgram({
@@ -96,7 +105,7 @@ export function readLibrary() {
   const checker = program.getTypeChecker();
   const found = new Map();
 
-  const add = (owner, member, declaration) => {
+  const add = (owner, member, declaration, isStatic = false) => {
     const name = owner === '' ? member : `${owner}.${member}`;
     const parameters = declaration.parameters.filter((parameter) => !(ts.isIdentifier(parameter.name) && parameter.name.text === 'this'));
     const described = {
@@ -111,13 +120,13 @@ export function readLibrary() {
         return { optional, rest, type: given.k === 'union' && given.of.length === 1 ? given.of[0] : given };
       }),
     };
-    const entry = found.get(name) ?? { name, owner, member, runnable: RUNNABLE.has(owner) && !NEVER.has(name), signatures: [] };
+    const entry = found.get(name) ?? { name, owner, member, runnable: dom || (RUNNABLE.has(owner) && !NEVER.has(name)), ...(isStatic ? { isStatic } : {}), signatures: [] };
     entry.signatures.push(described);
     found.set(name, entry);
   };
-  const members = (owner, list) => {
+  const members = (owner, list, isStatic = false) => {
     for (const member of list) {
-      if (ts.isMethodSignature(member) && member.name !== undefined && (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name))) add(owner, member.name.text, member);
+      if (ts.isMethodSignature(member) && member.name !== undefined && (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name))) add(owner, member.name.text, member, isStatic);
       else if (ts.isConstructSignatureDeclaration(member)) add(owner, 'new', member);
       else if (ts.isCallSignatureDeclaration(member)) add(owner, '', member);
     }
@@ -126,7 +135,7 @@ export function readLibrary() {
     if (ts.isInterfaceDeclaration(statement)) members(statement.name.text, statement.members);
     else if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name) && declaration.type !== undefined && ts.isTypeLiteralNode(declaration.type)) members(declaration.name.text, declaration.type.members);
+        if (ts.isIdentifier(declaration.name) && declaration.type !== undefined && ts.isTypeLiteralNode(declaration.type)) members(declaration.name.text, declaration.type.members, true);
       }
     } else if (ts.isFunctionDeclaration(statement) && statement.name !== undefined) add('', statement.name.text, statement);
     else if (ts.isModuleDeclaration(statement) && ts.isIdentifier(statement.name) && statement.body !== undefined && ts.isModuleBlock(statement.body)) {
@@ -136,7 +145,7 @@ export function readLibrary() {
     }
   };
   for (const sourceFile of program.getSourceFiles()) {
-    if (!program.isSourceFileDefaultLibrary(sourceFile) || !/lib\.es[\w.]*\.d\.ts$/.test(sourceFile.fileName)) continue;
+    if (!program.isSourceFileDefaultLibrary(sourceFile) || !(dom ? /lib\.dom[\w.]*\.d\.ts$/ : /lib\.es[\w.]*\.d\.ts$/).test(sourceFile.fileName)) continue;
     sourceFile.statements.forEach(visit);
   }
   return [...found.values()].toSorted((a, b) => (a.name < b.name ? -1 : 1));
