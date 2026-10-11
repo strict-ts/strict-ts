@@ -17,6 +17,7 @@ export interface FileContext {
   readonly calleeOf: (node: Node) => Callee | undefined;
   readonly expectedOf: (node: Node) => Type | undefined;
   readonly asksForMutation: (node: Node) => boolean;
+  readonly valuesOf: (node: Node) => readonly unknown[] | undefined;
   readonly exports: () => readonly ExportedValue[];
   readonly report: Report;
 }

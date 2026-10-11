@@ -1,5 +1,5 @@
 /** See `Config.assume`. */
-export const assumptions = ['attached-buffers', 'dom-as-observed'] as const;
+export const assumptions = ['attached-buffers', 'dom-as-observed', 'generated-receivers'] as const;
 export type Assumption = (typeof assumptions)[number];
 
 export interface Config {
@@ -28,6 +28,8 @@ export interface Config {
    * typed arrays and of `DataView` do not throw for that.
    * `dom-as-observed`: a function of the DOM that was called in a browser on generated values and never threw is
    * taken not to throw, although no specification was read for it.
+   * `generated-receivers`: a method called with arguments written in the call, that did not throw when the gate ran
+   * it with them on a list of receivers of its class, is taken not to throw on the receiver it will have.
    */
   readonly assume?: readonly Assumption[];
   /** The names of the rules to run; all of them when absent. */

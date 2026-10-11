@@ -43,6 +43,7 @@ export function check(
           calleeOf: provider.calleeOf,
           expectedOf: provider.expectedOf,
           asksForMutation: provider.asksForMutation,
+          valuesOf: provider.valuesOf,
           exports: () => provider.exportsOf(file),
           report: (span, message, help) => found.push(diagnosticAt(rule.name, file.name, locate, span, message, help)),
         };

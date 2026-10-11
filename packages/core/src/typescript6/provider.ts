@@ -3,6 +3,8 @@
 import type ts from '@typescript/typescript6';
 import { type Diagnostic, diagnosticAt, locator, type Position } from '../diagnostic.js';
 import type { Mut } from '../mut.js';
+import { pattern, wholeNumber } from '../unsafe/run.js';
+import { record } from '../record.js';
 import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
 import type { Node } from '../syntax.js';
 
@@ -90,6 +92,63 @@ export function createTypeScript6Provider(
     // function to read. Read where it is; a test says what happens the day it moves.
     const READONLY = 8;
     return 'links' in symbol && typeof symbol.links === 'object' && symbol.links !== null && 'checkFlags' in symbol.links && typeof symbol.links.checkFlags === 'number' && (symbol.links.checkFlags & READONLY) !== 0;
+  };
+
+  const MOST = 16;
+  /** Each way to pick one value from each list, or nothing past `MOST` of them. */
+  const combinations = (lists: readonly (readonly unknown[])[]): readonly (readonly unknown[])[] | undefined => {
+    let all: readonly (readonly unknown[])[] = [[]];
+    for (const list of lists) {
+      all = all.flatMap((chosen) => list.map((value) => [...chosen, value]));
+      if (all.length > MOST) return undefined;
+    }
+    return all;
+  };
+  /** The values a type is made of, when it is a literal or a union of literals. */
+  const valuesOfType = (type: ts.Type): readonly unknown[] | undefined => {
+    if (type.isUnion()) {
+      const members = type.types.map(valuesOfType);
+      const known = members.flatMap((member) => member ?? []);
+      return members.some((member) => member === undefined) || known.length > MOST ? undefined : known;
+    }
+    if (type.isStringLiteral() || type.isNumberLiteral()) return [type.value];
+    if ((type.flags & api.TypeFlags.BigIntLiteral) !== 0) {
+      const made = wholeNumber(checker.typeToString(type).slice(0, -1));
+      return made.ok ? [made.value] : undefined;
+    }
+    if ((type.flags & api.TypeFlags.BooleanLiteral) !== 0) return [checker.typeToString(type) === 'true'];
+    if ((type.flags & (api.TypeFlags.Undefined | api.TypeFlags.Void)) !== 0) return [undefined];
+    return undefined;
+  };
+  /** Every value an expression can have: see `TypeProvider.valuesOf`. */
+  const valuesOf = (written: ts.Expression, depth: number): readonly unknown[] | undefined => {
+    let expression = written;
+    while (api.isParenthesizedExpression(expression) || api.isAsExpression(expression) || api.isSatisfiesExpression(expression)) expression = expression.expression;
+    if (depth > 3) return undefined;
+    if (api.isRegularExpressionLiteral(expression)) {
+      const parts = /^\/(.*)\/([a-z]*)$/s.exec(expression.text);
+      const made = parts === null ? undefined : pattern(parts[1] ?? '', parts[2] ?? '');
+      return made?.ok === true ? [made.value] : undefined;
+    }
+    if (api.isArrayLiteralExpression(expression)) {
+      const items = expression.elements.map((element) => (api.isSpreadElement(element) || api.isOmittedExpression(element) ? undefined : valuesOf(element, depth + 1)));
+      const known = items.flatMap((item) => (item === undefined ? [] : [item]));
+      return known.length === items.length ? combinations(known) : undefined;
+    }
+    if (api.isObjectLiteralExpression(expression)) {
+      const names: Mut<string[]> = [];
+      const lists: Mut<(readonly unknown[])[]> = [];
+      for (const property of expression.properties) {
+        const value = api.isPropertyAssignment(property) ? property.initializer : api.isShorthandPropertyAssignment(property) ? property.name : undefined;
+        const name = property.name !== undefined && (api.isIdentifier(property.name) || api.isStringLiteral(property.name)) ? property.name.text : undefined;
+        const values = value === undefined ? undefined : valuesOf(value, depth + 1);
+        if (name === undefined || name === '__proto__' || values === undefined) return undefined;
+        names.push(name);
+        lists.push(values);
+      }
+      return combinations(lists)?.map((chosen) => record(names.map((name, index): readonly [string, unknown] => [name, chosen[index]])));
+    }
+    return valuesOfType(checker.getTypeAtLocation(expression));
   };
 
   const wrapType = (type: ts.Type): Type => {
@@ -275,7 +334,7 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
       }
       if (api.isNewExpression(node)) {
-        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0 };
+        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part) };
       }
       if (api.isVariableStatement(node) && api.isSourceFile(node.parent) && (node.declarationList.flags & api.NodeFlags.Const) === 0) {
         const ambient = (api.getModifiers(node) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword);
@@ -458,6 +517,10 @@ export function createTypeScript6Provider(
       if (source === undefined || !api.isExpression(source)) return undefined;
       const expected = checker.getContextualType(source);
       return expected === undefined ? undefined : wrapType(expected);
+    },
+    valuesOf: (node) => {
+      const source = origin.get(node);
+      return source === undefined || !api.isExpression(source) ? undefined : valuesOf(source, 0);
     },
     asksForMutation: (node) => {
       const source = origin.get(node);

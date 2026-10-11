@@ -1217,6 +1217,60 @@ describe('no-throwing-call and the packages a project allows', () => {
   });
 });
 
+describe('no-throwing-call on arguments written in the call', () => {
+  const said = (lines: readonly string[], assume?: readonly 'generated-receivers'[]) =>
+    checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], ...(assume === undefined ? {} : { assume }) } })
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+
+  test('a call without a receiver is run: it is accepted when it does not throw, as it is written', () => {
+    expect(
+      said([
+        'export const a = new RegExp("^a+$", "i");',
+        'export const b = new RegExp("(");',
+        'export const c = BigInt("12") + BigInt(3);',
+        'export const d = BigInt("1.5");',
+        'export const e = JSON.parse("[1, 2]") === undefined;',
+        'export const f = decodeURIComponent("%20") + decodeURIComponent("%");',
+        'export const g = new Intl.DateTimeFormat("fr-FR", { day: "numeric" });',
+        'export const h = new Intl.DateTimeFormat("fr-FR", { day: "sometimes" as "numeric" });',
+      ]).map((line) => line.replace(/ (throws|is not in).*$/, '')),
+    ).toEqual(['2 `RegExp.new`', '4 `BigInt`', '6 `decodeURIComponent`', '8 `DateTimeFormat.new`']);
+  });
+
+  test('a receiver written in the call is the receiver: the call is run as it is', () => {
+    expect(said(['export const a = "x".repeat(300) + "ab".padStart(4, "-");', 'export const b = "x".repeat(-1);', 'const LIMIT = 2;', 'export const c = LIMIT.toFixed(1);']).map((line) => line.slice(0, 1))).toEqual(['2']);
+  });
+
+  test('a value the compiler does not know is not run', () => {
+    expect(said(['export const a = (source: string): RegExp => new RegExp(source);', 'export const b = (flags: "g" | "i"): RegExp => new RegExp("a", flags);', 'export const c = (flags: "g" | "gg"): RegExp => new RegExp("a", flags);']).map((line) => line.slice(0, 1))).toEqual(['1', '3']);
+  });
+
+  const methods = [
+    'const ZONE = "Europe/Paris";',
+    'export const a = (price: number): string => price.toFixed(2);',
+    'export const b = (price: number): string => price.toFixed(101);',
+    'export const c = (when: Date): string => when.toLocaleDateString("fr-FR", { day: "numeric", timeZone: ZONE });',
+    'export const d = (when: Date, long: boolean): string => when.toLocaleDateString("fr-FR", { year: long ? "numeric" : undefined });',
+    'export const e = (when: Date): string => when.toISOString();',
+    'export const f = (text: string): string => text.normalize("NFC") + text.normalize("XYZ" as "NFC");',
+    'export const g = (count: number): string => count.toString(36);',
+  ];
+
+  test('a method is run on a list of receivers, which is not the receiver it will have: refused unless the project says so', () => {
+    expect(said(methods).map((line) => line.slice(0, 1))).toEqual(['2', '3', '4', '5', '6', '7', '7', '8']);
+  });
+
+  test('with the assumption, what never threw on the list is accepted; what throws on one of them is not', () => {
+    expect(said(methods, ['generated-receivers'])).toEqual([
+      '3 `Number.toFixed` throws a RangeError.',
+      // An invalid date is in the list.
+      '6 `Date.toISOString` throws a RangeError.',
+      '7 `String.normalize` throws a RangeError.',
+    ]);
+  });
+});
+
 describe('no-throwing-call in a page', () => {
   const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
   const lines = [

@@ -58,7 +58,7 @@ export type Node = NodeBase &
     /** A call. A tagged template is one too: its arguments are the template, then each substitution. */
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
     /** `new Callee(…)`, with the number of arguments written. */
-    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number }
+    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number; readonly arguments: readonly Node[] }
     /** A `let` or `var` statement at the top level of a module: state every importer shares. */
     | { readonly kind: 'module-state' }
     /** `object.name`; parentheses around `object` are looked through. */

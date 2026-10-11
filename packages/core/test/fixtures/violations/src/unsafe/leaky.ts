@@ -7,7 +7,7 @@ export function readConfig(path: string): string { // expect: unsafe-boundary
 
 // An export of type any.
 // SAFETY: none: the reason is given so that only the boundary is refused here.
-export const raw: any = JSON.parse("{}"); // expect: unsafe-boundary, no-throwing-call
+export const raw: any = JSON.parse("{}"); // expect: unsafe-boundary
 
 // A cast with no reason above it.
 export const port = (value: unknown) => ({ ok: true as const, value: value as number }); // expect: safety-comment

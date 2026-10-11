@@ -53,12 +53,13 @@
       "items": {
         "enum": [
           "attached-buffers",
-          "dom-as-observed"
+          "dom-as-observed",
+          "generated-receivers"
         ]
       },
       "uniqueItems": true,
       "default": [],
-      "description": "What the project says of itself and that no rule can check. \"attached-buffers\": no buffer is ever detached, so the methods of typed arrays and of DataView do not throw for that. \"dom-as-observed\": a function of the DOM that never threw when it was run in a browser is taken not to throw, although no specification was read for it."
+      "description": "What the project says of itself and that no rule can check. \"attached-buffers\": no buffer is ever detached, so the methods of typed arrays and of DataView do not throw for that. \"dom-as-observed\": a function of the DOM that never threw when it was run in a browser is taken not to throw, although no specification was read for it. \"generated-receivers\": a method called with arguments written in the call, that did not throw when the gate ran it on a list of receivers of its class, is taken not to throw."
     },
     "rules": {
       "type": "array",
