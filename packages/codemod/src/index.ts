@@ -1,7 +1,8 @@
 import { err, ok, type Mut, type Result } from '@strict-ts/std';
 import { FIXABLE, fixProject } from './unsafe/project.js';
 
-export { applyEdits, type Edit, type Fix, keepWhatHolds } from './fix.js';
+export { blamedFixes } from './blame.js';
+export { applyEdits, type Complaint, type Edit, type Fix, keepUnblamed, keepWhatHolds, type Placed, placesAfter, type Trial } from './fix.js';
 export { readonlyFixes } from './fixes/readonly-types.js';
 export { typePredicateFixes } from './fixes/type-predicate.js';
 export { FIXABLE, fixProject, type Outcome, type Place } from './unsafe/project.js';

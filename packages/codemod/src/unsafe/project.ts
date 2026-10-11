@@ -5,7 +5,8 @@ import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
 import { type Config, isUnsafe } from '@strict-ts/core';
 import { attempt, err, type Mut, none, ok, type Option, type Result, some, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
-import { applyEdits, type Fix, keepWhatHolds } from '../fix.js';
+import { blamedFixes } from '../blame.js';
+import { applyEdits, type Fix, keepUnblamed, type Placed, placesAfter, type Trial } from '../fix.js';
 import { readonlyFixes } from '../fixes/readonly-types.js';
 import { typePredicateFixes } from '../fixes/type-predicate.js';
 
@@ -64,25 +65,37 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     // The files as they would be once fixed are held in memory; the compiler reads them through this host.
     const changed = new Map<string, string>();
     const disk = ts.createCompilerHost(parsed.options);
+    // A file that no fix touches is parsed once: the libraries are most of a compilation.
+    const untouched = new Map<string, ts.SourceFile | undefined>();
     const host: ts.CompilerHost = {
       ...disk,
       readFile: (fileName) => changed.get(fileName) ?? disk.readFile(fileName),
       getSourceFile: (fileName, languageVersion, onError, shouldCreate) => {
         const text = changed.get(fileName);
-        return text === undefined
-          ? disk.getSourceFile(fileName, languageVersion, onError, shouldCreate)
-          : ts.createSourceFile(fileName, text, languageVersion, true);
+        if (text !== undefined) return ts.createSourceFile(fileName, text, languageVersion, true);
+        if (!untouched.has(fileName)) untouched.set(fileName, disk.getSourceFile(fileName, languageVersion, onError, shouldCreate));
+        return untouched.get(fileName);
       },
     };
-    const compile = (): ts.Program =>
-      ts.createProgram({
+    // The program before gives the next one what does not change with a fix: which files there are, and where
+    // each import leads.
+    let last: ts.Program | undefined;
+    const compile = (): ts.Program => {
+      const program = ts.createProgram({
         rootNames: parsed.fileNames,
         options: parsed.options,
         host,
+        ...(last === undefined ? {} : { oldProgram: last }),
         ...(parsed.projectReferences === undefined ? {} : { projectReferences: parsed.projectReferences }),
       });
+      last = program;
+      return program;
+    };
     const original = compile();
-    const before = ts.getPreEmitDiagnostics(original).length;
+    const said = (diagnostic: ts.Diagnostic): string => `${diagnostic.file?.fileName ?? ''} ${diagnostic.code} ${flatten(diagnostic)}`;
+    const errorsBefore = ts.getPreEmitDiagnostics(original);
+    const before = errorsBefore.length;
+    const known = new Set(errorsBefore.map(said));
 
     const relative = (fileName: string): string => (fileName.startsWith(`${rootDir}/`) ? fileName.slice(rootDir.length + 1) : fileName);
     const sources = original
@@ -108,9 +121,24 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         if (here.length > 0) changed.set(fileName, applyEdits(text, here));
       }
     };
-    const kept = keepWhatHolds(found, (candidates) => {
+    const kept = keepUnblamed(found, (candidates): Trial => {
       rewrite(candidates);
-      return ts.getPreEmitDiagnostics(compile()).length <= before;
+      const program = compile();
+      const errors = ts.getPreEmitDiagnostics(program);
+      if (errors.length <= before) return { holds: true, errors: [] };
+      const places = new Map<string, readonly Placed[]>();
+      const placedIn = (fileName: string): readonly Placed[] => {
+        const placed = places.get(fileName) ?? placesAfter(candidates.filter((fix) => fix.file === fileName));
+        places.set(fileName, placed);
+        return placed;
+      };
+      const checker = program.getTypeChecker();
+      // A hint that cannot be computed is no hint: the search does without it.
+      const hint = (error: ts.Diagnostic): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
+      // Fixes add no line: the line of an error names it from one compilation to the next.
+      const where = (error: ts.Diagnostic): string =>
+        `${error.file?.fileName ?? ''}:${error.file === undefined ? 0 : ts.getLineAndCharacterOfPosition(error.file, error.start ?? 0).line} ${error.code}`;
+      return { holds: false, errors: errors.filter((error) => !known.has(said(error))).map((error) => ({ where: where(error), fixes: hint(error) })) };
     });
     rewrite(kept);
 
