@@ -1,0 +1,24 @@
+{
+  "name": "@strict-ts/oxlint-plugin",
+  "version": "0.0.0",
+  "description": "The syntactic rules of strict-ts as an Oxlint plugin, for speed: no-throw, no-null, no-ts-directive.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@strict-ts/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@strict-ts/cli": "workspace:*"
+  }
+}

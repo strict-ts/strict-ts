@@ -1,24 +1,67 @@
 {
   "local": [
-    { "name": "packages/core", "path": "packages/core" },
-    { "name": "packages/std", "path": "packages/std" },
-    { "name": "packages/cli", "path": "packages/cli" },
-    { "name": "packages/wrap", "path": "packages/wrap" },
-    { "name": "packages/codemod", "path": "packages/codemod" },
-    { "name": "packages/language-service", "path": "packages/language-service" },
-    { "name": "packages/playground", "path": "packages/playground" },
-    { "name": "examples/invoice/classic", "path": "examples/invoice/classic" },
-    { "name": "examples/invoice/strict", "path": "examples/invoice/strict" },
-    { "name": "fixtures/legacy", "path": "packages/cli/test/fixtures/legacy" },
-    { "name": "fixtures/codemod-app", "path": "packages/codemod/test/fixtures/app" }
+    {
+      "name": "packages/core",
+      "path": "packages/core"
+    },
+    {
+      "name": "packages/std",
+      "path": "packages/std"
+    },
+    {
+      "name": "packages/cli",
+      "path": "packages/cli"
+    },
+    {
+      "name": "packages/wrap",
+      "path": "packages/wrap"
+    },
+    {
+      "name": "packages/codemod",
+      "path": "packages/codemod"
+    },
+    {
+      "name": "packages/language-service",
+      "path": "packages/language-service"
+    },
+    {
+      "name": "packages/playground",
+      "path": "packages/playground"
+    },
+    {
+      "name": "packages/oxlint-plugin",
+      "path": "packages/oxlint-plugin"
+    },
+    {
+      "name": "examples/invoice/classic",
+      "path": "examples/invoice/classic"
+    },
+    {
+      "name": "examples/invoice/strict",
+      "path": "examples/invoice/strict"
+    },
+    {
+      "name": "fixtures/legacy",
+      "path": "packages/cli/test/fixtures/legacy"
+    },
+    {
+      "name": "fixtures/codemod-app",
+      "path": "packages/codemod/test/fixtures/app"
+    }
   ],
   "external": [
     {
       "name": "zod@3.23.8",
       "git": "https://github.com/colinhacks/zod",
       "commit": "ca42965df46b2f7e2747db29c40a26bcb32a51d5",
-      "include": ["src"],
-      "exclude": ["src/__tests__", "src/benchmarks", "src/**/*.test.ts"]
+      "include": [
+        "src"
+      ],
+      "exclude": [
+        "src/__tests__",
+        "src/benchmarks",
+        "src/**/*.test.ts"
+      ]
     }
   ]
 }

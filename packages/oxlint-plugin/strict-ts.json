@@ -1,0 +1,7 @@
+{
+  "$schema": "../cli/strict-ts.schema.json",
+  "unsafeDirs": [],
+  "allowedImports": [
+    "@strict-ts/core"
+  ]
+}

@@ -17,6 +17,9 @@
       "path": "packages/codemod"
     },
     {
+      "path": "packages/oxlint-plugin"
+    },
+    {
       "path": "examples/invoice"
     }
   ]

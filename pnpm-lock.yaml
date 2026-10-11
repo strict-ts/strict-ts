@@ -243,6 +243,16 @@ importers:
         specifier: ^0.28.2
         version: 0.28.2
 
+  packages/oxlint-plugin:
+    dependencies:
+      '@strict-ts/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@strict-ts/cli':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/playground:
     devDependencies:
       '@strict-ts/core':
