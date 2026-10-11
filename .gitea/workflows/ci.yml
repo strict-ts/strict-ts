@@ -28,3 +28,6 @@ jobs:
       # strict-ts on its own sources, as a blocking check: only what the baselines record is tolerated.
       - name: strict-ts
         run: pnpm check
+      # What the rules refuse on a fixed set of projects must not move without a word.
+      - name: Corpus
+        run: pnpm corpus
