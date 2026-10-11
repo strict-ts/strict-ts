@@ -47,6 +47,7 @@
   "packages/oxlint-plugin": {},
   "packages/playground": {},
   "packages/probe": {
+    "freeze-fresh": 1,
     "must-use": 1,
     "no-any": 2,
     "no-cast": 9,
@@ -69,6 +70,7 @@
     "TS2379": 60,
     "TS2538": 9,
     "TS4114": 2,
+    "freeze-fresh": 1,
     "no-any": 503,
     "no-cast": 106,
     "no-non-null": 4,

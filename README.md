@@ -141,6 +141,7 @@ is both, `project` is once for the whole project.
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
 | `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function the effects ledger does not show to be safe, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
 | `no-throwing-operator` | errors | all | An operator or a read that may throw on what its operands may be (a bigint `/`, `%` or `**`, the conversion of a value that is not plain in a template, a `+` or a comparison, an array length that is not a literal, a property of the library that runs code) is written in a `try` with a `catch` |
+| `freeze-fresh` | errors | all | `Object.freeze`, `seal` and `preventExtensions` are given a value where it is made (a literal, a `new`), so that no name still says it can be changed |
 | `use-once` | ownership | all | A value typed `Once<…>` has one owner: it is used through its members, given away exactly once (to a parameter or a return type that is `Once<…>`), and never lost. Giving it away in a loop, a `try`, a condition inside an expression or a closure is refused |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
@@ -387,7 +388,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 20 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 21 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -409,14 +410,13 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   unless the project writes `"assume": ["attached-buffers"]`.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- A write to a frozen object throws, and no rule sees it: `Object.freeze(list)` leaves the name `list` typed as
-  mutable, and the ledger calls `push` safe.
+- A value typed read-only can be given a mutable type: TypeScript lets `const m: Mut<{ a: number }> = frozen`
+  compile. A write through `m` then changes what someone holds as read-only, and throws if the object is frozen.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.
 - `no-throwing-operator` knows the operators and the accessors of ECMAScript. A property of the DOM that throws when
-  read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run, nor a
-  write to a frozen object. Running out of stack or of memory is outside what any rule covers, as in Rust.
+  read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run. Running out of stack or of memory is outside what any rule covers, as in Rust.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.

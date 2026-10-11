@@ -4,7 +4,7 @@ import { checkFiles as checkEverything, checkSafe as checkSafeEverything, checkU
 
 // Each block below is about one rule, and many of its examples call JSON.parse or fetch as plain code does. What
 // no-throwing-call says of those calls is left out here; its own block, at the end, reads everything.
-const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator' && d.rule !== 'use-once');
+const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator' && d.rule !== 'use-once' && d.rule !== 'freeze-fresh');
 const checkFiles = (files: Readonly<Record<string, string>>, project?: Project) => quiet(checkEverything(files, project));
 const checkSafe = (text: string, project?: Project) => quiet(checkSafeEverything(text, project));
 const checkUnsafe = (text: string, project?: Project) => quiet(checkUnsafeEverything(text, project));
@@ -1435,5 +1435,43 @@ describe('use-once', () => {
       '4 `tx`: captured',
       '5 `tx`: let',
     ]);
+  });
+});
+
+describe('freeze-fresh', () => {
+  const said = (...lines: readonly string[]) =>
+    checkSafeEverything([...lines, ''].join('\n'))
+      .filter((d) => d.rule === 'freeze-fresh')
+      .map((d) => `${d.start.line} ${d.message}`);
+
+  test('refuses freezing a value that already has a name', () => {
+    expect(
+      said(
+        'import type { Mut } from "@strict-ts/std";',
+        'export const a = (list: Mut<number[]>): readonly number[] => Object.freeze(list);',
+        'export const b = (box: Mut<{ n: number }>): void => { Object.seal(box); Object.preventExtensions(box); Reflect.preventExtensions(box); };',
+        'export const make = (): Mut<number[]> => [1];',
+        'export const c = Object.freeze(make());',
+      ),
+    ).toEqual([
+      '2 `Object.freeze` is given a value that already has a name: a write through that name would throw.',
+      '3 `Object.seal` is given a value that already has a name: a write through that name would throw.',
+      '3 `Object.preventExtensions` is given a value that already has a name: a write through that name would throw.',
+      '3 `Reflect.preventExtensions` is given a value that already has a name: a write through that name would throw.',
+      '5 `Object.freeze` is given a value that already has a name: a write through that name would throw.',
+    ]);
+  });
+
+  test('accepts freezing a value where it is made', () => {
+    expect(
+      said(
+        'export const a = Object.freeze([1, 2]);',
+        'export const b = Object.freeze({ name: "x", tags: ["a"] } as const);',
+        'export const c = Object.freeze(new Map<string, number>());',
+        'export const d = Object.freeze(({ n: 1 }));',
+        'export const freeze = (n: number): number => n;',
+        'export const e = freeze(1);',
+      ),
+    ).toEqual([]);
   });
 });

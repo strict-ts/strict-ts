@@ -99,6 +99,7 @@ describe('one violation per rule', () => {
   test('every rule of the catalogue is triggered at least once', () => {
     expect([...new Set(found.map((d) => d.rule))].toSorted()).toEqual([
       'exhaustive-switch',
+      'freeze-fresh',
       'must-use',
       'no-ambient',
       'no-any',

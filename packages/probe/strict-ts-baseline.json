@@ -2,6 +2,7 @@
   "version": 1,
   "files": {
     "src/runtime.ts": {
+      "freeze-fresh": 1,
       "must-use": 1,
       "no-any": 2,
       "no-cast": 9,

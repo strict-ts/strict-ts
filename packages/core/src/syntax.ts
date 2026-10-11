@@ -42,6 +42,8 @@ export type Node = NodeBase &
         readonly declaredAt: number | undefined;
       }
     | { readonly kind: 'string-literal'; readonly text: string }
+    /** An object or an array written in place: `{ … }`, `[ … ]`. Nobody else holds it yet. */
+    | { readonly kind: 'literal' }
     /** A block of statements, or a whole file: its children run one after the other, and names declared in it end with it. */
     | { readonly kind: 'block' }
     /** Parentheses, a `const`/`let` statement and its list of declarations: children that run one after the other, each once. */
