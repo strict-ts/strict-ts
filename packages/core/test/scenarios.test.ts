@@ -12,8 +12,8 @@ const expected = (files: Readonly<Record<string, string>>): readonly string[] =>
   Object.entries(files)
     .flatMap(([name, text]) =>
       text.split('\n').flatMap((line, index) => {
-        const rule = /\/\/ expect: ([a-z-]+)/.exec(line)?.[1];
-        return rule === undefined ? [] : [`${name}:${index + 1} ${rule}`];
+        const rules = /\/\/ expect: ([a-z, -]+)/.exec(line)?.[1]?.split(',') ?? [];
+        return rules.map((rule) => `${name}:${index + 1} ${rule.trim()}`);
       }),
     )
     .toSorted();
@@ -35,9 +35,11 @@ describe('the invoice challenge', () => {
       'no-null@18',
       'readonly-types@21',
       'no-throw@22',
+      'no-throwing-call@23',
       'no-null@23',
       'no-cast@31',
       'no-any@31',
+      'no-throwing-call@31',
       'no-non-null@35',
       'exhaustive-switch@39',
       'readonly-types@54',
@@ -106,6 +108,7 @@ describe('one violation per rule', () => {
       'no-null',
       'no-param-mutation',
       'no-throw',
+      'no-throwing-call',
       'no-ts-directive',
       'no-type-predicate',
       'readonly-types',

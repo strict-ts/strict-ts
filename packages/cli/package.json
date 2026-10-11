@@ -18,6 +18,10 @@
     "./baseline": {
       "types": "./dist/baseline.d.ts",
       "default": "./dist/baseline.js"
+    },
+    "./package-name": {
+      "types": "./dist/unsafe/package.d.ts",
+      "default": "./dist/unsafe/package.js"
     }
   },
   "files": [

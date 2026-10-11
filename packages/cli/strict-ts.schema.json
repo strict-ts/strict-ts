@@ -57,7 +57,8 @@
           "no-ambient",
           "no-param-mutation",
           "readonly-types",
-          "pure-domain"
+          "pure-domain",
+          "no-throwing-call"
         ]
       },
       "uniqueItems": true,

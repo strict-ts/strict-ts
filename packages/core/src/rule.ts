@@ -1,5 +1,5 @@
 import type { Config } from './config.js';
-import type { ExportedValue, SourceFile, Type } from './provider.js';
+import type { Callee, ExportedValue, SourceFile, Type } from './provider.js';
 import type { Node, Span } from './syntax.js';
 
 /** The five Rust guarantees strict-ts brings to TypeScript; every rule serves one of them. */
@@ -14,6 +14,7 @@ export interface FileContext {
   readonly file: SourceFile;
   readonly config: Config;
   readonly typeOf: (node: Node) => Type;
+  readonly calleeOf: (node: Node) => Callee | undefined;
   readonly exports: () => readonly ExportedValue[];
   readonly report: Report;
 }

@@ -101,6 +101,7 @@ describe('the wrapper of a library', () => {
     expect(check(directory).out.filter((entry) => entry.startsWith('src/'))).toEqual([
       'src/direct.ts:1:23 no-external-import External import "legacy" forbidden outside unsafe/.',
       'src/direct.ts:2:31 no-any This expression has type `any` (inferred).',
+      'src/direct.ts:2:31 no-throwing-call `parse` is declared in a declaration file, whose types do not say whether it throws.',
     ]);
   });
 });

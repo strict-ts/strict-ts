@@ -1,4 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
+import { json } from './json.js';
 
 /** A line to add under a refusal, in the manner of rustc's `note:`. */
 export type Note = (diagnostic: Diagnostic) => string | undefined;
@@ -24,4 +25,4 @@ export function formatText(found: readonly Diagnostic[], note: Note = () => unde
  * them (the baseline's counts, when one is used).
  */
 export const formatJson = (found: readonly Diagnostic[], extra: Readonly<Record<string, unknown>> = {}): string =>
-  JSON.stringify({ diagnostics: found, ...extra }, undefined, 2);
+  json({ diagnostics: found, ...extra }, 2);

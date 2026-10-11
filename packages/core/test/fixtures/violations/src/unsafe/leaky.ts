@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs"; // allowed here: this is unsafe/
 
 // Returns a bare string: the exception of readFileSync leaks into safe code.
 export function readConfig(path: string): string { // expect: unsafe-boundary
-  return readFileSync(path, "utf8");
+  return readFileSync(path, "utf8"); // expect: no-throwing-call
 }
 
 // An export of type any.
 // SAFETY: none: the reason is given so that only the boundary is refused here.
-export const raw: any = JSON.parse("{}"); // expect: unsafe-boundary
+export const raw: any = JSON.parse("{}"); // expect: unsafe-boundary, no-throwing-call
 
 // A cast with no reason above it.
 export const port = (value: unknown) => ({ ok: true as const, value: value as number }); // expect: safety-comment

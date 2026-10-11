@@ -33,7 +33,8 @@ export const boolean = primitive('boolean', (x): x is boolean => typeof x === 'b
 
 /** Union of literals: `s.literal("draft", "sent")` → Schema<"draft" | "sent">. */
 export function literal<const V extends readonly (string | number | boolean)[]>(...values: V): Schema<V[number]> {
-  const expected = values.map((v) => JSON.stringify(v)).join(' | ');
+  // Written as in code: a string in quotes, a number or a boolean as it is.
+  const expected = values.map((v) => (typeof v === 'string' ? `"${v}"` : String(v))).join(' | ');
   return { parse: (input) => (values.includes(input as V[number]) ? new Ok(input as V[number]) : fail(expected)) };
 }
 

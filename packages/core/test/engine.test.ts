@@ -91,6 +91,7 @@ describe('check', () => {
       compilerDiagnostics: [],
       typeOf: () => expect.unreachable('the spy asks for no type'),
       exportsOf: () => [],
+      calleeOf: () => undefined,
     };
     expect(check(provider, defaultConfig, [spy])).toEqual([]);
     expect(seen).toEqual(['file src/a.ts', 'null in binary']);
@@ -125,7 +126,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the seventeen rules, each with a guarantee and a description', () => {
+  test('holds the eighteen rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
@@ -137,6 +138,7 @@ describe('the catalogue of rules', () => {
       'no-null',
       'no-param-mutation',
       'no-throw',
+      'no-throwing-call',
       'no-ts-directive',
       'no-type-predicate',
       'pure-domain',

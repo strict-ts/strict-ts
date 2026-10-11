@@ -5,6 +5,7 @@
   ],
   "allowedImports": [
     "@strict-ts/core",
-    "@strict-ts/std"
+    "@strict-ts/std",
+    "typescript"
   ]
 }

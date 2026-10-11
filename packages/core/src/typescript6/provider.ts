@@ -19,6 +19,11 @@ export interface TypeScript6Options {
    * keep them: it is what replaces `tsc --noEmit`.
    */
   readonly compilerDiagnostics?: boolean;
+  /**
+   * The name of the package a file belongs to, for a host that can read package.json. Without it the name is read
+   * from the path, after the last `node_modules/`.
+   */
+  readonly packageNameOf?: (fileName: string) => string | undefined;
 }
 
 export function createTypeScript6Provider(
@@ -211,6 +216,7 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '', left: part(unwrapped(node.left)) };
       }
       if (api.isThrowStatement(node)) return { ...base, kind: 'throw' };
+      if (api.isTryStatement(node)) return { ...base, kind: 'try', block: part(node.tryBlock), hasCatch: node.catchClause !== undefined };
       if (api.isExpressionStatement(node)) {
         return { ...base, kind: 'expression-statement', expression: part(node.expression) };
       }
@@ -331,6 +337,28 @@ export function createTypeScript6Provider(
     typeOf: (node) => {
       const source = origin.get(node);
       return source === undefined ? unknownOrigin : wrapType(checker.getTypeAtLocation(source));
+    },
+    calleeOf: (node) => {
+      const source = origin.get(node);
+      if (source === undefined || !(api.isCallExpression(source) || api.isNewExpression(source))) return undefined;
+      const declaration = checker.getResolvedSignature(source)?.declaration;
+      if (declaration === undefined || api.isJSDocSignature(declaration)) return undefined;
+      const constructs = api.isConstructSignatureDeclaration(declaration) || api.isConstructorDeclaration(declaration);
+      const member = constructs ? 'new' : (declaration.name?.getText() ?? '');
+      // `var URL: { new (…): URL }` and `interface Date { toISOString(): string }` both give `Owner.member`.
+      const holder = api.isTypeLiteralNode(declaration.parent) ? declaration.parent.parent : declaration.parent;
+      const owner =
+        api.isInterfaceDeclaration(holder) || api.isClassDeclaration(holder) || api.isVariableDeclaration(holder) ? holder.name?.getText() : undefined;
+      const file = declaration.getSourceFile();
+      const fromPath = /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file.fileName)?.[1];
+      return {
+        name: owner === undefined ? member : `${owner}.${member}`,
+        origin: isChecked(file)
+          ? { kind: 'project' }
+          : program.isSourceFileDefaultLibrary(file)
+            ? { kind: 'library' }
+            : { kind: 'package', package: options.packageNameOf?.(file.fileName) ?? fromPath },
+      };
     },
     exportsOf: (file) => {
       const sourceFile = sources.get(file);

@@ -8,6 +8,7 @@ import { createTypeScript6Provider } from '../src/typescript6/provider.js';
 const ROOT = '/strict-ts-fixture';
 const ENV = '/strict-ts-environment/env.d.ts';
 const std = fileURLToPath(new URL('../../std/src/index.ts', import.meta.url));
+const stdRoot = fileURLToPath(new URL('../../std/', import.meta.url));
 const fixtures = new URL('fixtures/', import.meta.url);
 const env = readFileSync(new URL('env.d.ts', fixtures), 'utf8');
 
@@ -67,7 +68,12 @@ export function checkFiles(files: Readonly<Record<string, string>>, project: Pro
   };
   const program = ts.createProgram({ rootNames: [...virtual.keys()], options, host });
   const only = project.only;
-  const asked = only === undefined ? { rootDir: ROOT } : { rootDir: ROOT, only: (fileName: string) => only.includes(fileName.slice(ROOT.length + 1)) };
+  // In this repo the standard library is compiled from its sources: its package is told by where they are.
+  const packageNameOf = (fileName: string): string | undefined => (fileName.startsWith(stdRoot) ? '@strict-ts/std' : undefined);
+  const asked =
+    only === undefined
+      ? { rootDir: ROOT, packageNameOf }
+      : { rootDir: ROOT, packageNameOf, only: (fileName: string) => only.includes(fileName.slice(ROOT.length + 1)) };
   return check(createTypeScript6Provider(ts, program, asked), project.config ?? defaultConfig);
 }
 
