@@ -26,9 +26,11 @@ const refusedInClassic = [
   'invoice.ts:18:18 no-null',
   'invoice.ts:21:56 readonly-types',
   'invoice.ts:22:27 no-throw',
+  'invoice.ts:23:16 no-throwing-call',
   'invoice.ts:23:72 no-null',
   'invoice.ts:31:10 no-cast',
   'invoice.ts:31:10 no-any',
+  'invoice.ts:31:10 no-throwing-call',
   'invoice.ts:35:10 no-non-null',
   'invoice.ts:39:11 exhaustive-switch',
   'invoice.ts:54:40 readonly-types',
@@ -48,7 +50,7 @@ describe('the gate', () => {
     expect(violations.map((line) => line.split(' ').slice(0, 2).join(' '))).toEqual(refusedInClassic);
     expect(out[0]).toBe('invoice.ts:3:28 no-external-import External import "node:crypto" forbidden outside unsafe/.');
     expect(out[1]).toBe('  help: Wrap this dependency in unsafe/ and expose functions that return Result/Option.');
-    expect(out.at(-1)).toBe('20 refused in 1 file');
+    expect(out.at(-1)).toBe('22 refused in 1 file');
   });
 
   test('--format json prints one JSON document with the same violations', () => {

@@ -8,6 +8,7 @@
     "no-non-null": 1,
     "no-null": 2,
     "no-throw": 1,
+    "no-throwing-call": 2,
     "readonly-types": 11
   },
   "examples/invoice/strict": {},
@@ -29,6 +30,7 @@
   "packages/oxlint-plugin": {},
   "packages/playground": {},
   "packages/std": {
+    "no-any": 1,
     "no-cast": 6,
     "no-throw": 3,
     "no-type-predicate": 4
@@ -47,6 +49,7 @@
     "no-null": 73,
     "no-param-mutation": 10,
     "no-throw": 17,
+    "no-throwing-call": 15,
     "no-type-predicate": 8,
     "readonly-types": 583
   }

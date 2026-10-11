@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import { defaultConfig } from '../src/index.js';
-import { checkFiles, checkSafe, checkUnsafe, refusals } from './project.js';
+import { checkFiles as checkEverything, checkSafe as checkSafeEverything, checkUnsafe as checkUnsafeEverything, type Project, refusals } from './project.js';
+
+// Each block below is about one rule, and many of its examples call JSON.parse or fetch as plain code does. What
+// no-throwing-call says of those calls is left out here; its own block, at the end, reads everything.
+const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call');
+const checkFiles = (files: Readonly<Record<string, string>>, project?: Project) => quiet(checkEverything(files, project));
+const checkSafe = (text: string, project?: Project) => quiet(checkSafeEverything(text, project));
+const checkUnsafe = (text: string, project?: Project) => quiet(checkUnsafeEverything(text, project));
 
 describe('no-any', () => {
   test('refuses a written any', () => {
@@ -972,5 +979,145 @@ describe('strict-compiler-options', () => {
 
   test('accepts a project with every required option', () => {
     expect(checkSafe('export const a = 1;\n')).toEqual([]);
+  });
+});
+
+describe('no-throwing-call', () => {
+  const said = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule === 'no-throwing-call').map((d) => `${d.start.line} ${d.message}`);
+  const safe = (...lines: readonly string[]) => said(checkSafeEverything([...lines, ''].join('\n')));
+  const unsafe = (...lines: readonly string[]) => said(checkUnsafeEverything(['import { attempt, ok } from "@strict-ts/std";', ...lines, ''].join('\n')));
+
+  test('refuses the library functions known to throw on what their types accept', () => {
+    expect(
+      safe(
+        'export const a = (text: string): string => decodeURIComponent(text);',
+        'export const b = (text: string): RegExp => new RegExp(text);',
+        'export const c = (date: Date): string => date.toISOString();',
+        'export const d = (n: number): string => "ab".repeat(n);',
+        'export const e = (n: number): string => n.toFixed(n);',
+        'export const f = (value: unknown): string => JSON.stringify(value);',
+        'export const g = (text: string): bigint => BigInt(text);',
+      ),
+    ).toEqual([
+      '1 `decodeURIComponent` throws a URIError on a malformed sequence.',
+      '2 `RegExp.new` throws a SyntaxError on an invalid pattern.',
+      '3 `Date.toISOString` throws a RangeError on an invalid date.',
+      '4 `String.repeat` throws a RangeError on a negative or infinite count.',
+      '5 `Number.toFixed` throws a RangeError on digits out of range.',
+      '6 `JSON.stringify` throws a TypeError on a cycle or a BigInt.',
+      '7 `BigInt` throws on a number that is not whole or a string that is not a number.',
+    ]);
+  });
+
+  test('reduce throws only without a starting value', () => {
+    expect(
+      safe(
+        'export const sum = (prices: readonly number[]): number => prices.reduce((a, b) => a + b);',
+        'export const total = (prices: readonly number[]): number => prices.reduce((a, b) => a + b, 0);',
+      ),
+    ).toEqual(['1 `ReadonlyArray.reduce` throws a TypeError on an empty array when given no starting value.']);
+  });
+
+  test('refuses a rejected promise made by hand: an exception by another name', () => {
+    expect(safe('export const fail = (): Promise<number> => Promise.reject(new Error("no"));')).toEqual([
+      '1 `Promise.reject` makes a rejected promise: an exception by another name.',
+    ]);
+  });
+
+  test('accepts the library functions that do not throw', () => {
+    expect(
+      safe(
+        'export const a = (text: string): number => Number.parseInt(text, 10) + Math.round(1.5);',
+        'export const b = (items: readonly string[]): string => items.map((item) => item.trim()).join(",").padEnd(3);',
+        'export const c = (iso: string): number => new Date(iso).getTime();',
+        'export const d = (text: string): boolean => /^a+$/.test(text) && String(text).length > 0;',
+        'export const e = (): void => console.log("done");',
+      ),
+    ).toEqual([]);
+  });
+
+  test('refuses any function declared in a package that is not allowed: its types do not say', () => {
+    const code = 'export const load = async (url: string): Promise<number> => (await fetch(url)).status;\n';
+    expect(said(checkSafeEverything(code))).toEqual(['1 `fetch` is declared in a declaration file, whose types do not say whether it throws.']);
+  });
+
+  test('trusts the allowed packages, the project itself, and a function it was handed', () => {
+    expect(
+      safe(
+        'import { err, ok, Option, type Result, s } from "@strict-ts/std";',
+        'const half = (n: number): Result<number, "odd"> => (n % 2 === 0 ? ok(n / 2) : err("odd"));',
+        'export const run = (n: number, then: (value: number) => string): string =>',
+        '  half(n).map(then).unwrapOr(Option.from(s.number.parse(n).unwrapOr(undefined)).map(String).unwrapOr(""));',
+      ),
+    ).toEqual([]);
+  });
+
+  test('accepts the call where it is caught: in attempt, or in a try with a catch', () => {
+    expect(
+      unsafe(
+        'export const parse = (text: string) => attempt((): unknown => JSON.parse(text), String);',
+        'export const load = (url: string) => attempt(async () => (await fetch(url)).status, String);',
+        'export const decode = (text: string) => {',
+        '  try {',
+        '    return ok(decodeURIComponent(text));',
+        '  } catch {',
+        '    return ok(text);',
+        '  }',
+        '};',
+      ),
+    ).toEqual([]);
+  });
+
+  test('a try without a catch, and the catch or finally themselves, protect nothing', () => {
+    expect(
+      unsafe(
+        'export const decode = (text: string) => {',
+        '  try {',
+        '    return ok(decodeURIComponent(text));',
+        '  } finally {',
+        '    decodeURIComponent(text);',
+        '  }',
+        '};',
+        'export const again = (text: string) => {',
+        '  try {',
+        '    return ok(text);',
+        '  } catch {',
+        '    return ok(decodeURIComponent(text));',
+        '  }',
+        '};',
+      ),
+    ).toEqual([
+      '4 `decodeURIComponent` throws a URIError on a malformed sequence.',
+      '6 `decodeURIComponent` throws a URIError on a malformed sequence.',
+      '13 `decodeURIComponent` throws a URIError on a malformed sequence.',
+    ]);
+  });
+
+  test('is asked of unsafe/ too: returning a Result does not make a function catch', () => {
+    const found = unsafe(
+      'import { readFileSync } from "node:fs";',
+      'export const read = (path: string) => ok(readFileSync(path, "utf8"));',
+      'export const readSafely = (path: string) => attempt(() => readFileSync(path, "utf8"), String);',
+    );
+    expect(found).toEqual(['3 `readFileSync` is declared in a declaration file, whose types do not say whether it throws.']);
+  });
+
+  test('known limit: a helper that throws and is only called under attempt is refused where it is written', () => {
+    const found = unsafe(
+      'const parse = (text: string): unknown => JSON.parse(text);',
+      'export const safe = (text: string) => attempt(() => parse(text), String);',
+    );
+    expect(found).toEqual(['2 `JSON.parse` throws a SyntaxError on text that is not JSON.']);
+  });
+
+  test('known limit: a library function that is not in the table is taken not to throw', () => {
+    expect(safe('export const pad = (n: number): ArrayBuffer => new ArrayBuffer(n);')).toEqual([]);
+  });
+
+  test('the trust comes from the configuration: a package that is not allowed is not trusted', () => {
+    const code = 'import { ok } from "@strict-ts/std";\nexport const one = () => ok(1);\n';
+    expect(said(checkSafeEverything(code))).toEqual([]);
+    const config = { unsafeDirs: ['src/unsafe'], allowedImports: [] };
+    expect(said(checkSafeEverything(code, { config }))).toEqual(['2 `ok` is declared in "@strict-ts/std", whose types do not say whether it throws.']);
   });
 });

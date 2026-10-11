@@ -1,4 +1,5 @@
 import type { Diagnostic, Rule } from '@strict-ts/core';
+import { json } from './json.js';
 
 export interface SarifInput {
   readonly version: string;
@@ -70,5 +71,5 @@ export function formatSarif({ version, rules, refused, baselined, usesBaseline }
       },
     ],
   };
-  return JSON.stringify(log, undefined, 2);
+  return json(log, 2);
 }

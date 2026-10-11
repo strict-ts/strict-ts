@@ -1,4 +1,5 @@
 import { rules } from '@strict-ts/core';
+import { json } from './json.js';
 
 /**
  * The JSON schema of strict-ts.json, for completion and validation in the editor. It is published as
@@ -48,4 +49,4 @@ export const configSchema = {
 } as const;
 
 /** The file's exact content. */
-export const serializeConfigSchema = (): string => `${JSON.stringify(configSchema, undefined, 2)}\n`;
+export const serializeConfigSchema = (): string => `${json(configSchema, 2)}\n`;

@@ -38,6 +38,7 @@ export function check(
           file,
           config,
           typeOf: provider.typeOf,
+          calleeOf: provider.calleeOf,
           exports: () => provider.exportsOf(file),
           report: (span, message, help) => found.push(diagnosticAt(rule.name, file.name, locate, span, message, help)),
         };

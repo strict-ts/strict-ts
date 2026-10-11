@@ -1,6 +1,7 @@
 // The editor's adapter around core: a TypeScript language service plugin. It adds what the rules refuse to the
 // file's diagnostics, with the same engine, rules and messages as the CLI. It holds no rule.
 import { compare, parseBaseline } from '@strict-ts/cli/baseline';
+import { packageNameOf } from '@strict-ts/cli/package-name';
 import { CONFIG_FILE, readSettings, type Settings } from '@strict-ts/cli/settings';
 import { check, type Diagnostic, rules } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
@@ -41,6 +42,7 @@ export function checkFile(
     rootDir,
     only: (candidate) => candidate === fileName,
     compilerDiagnostics: false,
+    packageNameOf: (declared) => packageNameOf(readFile, declared).unwrapOr(undefined),
   });
   // The project-wide rule speaks about tsconfig.json: it is the gate's to report, not this file's.
   const found = check(provider, settings.value.config).filter((diagnostic) => provider.files.some((file) => file.name === diagnostic.file));

@@ -37,6 +37,9 @@ const quarter = (n: number) =>
 export const parseJson = (text: string) => attempt((): unknown => JSON.parse(text), String);
 ```
 
+For JSON, `parseJson(text)` and `toJson(value)` return `Result`s: `JSON.parse` throws on text that is not JSON, and
+`JSON.stringify` on a cycle or a BigInt.
+
 ## Option
 
 ```ts

@@ -54,7 +54,7 @@ export const parseJson = (text: string) => attempt((): unknown => JSON.parse(tex
 export const parseInvoice = (json: string) => parseJson(json).andThen(Invoice.parse);
 ```
 
-The whole example is in [`examples/invoice`](examples/invoice): the classic version is 58 lines and is refused 20
+The whole example is in [`examples/invoice`](examples/invoice): the classic version is 58 lines and is refused 22
 times; the conforming one is 39 lines. A test keeps both numbers.
 
 ## Try it
@@ -65,7 +65,7 @@ pnpm install
 pnpm build
 
 node packages/cli/dist/main.js -p examples/invoice/strict     # exit code 0, nothing reported
-node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 20 refusals
+node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 22 refusals
 ```
 
 `pnpm build` also writes the playground to `packages/playground/dist`: open `index.html` in a browser to edit five
@@ -127,6 +127,7 @@ is both, `project` is once for the whole project.
 | `no-null` | errors | safe | No `null`, as a value or as a type. Comparing with `=== null` stays allowed |
 | `must-use` | errors | all | A `Result`, an `Option` or a `Promise` is not ignored. To drop one on purpose: `void expr` |
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
+| `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function known to throw, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
@@ -177,7 +178,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | Key | Default | Meaning |
 |---|---|---|
 | `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json` |
-| `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import |
+| `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
@@ -249,6 +250,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `Option<T>` | `Option.from(value)`, `some`, `none`; `.map`, `.andThen`, `.unwrapOr`, `.okOr`, `.match` |
 | `s` | Schemas: `s.object`, `s.array`, `s.literal`, `s.optional`, `s.string`, `s.number`, `s.boolean`, `s.date`; `s.Infer<typeof X>` gives the type, read-only |
 | `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
+| `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
 | `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
 
@@ -256,7 +258,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 17 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 18 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -270,8 +272,8 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- A function of the JavaScript library that throws (`decodeURIComponent`, `BigInt("x")`) can be called from safe code:
-  `no-throw` sees the `throw` keyword, not a call that throws.
+- `no-throwing-call` knows the functions of the JavaScript library that throw from a table, which is not complete: one
+  that is not in it is taken not to throw. A getter or an operator that throws is not a call and is not seen.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.

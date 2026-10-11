@@ -108,7 +108,9 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
     });
     previous = program;
 
-    const provider = createTypeScript6Provider(api, program, { rootDir: PROJECT });
+    // The standard library is compiled from its sources, held in the page under one directory.
+    const packageNameOf = (fileName: string): string | undefined => (fileName.startsWith(`${STD}/`) ? STD_NAME : undefined);
+    const provider = createTypeScript6Provider(api, program, { rootDir: PROJECT, packageNameOf });
     const found = check(provider, {
       unsafeDirs: request.unsafeDirs,
       allowedImports: request.allowedImports,

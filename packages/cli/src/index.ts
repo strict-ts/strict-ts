@@ -5,6 +5,7 @@ import { compare, countViolations, isRecordable, parseBaseline, serializeBaselin
 import { type Cache, parseCache, stillValid } from './cache.js';
 import { CONFIG_FILE, readSettings } from './config.js';
 import { formatJson, formatText } from './format.js';
+import { json } from './json.js';
 import { formatSarif } from './sarif.js';
 import { loadProject, readJsonFile, writeTextFile } from './unsafe/project.js';
 import { VERSION } from './version.js';
@@ -59,7 +60,7 @@ export function run(argv: readonly string[], io: Io): number {
   }
   const { project, format, output, baseline: mode, strictBaseline, cache: useCache, timing } = command.value;
 
-  const started = performance.now();
+  const started = Date.now();
   const loaded = loadProject(io.cwd, project);
   if (!loaded.ok) return fail(loaded.error);
   const { rootDir, files } = loaded.value;
@@ -68,7 +69,7 @@ export function run(argv: readonly string[], io: Io): number {
   if (files.length === 0) return fail(`no file to check under ${rootDir}`);
 
   // With --cache, a file whose text and imports did not change keeps the result of the last run.
-  const facts = useCache ? loaded.value.facts(JSON.stringify(settings.value.config)) : undefined;
+  const facts = useCache ? loaded.value.facts(json(settings.value.config)) : undefined;
   const previous = facts === undefined ? undefined : parseCache(readJsonFile(rootDir, CACHE_FILE).unwrapOr(Option.none).unwrapOr(undefined));
   const reused = facts === undefined ? new Map<string, readonly Diagnostic[]>() : stillValid(previous, facts);
   const toCheck = new Set(files.filter((file) => !reused.has(file)));
@@ -81,10 +82,10 @@ export function run(argv: readonly string[], io: Io): number {
       files: Object.fromEntries(files.map((file) => [file, { key: facts.keys[file] ?? '', diagnostics: found.filter((d) => d.file === file) }])),
     };
     // A cache that cannot be written costs the next run its speed, not its result.
-    void writeTextFile(rootDir, CACHE_FILE, JSON.stringify(record));
+    void writeTextFile(rootDir, CACHE_FILE, json(record));
   }
   if (timing) {
-    const milliseconds = Math.round(performance.now() - started);
+    const milliseconds = Date.now() - started;
     io.err(`strict-ts: ${toCheck.size} of ${files.length} files checked, ${reused.size} from the cache, ${milliseconds} ms`);
   }
 

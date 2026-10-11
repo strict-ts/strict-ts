@@ -4,7 +4,7 @@
 export { type Config, defaultConfig, isPure, isUnsafe } from './config.js';
 export { type Diagnostic, type Position, compareDiagnostics, diagnosticAt, locator } from './diagnostic.js';
 export { check } from './engine.js';
-export type { ExportedValue, SourceFile, Type, TypeProvider } from './provider.js';
+export type { Callee, ExportedValue, Origin, SourceFile, Type, TypeProvider } from './provider.js';
 export type { FileContext, Guarantee, ProjectContext, Report, Rule, Scope } from './rule.js';
 export { rules } from './rules/index.js';
 export { DIRECTIVE as tsDirectivePattern } from './rules/no-ts-directive.js';

@@ -75,6 +75,8 @@ export type Node = NodeBase &
     /** `operator` is the token as written: `===`, `+`, `??`… */
     | { readonly kind: 'binary'; readonly operator: string; readonly left: Node }
     | { readonly kind: 'throw' }
+    /** A `try` statement: its guarded block, and whether a `catch` clause takes what it throws. */
+    | { readonly kind: 'try'; readonly block: Node; readonly hasCatch: boolean }
     | { readonly kind: 'expression-statement'; readonly expression: Node }
     | { readonly kind: 'switch'; readonly expression: Node; readonly clauses: readonly Node[] }
     | { readonly kind: 'case-clause'; readonly expression: Node }

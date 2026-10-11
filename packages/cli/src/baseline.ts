@@ -1,5 +1,6 @@
 import type { Diagnostic } from '@strict-ts/core';
 import { err, type Mut, ok, type Result } from '@strict-ts/std';
+import { json } from './json.js';
 import { asRecord } from './unsafe/record.js';
 
 /**
@@ -32,7 +33,7 @@ export function toBaseline(found: readonly Diagnostic[]): Baseline {
 }
 
 /** The file's exact content: the same violations always give the same bytes. */
-export const serializeBaseline = (baseline: Baseline): string => `${JSON.stringify(baseline, undefined, 2)}\n`;
+export const serializeBaseline = (baseline: Baseline): string => `${json(baseline, 2)}\n`;
 
 export const countViolations = (baseline: Baseline): number =>
   Object.values(baseline.files).reduce((sum, rules) => sum + Object.values(rules).reduce((a, b) => a + b, 0), 0);

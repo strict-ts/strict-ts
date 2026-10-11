@@ -35,6 +35,22 @@ export interface ExportedValue extends Span {
   readonly type: Type;
 }
 
+/** Where the function a call reaches is declared, which decides what can be known about it. */
+export type Origin =
+  /** In the checked files: the rules read it. */
+  | { readonly kind: 'project' }
+  /** In the compiler's own libraries: the JavaScript standard library, the DOM. */
+  | { readonly kind: 'library' }
+  /** In a dependency, or in any other declaration file; `package` is its name when it can be told. */
+  | { readonly kind: 'package'; readonly package: string | undefined };
+
+/** The function a call or a `new` reaches. */
+export interface Callee {
+  /** `Owner.member` for a method (`Date.toISOString`), `Owner.new` for a constructor, the bare name for a function. */
+  readonly name: string;
+  readonly origin: Origin;
+}
+
 /**
  * How the rules reach the compiler. One implementation per TypeScript API (TS 6 today, TS 7.1 when it ships);
  * moving from one to the other rewrites no rule.
@@ -53,4 +69,9 @@ export interface TypeProvider {
   readonly compilerDiagnostics: readonly Diagnostic[];
   readonly typeOf: (node: Node) => Type;
   readonly exportsOf: (file: SourceFile) => readonly ExportedValue[];
+  /**
+   * What a `call` or `new` node reaches, when the compiler can tell. Absent for a value called as a function without
+   * a declaration behind it.
+   */
+  readonly calleeOf: (node: Node) => Callee | undefined;
 }

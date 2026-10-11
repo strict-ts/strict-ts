@@ -51,8 +51,8 @@ describe('the five scenarios, checked as the page checks them', () => {
     }
   });
 
-  test('the challenge is refused twenty times, the scenario of violations by every rule', () => {
-    expect(playground.check(request('challenge')).diagnostics).toHaveLength(20);
+  test('the challenge is refused twenty-two times, the scenario of violations by every rule', () => {
+    expect(playground.check(request('challenge')).diagnostics).toHaveLength(22);
     const triggered = new Set(playground.check(request('violations')).diagnostics.map((d) => d.rule));
     // pure-domain only runs in directories a project declares pure, and the page declares none.
     const expected = rules.map((rule) => rule.name).filter((name) => name !== 'pure-domain');
@@ -74,7 +74,7 @@ describe('the settings of the page reach the rules', () => {
   test('a disabled rule reports nothing', () => {
     const enabledRules = rules.map((rule) => rule.name).filter((name) => name !== 'no-null');
     const found = playground.check(request('challenge', { enabledRules })).diagnostics;
-    expect(found).toHaveLength(18);
+    expect(found).toHaveLength(20);
     expect(found.some((d) => d.rule === 'no-null')).toBe(false);
   });
 

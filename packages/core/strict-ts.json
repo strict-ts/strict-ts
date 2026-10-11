@@ -2,6 +2,7 @@
   "$schema": "../cli/strict-ts.schema.json",
   "unsafeDirs": [],
   "allowedImports": [
-    "@typescript/typescript6"
+    "@typescript/typescript6",
+    "typescript"
   ]
 }

@@ -9,7 +9,7 @@ export function loose(x: any): string { // expect: no-any
 }
 
 export function parsed(text: string): string {
-  const data = JSON.parse(text); // expect: no-any
+  const data = JSON.parse(text); // expect: no-any, no-throwing-call
   return String(data);
 }
 

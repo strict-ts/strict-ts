@@ -1,4 +1,4 @@
-import { Result } from "@strict-ts/std";
+import { Result, toJson } from "@strict-ts/std";
 import { mainPermission, User } from "./domain/user.js";
 import { fetchText } from "./unsafe/http.js";
 import { parseJson, readEnv } from "./unsafe/json.js";
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   console.log(
     user.match({
       ok: (u) => `${u.name} (${u.role}), main permission: ${mainPermission(u.role)}`,
-      err: (e) => `Failed: ${JSON.stringify(e)}`,
+      err: (e) => `Failed: ${toJson(e).unwrapOr("?")}`,
     }),
   );
 }

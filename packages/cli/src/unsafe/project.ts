@@ -7,6 +7,7 @@ import { checkedFileNames, createTypeScript6Provider } from '@strict-ts/core/typ
 import { attempt, err, ok, Option, type Result } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { type Facts, fileKeys } from '../cache.js';
+import { packageNameOf } from './package.js';
 import { VERSION } from '../version.js';
 
 export interface Project {
@@ -23,7 +24,6 @@ export interface Project {
 const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 
-const hash = (text: string): string => createHash('sha1').update(text).digest('hex');
 
 /** Loads the program a tsconfig.json describes. `project` is that file or its directory, relative to `cwd`. */
 export function loadProject(cwd: string, project: string | undefined): Result<Project, string> {
@@ -33,6 +33,8 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
     const tsconfig = statSync(target).isDirectory() ? join(target, 'tsconfig.json') : target;
     if (!existsSync(tsconfig)) return err(`${tsconfig} does not exist`);
 
+    // Declared here, inside what `attempt` catches: hashing is code of Node, whose types do not say whether it throws.
+    const hash = (text: string): string => createHash('sha1').update(text).digest('hex');
     const fatal: string[] = [];
     const host = { ...ts.sys, onUnRecoverableConfigFileDiagnostic: (d: ts.Diagnostic) => fatal.push(flatten(d)) };
     const parsed = ts.getParsedCommandLineOfConfigFile(tsconfig, undefined, host);
@@ -78,8 +80,11 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
     return ok({
       rootDir,
       files: [...checked].map(relative),
-      provider: (only) =>
-        createTypeScript6Provider(ts, program, only === undefined ? { rootDir } : { rootDir, only: (fileName) => only.has(relative(fileName)) }),
+      provider: (only) => {
+        const names = (fileName: string): string | undefined => packageNameOf(ts.sys.readFile, fileName).unwrapOr(undefined);
+        const asked = only === undefined ? {} : { only: (fileName: string) => only.has(relative(fileName)) };
+        return createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, ...asked });
+      },
       facts,
     });
   }, describe);
@@ -88,7 +93,7 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
 
 /** Reads a JSON file that may be absent: none when there is no file, an error when it is not JSON. */
 export function readJsonFile(directory: string, name: string): Result<Option<unknown>, string> {
-  const path = join(directory, name);
+  const path = `${directory}/${name}`;
   return attempt(
     (): Option<unknown> => (existsSync(path) ? Option.some<unknown>(JSON.parse(readFileSync(path, 'utf8'))) : Option.none),
     (cause) => `${path}: ${describe(cause)}`,
@@ -97,13 +102,13 @@ export function readJsonFile(directory: string, name: string): Result<Option<unk
 
 /** Writes a text file, creating its directory. `name` is relative to `directory`. Returns the path written. */
 export function writeTextFile(directory: string, name: string, text: string): Result<string, string> {
-  const path = resolve(directory, name);
   return attempt(
     (): string => {
+      const path = resolve(directory, name);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, text);
       return path;
     },
-    (cause) => `${path}: ${describe(cause)}`,
+    (cause) => `${directory}/${name}: ${describe(cause)}`,
   );
 }

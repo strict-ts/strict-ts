@@ -58,13 +58,13 @@ export function wrapModule(cwd: string, project: string | undefined, module: str
 
 /** Writes the generated file, creating its directory. Returns the path written. */
 export function writeWrapper(cwd: string, file: string, text: string): Result<string, string> {
-  const path = resolve(cwd, file);
   return attempt(
     (): string => {
+      const path = resolve(cwd, file);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, text);
       return path;
     },
-    (cause) => `${path}: ${describe(cause)}`,
+    (cause) => `${file}: ${describe(cause)}`,
   );
 }

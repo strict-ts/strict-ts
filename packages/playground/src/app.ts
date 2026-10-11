@@ -1,6 +1,6 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
-import type { Mut } from '@strict-ts/std';
+import { type Mut, toJson } from '@strict-ts/std';
 import type { Data, Scenario } from './data.js';
 import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
 import { compiler, pageData, parseJson } from './unsafe/page.js';
@@ -84,7 +84,8 @@ function workspace(): Workspace {
 
 function save(): void {
   try {
-    localStorage.setItem(STORE, JSON.stringify({ scenario: state.scenario, workspaces: state.workspaces, tab: state.tab }));
+    const saved = toJson({ scenario: state.scenario, workspaces: state.workspaces, tab: state.tab });
+    if (saved.ok) localStorage.setItem(STORE, saved.value);
   } catch {
     // Nothing to do without storage: the edits live as long as the page.
   }
@@ -305,10 +306,10 @@ function snippet(d: Diagnostic): string {
   const lineText = fileText(d.file).split(/\r?\n/)[d.start.line - 1];
   if (lineText === undefined) return '';
   const number = String(d.start.line);
-  const pad = ' '.repeat(number.length);
+  const pad = ''.padEnd(number.length);
   const until = d.end.line === d.start.line ? d.end.column : lineText.length + 1;
   const width = Math.max(1, Math.min(until, lineText.length + 1) - d.start.column);
-  return `<pre class="d-snip"><span class="ln">${pad} |</span>\n<span class="ln">${number} |</span> ${esc(lineText)}\n<span class="ln">${pad} |</span> ${' '.repeat(d.start.column - 1)}<span class="mark">${'^'.repeat(width)}</span></pre>`;
+  return `<pre class="d-snip"><span class="ln">${pad} |</span>\n<span class="ln">${number} |</span> ${esc(lineText)}\n<span class="ln">${pad} |</span> ${''.padEnd(d.start.column - 1)}<span class="mark">${''.padEnd(width, '^')}</span></pre>`;
 }
 
 function renderProblems(): string {

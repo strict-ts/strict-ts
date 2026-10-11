@@ -1,6 +1,9 @@
 {
   "version": 1,
   "files": {
+    "src/json.ts": {
+      "no-any": 1
+    },
     "src/panic.ts": {
       "no-throw": 2
     },
