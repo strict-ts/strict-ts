@@ -43,6 +43,20 @@ describe('no-any', () => {
   });
 });
 
+describe('no-any in JSX', () => {
+  const jsx = 'declare namespace JSX { interface Element { readonly html: string } interface IntrinsicElements { [tag: string]: Record<string, any> } }\n';
+  const check = (text: string) =>
+    checkFiles({ 'src/a.tsx': text, 'node_modules/@types/page/index.d.ts': jsx }, { compilerOptions: { jsx: 1, types: ['page'] } }).filter((d) => d.file === 'src/a.tsx');
+
+  test('the name of an element is not a value: it is not an `any` that entered', () => {
+    expect(refusals(check('export const a = (label: string) => <div class="x"><span>{label}</span></div>;\n'))).toEqual([]);
+  });
+
+  test('an `any` written inside an element is still one', () => {
+    expect(refusals(check('export const a = (label: any) => <div>{label}</div>;\n'))).toEqual(['no-any@1']);
+  });
+});
+
 describe('no-cast', () => {
   test('refuses `as T`', () => {
     expect(refusals(checkSafe('export const name = (x: unknown): string => x as string;\n'))).toEqual(['no-cast@1']);
