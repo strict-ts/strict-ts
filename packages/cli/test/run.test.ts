@@ -120,7 +120,7 @@ describe('a project that cannot be checked is not reported as safe', () => {
   test('a strict-ts.json that is not JSON, or has an unknown key or rule', () => {
     expect(unchecked(['-p', 'not-json'])).toMatch(/^strict-ts: .*not-json\/strict-ts\.json: /);
     expect(unchecked(['-p', 'unknown-key'])).toBe(
-      'strict-ts: strict-ts.json: unknown key "unsafeDir" (unsafeDirs, allowedImports, rules)',
+      'strict-ts: strict-ts.json: unknown key "unsafeDir" (unsafeDirs, allowedImports, rules, baseline)',
     );
     expect(unchecked(['-p', 'unknown-rule'])).toBe('strict-ts: strict-ts.json: unknown rule "no-cats"');
   });
