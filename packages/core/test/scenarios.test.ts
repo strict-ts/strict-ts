@@ -69,7 +69,7 @@ describe('one violation per rule', () => {
   });
 
   test('the directive and the missing compiler option are refused too', () => {
-    expect(found.filter((d) => d.rule === 'no-ts-directive').map((d) => `${d.file}:${d.start.line}`)).toEqual(['src/bad.ts:66']);
+    expect(found.filter((d) => d.rule === 'no-ts-directive').map((d) => `${d.file}:${d.start.line}`)).toEqual(['src/bad.ts:70']);
     expect(found.filter((d) => d.rule === 'strict-compiler-options').map((d) => d.message)).toEqual([
       'Required compiler options missing: noPropertyAccessFromIndexSignature.',
     ]);
@@ -85,6 +85,7 @@ describe('one violation per rule', () => {
       'no-external-import',
       'no-non-null',
       'no-null',
+      'no-param-mutation',
       'no-throw',
       'no-ts-directive',
       'no-type-predicate',

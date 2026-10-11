@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { check, defaultConfig, isUnsafe, locator, type Rule, rules, type TypeProvider } from '../src/index.js';
+import { check, defaultConfig, isUnsafe, locator, type Node, type Rule, rules, type TypeProvider } from '../src/index.js';
 import { checkFiles, checkSafe, refusals } from './project.js';
 
 describe('check', () => {
@@ -66,6 +66,7 @@ describe('check', () => {
         if (node.kind === 'null-keyword') seen.push(`null in ${parent?.kind}`);
       },
     };
+    const left: Node = { kind: 'identifier', text: 'x', declaredOutside: false, parameter: 'none', start: 0, end: 1, isUnit: false, children: [] };
     const provider: TypeProvider = {
       files: [
         {
@@ -74,11 +75,12 @@ describe('check', () => {
           root: {
             kind: 'binary',
             operator: '===',
+            left,
             start: 0,
             end: 10,
             isUnit: false,
             children: [
-              { kind: 'identifier', text: 'x', declaredOutside: false, start: 0, end: 1, isUnit: false, children: [] },
+              left,
               { kind: 'null-keyword', start: 6, end: 10, isUnit: false, children: [] },
             ],
           },
@@ -96,7 +98,7 @@ describe('check', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the fourteen rules, each with a guarantee and a description', () => {
+  test('holds the fifteen rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
@@ -106,6 +108,7 @@ describe('the catalogue of rules', () => {
       'no-external-import',
       'no-non-null',
       'no-null',
+      'no-param-mutation',
       'no-throw',
       'no-ts-directive',
       'no-type-predicate',
@@ -114,7 +117,7 @@ describe('the catalogue of rules', () => {
       'unsafe-boundary',
     ]);
     for (const rule of rules) {
-      expect(['typing', 'errors']).toContain(rule.guarantee);
+      expect(['typing', 'errors', 'mutability']).toContain(rule.guarantee);
       expect(rule.description.length).toBeGreaterThan(20);
     }
   });
