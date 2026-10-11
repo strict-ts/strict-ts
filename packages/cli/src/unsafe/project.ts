@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { dirname, join, resolve } from 'node:path';
 import type { TypeProvider } from '@strict-ts/core';
 import { checkedFileNames, createTypeScript6Provider } from '@strict-ts/core/typescript6';
-import { attempt, err, ok, Option, type Result } from '@strict-ts/std';
+import { attempt, err, ok, Option, type Result, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { type Facts, fileKeys } from '../cache.js';
 import { packageNameOf } from './package.js';
@@ -21,7 +21,7 @@ export interface Project {
   readonly facts: (settings: string) => Facts;
 }
 
-const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+const describe = textOf;
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 
 

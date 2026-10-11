@@ -112,7 +112,7 @@ describe('strict-ts-fix', () => {
     fix(directory);
     const guards = read(directory, 'src/guards.ts');
     expect(guards).toContain('export const isStatus = (value: string) => value === "draft" || value === "sent";');
-    expect(guards).toContain('const isText = (value: unknown): value is string => String(value).length > 0;');
+    expect(guards).toContain('const isText = (value: unknown): value is string => value !== undefined;');
   });
 
   test('leaves unsafe/ alone', () => {

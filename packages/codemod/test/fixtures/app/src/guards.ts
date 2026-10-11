@@ -4,7 +4,7 @@ type Status = "draft" | "sent";
 export const isStatus = (value: string): value is Status => value === "draft" || value === "sent";
 
 // The body proves nothing: without the annotation the narrowing below is lost, so the fix does not hold.
-const isText = (value: unknown): value is string => String(value).length > 0;
+const isText = (value: unknown): value is string => value !== undefined;
 
 export const size = (value: unknown): number => (isText(value) ? value.length : 0);
 

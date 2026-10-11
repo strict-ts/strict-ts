@@ -3,7 +3,7 @@ import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
 import { threatOf } from '../effects/ledger.js';
-import { seed as ledger } from '../effects/seed.js';
+import { ledger } from '../effects/index.js';
 
 const inside = (node: Node, outer: Node): boolean => outer.start <= node.start && node.end <= outer.end;
 
@@ -11,7 +11,7 @@ const isTrusted = (name: string | undefined, config: Config): boolean =>
   name !== undefined && config.allowedImports.some((allowed) => name === allowed || name.startsWith(`${allowed}/`));
 
 /** What makes a call a possible exception, or undefined when nothing is known against it. */
-function threat(callee: Callee, argumentCount: number, config: Config): string | undefined {
+function threat(callee: Callee, argumentCount: number, plain: () => boolean, config: Config): string | undefined {
   if (callee.origin.kind === 'project') return undefined; // The rules read it: it obeys them too.
   // The console is the same object whoever declares it (the DOM library, the types of Node, a fixture).
   if (callee.name.startsWith('Console.') || callee.name.startsWith('console.')) return undefined;
@@ -24,7 +24,7 @@ function threat(callee: Callee, argumentCount: number, config: Config): string |
   const effect = ledger[callee.name];
   // Not in the ledger: nothing shows that it does not throw.
   if (effect === undefined) return 'is not in the effects ledger: nothing shows that it does not throw';
-  return threatOf(effect, argumentCount);
+  return threatOf(effect, argumentCount, effect.unprintable === true && plain());
 }
 
 export const noThrowingCall: Rule = {
@@ -33,11 +33,17 @@ export const noThrowingCall: Rule = {
   description:
     'A call that may throw without its type saying so is caught where it is made: inside `attempt`, or in a `try` with a `catch`.',
   scope: 'all',
-  visit(node, { config, calleeOf, report }, _parent, ancestors) {
+  visit(node, { config, calleeOf, typeOf, report }, _parent, ancestors) {
     if (node.kind !== 'call' && node.kind !== 'new') return;
     const callee = calleeOf(node);
     if (callee === undefined) return;
-    const why = threat(callee, node.kind === 'call' ? node.arguments.length : node.argumentCount, config);
+    // Whether everything the call is given is a plain value by its type: its receiver, and each of its arguments.
+    const plain = (): boolean => {
+      if (node.kind !== 'call') return false;
+      const receiver = node.callee.kind === 'property-access' || node.callee.kind === 'element-access' ? [node.callee.object] : [];
+      return [...receiver, ...node.arguments].every((given) => typeOf(given).isPlain);
+    };
+    const why = threat(callee, node.kind === 'call' ? node.arguments.length : node.argumentCount, plain, config);
     if (why === undefined) return;
     // Caught where it is made: in the block of a `try` that has a `catch`, or in what is handed to `attempt`.
     const caught = ancestors.some((ancestor) => {

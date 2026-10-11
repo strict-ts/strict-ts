@@ -1,11 +1,11 @@
 // unsafe/: the file system and the compiler. Everything that may throw leaves here as a Result.
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { attempt, err, type Result } from '@strict-ts/std';
+import { attempt, err, type Result, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { generateWrapper, type Wrapper } from '../generate.js';
 
-const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+const describe = textOf;
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 
 /**

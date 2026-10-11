@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { packageNameOf } from '@strict-ts/cli/package-name';
 import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
 import { calleeReader, checkedFileNames } from '@strict-ts/core/typescript6';
-import { attempt, err, none, ok, type Option, type Result, some } from '@strict-ts/std';
+import { attempt, err, none, ok, type Option, type Result, some, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { allProbes, instrument, PROBE, type Probes } from '../transform.js';
 import { install } from '../runtime.js';
@@ -24,7 +24,7 @@ export interface Instrumenter {
   readonly emit: (fileName: string) => Result<Option<Emitted>, string>;
 }
 
-const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+const describe = textOf;
 
 /**
  * Opens the project of a tsconfig.json (the file or its directory) for instrumenting. `events` is the file the

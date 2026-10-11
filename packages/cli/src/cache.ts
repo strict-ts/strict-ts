@@ -1,5 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
-import type { Mut } from '@strict-ts/std';
+import { type Mut, record } from '@strict-ts/std';
 import { asRecord } from './unsafe/record.js';
 
 /** What decides the result of a run, as the project loader reads it. */
@@ -44,7 +44,7 @@ export function fileKeys(files: Readonly<Record<string, FileFacts>>, hash: (text
     }
     return [...reached].toSorted();
   };
-  return Object.fromEntries(
+  return record(
     Object.keys(files).map((name) => [name, hash(closure(name).map((file) => `${file}:${files[file]?.hash ?? ''}`).join('\n'))] as const),
   );
 }
@@ -70,7 +70,7 @@ export function parseCache(content: unknown): Cache | undefined {
     return typeof key === 'string' && Array.isArray(diagnostics) ? ([name, { key, diagnostics: diagnostics.flatMap(asDiagnostic) }] as const) : undefined;
   });
   if (entries.includes(undefined)) return undefined;
-  return { version: 1, environment: root.value['environment'], files: Object.fromEntries(entries.flatMap((entry) => (entry === undefined ? [] : [entry]))) };
+  return { version: 1, environment: root.value['environment'], files: record(entries.flatMap((entry) => (entry === undefined ? [] : [entry]))) };
 }
 
 const asPosition = (value: unknown): readonly Diagnostic['start'][] => {

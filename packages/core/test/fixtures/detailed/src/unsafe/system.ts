@@ -1,10 +1,10 @@
 // unsafe/: the calls that may throw or return `any` are enclosed here.
 import { randomUUID } from "node:crypto";
-import { attempt, type Result } from "@strict-ts/std";
+import { attempt, type Result, textOf } from "@strict-ts/std";
 
 export type SystemError = { readonly kind: "system"; readonly message: string };
 
-const toSystemError = (cause: unknown): SystemError => ({ kind: "system", message: String(cause) });
+const toSystemError = (cause: unknown): SystemError => ({ kind: "system", message: textOf(cause) });
 
 export function newId(): Result<string, SystemError> {
   return attempt(() => randomUUID(), toSystemError);

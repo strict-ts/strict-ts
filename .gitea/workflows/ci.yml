@@ -34,3 +34,6 @@ jobs:
       # The same tests on instrumented code: what the probes see must not contradict the effects ledger.
       - name: Probes
         run: pnpm probe
+      # The generated part of the effects ledger is what the generator gives: every function run again.
+      - name: Ledger
+        run: pnpm ledger

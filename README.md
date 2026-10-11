@@ -282,6 +282,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `s` | Schemas: `s.object`, `s.array`, `s.literal`, `s.optional`, `s.string`, `s.number`, `s.boolean`, `s.date`; `s.Infer<typeof X>` gives the type, read-only |
 | `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
 | `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
+| `textOf(value)`, `record(pairs)` | What `String(value)` and `Object.fromEntries` do, without their exceptions |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
 | `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
 
@@ -304,9 +305,10 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. Its
-  entries are, for now, judgements made by hand, not yet derived from the specification. A getter or an operator that
-  throws is not a call and is not seen.
+- `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. A
+  function is in it as throwing when it was seen to throw on generated values; as safe, for now, on a person's
+  judgement backed by runs that never threw, not yet on the specification. A getter or an operator that throws is not
+  a call and is not seen.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.
@@ -316,7 +318,7 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 ## Working on it
 
 ```sh
-pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus && pnpm probe
+pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus && pnpm probe && pnpm ledger
 ```
 
 `pnpm corpus` runs the gate on a fixed set of projects (the packages, the examples, the fixtures) and compares what

@@ -42,6 +42,20 @@ export function createTypeScript6Provider(
     api.TypeFlags.EnumLiteral |
     api.TypeFlags.Undefined;
 
+  const plainFlags =
+    api.TypeFlags.StringLike | api.TypeFlags.NumberLike | api.TypeFlags.BooleanLike | api.TypeFlags.BigIntLike | api.TypeFlags.Undefined | api.TypeFlags.Null | api.TypeFlags.Void;
+  const isPlain = (type: ts.Type, depth: number): boolean => {
+    if ((type.flags & plainFlags) !== 0) return true;
+    if (depth > 4) return false;
+    if (type.isUnion()) return type.types.every((member) => isPlain(member, depth + 1));
+    if (checker.isArrayType(type) || checker.isTupleType(type)) {
+      // What an index gives: the item type of an array, the union of the item types of a tuple.
+      const item = checker.getIndexTypeOfType(type, api.IndexKind.Number);
+      return item !== undefined && isPlain(item, depth + 1);
+    }
+    return false;
+  };
+
   const wrapType = (type: ts.Type): Type => {
     const symbolName = type.getSymbol()?.getName();
     const isPromise = symbolName === 'Promise' || symbolName === 'PromiseLike';
@@ -52,6 +66,9 @@ export function createTypeScript6Provider(
       isAny: (type.flags & api.TypeFlags.Any) !== 0,
       isLiteral: (type.flags & literal) !== 0,
       isBooleanLiteral: (type.flags & api.TypeFlags.BooleanLiteral) !== 0,
+      get isPlain() {
+        return isPlain(type, 0);
+      },
       isPromise,
       get members() {
         return type.isUnion() ? type.types.map(wrapType) : [self];
@@ -99,7 +116,7 @@ export function createTypeScript6Provider(
 
   // Each compiler node is converted once, children first, so a parent finds its parts already converted.
   const converted = new Map<ts.Node, Node>();
-  const origin = new WeakMap<Node, ts.Node>();
+  const origin = new Map<Node, ts.Node>();
 
   const convert = (node: ts.Node, sourceFile: ts.SourceFile): Node => {
     const children: Mut<Node[]> = [];
@@ -250,7 +267,7 @@ export function createTypeScript6Provider(
     return result;
   };
 
-  const sources = new WeakMap<SourceFile, ts.SourceFile>();
+  const sources = new Map<SourceFile, ts.SourceFile>();
   const files = program
     .getSourceFiles()
     .filter((sourceFile) => isChecked(sourceFile) && (options.only?.(sourceFile.fileName) ?? true))
@@ -319,6 +336,7 @@ export function createTypeScript6Provider(
     isAny: true,
     isLiteral: false,
     isBooleanLiteral: false,
+    isPlain: false,
     isPromise: false,
     get members() {
       return [unknownOrigin];
