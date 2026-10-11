@@ -129,7 +129,7 @@ describe('the gate against a baseline', () => {
   };
 
   test('old violations pass: exit code 0, and the summary counts them', () => {
-    expect(strictTs(recorded())).toEqual({ code: 0, out: ['0 new, 4 baselined'], err: [] });
+    expect(strictTs(recorded())).toEqual({ code: 0, out: ['0 new, 4 baselined, 0 stale, 0 files out of the baseline'], err: [] });
   });
 
   test('one more violation of a recorded rule in a recorded file fails, and names the allowance', () => {
@@ -149,7 +149,7 @@ describe('the gate against a baseline', () => {
         '  note: 1 allowed by the baseline',
         '',
         '2 refused in 1 file',
-        '2 new, 3 baselined',
+        '2 new, 3 baselined, 0 stale, 0 files out of the baseline',
       ],
       err: [],
     });
@@ -162,7 +162,7 @@ describe('the gate against a baseline', () => {
     expect(code).toBe(1);
     expect(out.filter((line) => line.startsWith('src/'))).toEqual(['src/billing.ts:2:24 no-null `null` is forbidden.']);
     expect(out.some((line) => line.includes('note:'))).toBe(false);
-    expect(out.at(-1)).toBe('1 new, 4 baselined');
+    expect(out.at(-1)).toBe('1 new, 4 baselined, 0 stale, 0 files out of the baseline');
   });
 
   test('a file outside the baseline has no allowance', () => {
@@ -171,14 +171,14 @@ describe('the gate against a baseline', () => {
     const { code, out } = strictTs(legacy);
     expect(code).toBe(1);
     expect(out[0]).toBe('src/new.ts:1:24 no-null `null` is forbidden.');
-    expect(out.at(-1)).toBe('1 new, 4 baselined');
+    expect(out.at(-1)).toBe('1 new, 4 baselined, 0 stale, 0 files out of the baseline');
   });
 
   test('moving code inside a file changes nothing', () => {
     const legacy = recorded();
     const orders = readFileSync(join(legacy, 'src/orders.ts'), 'utf8');
     writeFileSync(join(legacy, 'src/orders.ts'), `\n\n// moved down\n${orders}`);
-    expect(strictTs(legacy)).toEqual({ code: 0, out: ['0 new, 4 baselined'], err: [] });
+    expect(strictTs(legacy)).toEqual({ code: 0, out: ['0 new, 4 baselined, 0 stale, 0 files out of the baseline'], err: [] });
   });
 
   test("the compiler's errors are never allowed", () => {
@@ -187,7 +187,7 @@ describe('the gate against a baseline', () => {
     const { code, out } = strictTs(legacy);
     expect(code).toBe(1);
     expect(out[0]).toBe("src/clean.ts:1:46 TS2322 Type 'number' is not assignable to type 'string'.");
-    expect(out.at(-1)).toBe('1 new, 4 baselined');
+    expect(out.at(-1)).toBe('1 new, 4 baselined, 0 stale, 0 files out of the baseline');
   });
 
   test('--no-baseline shows everything', () => {
@@ -203,7 +203,7 @@ describe('the gate against a baseline', () => {
     const document = JSON.parse(out.join('\n'));
     expect(code).toBe(1);
     expect(document.diagnostics.map((d: { file: string; rule: string }) => `${d.file} ${d.rule}`)).toEqual(['src/new.ts no-null']);
-    expect(document.baseline).toEqual({ new: 1, baselined: 4 });
+    expect(document.baseline).toEqual({ new: 1, baselined: 4, stale: 0, migratedFiles: 0, staleEntries: [] });
   });
 
   test('without a baseline file nothing changes: every violation is refused, and no summary', () => {
@@ -229,6 +229,79 @@ describe('the gate against a baseline', () => {
     );
     expect(broken('{ "version": 1, "files": { "src/a.ts": 3 } }')).toBe('strict-ts: strict-ts-baseline.json: "src/a.ts": object expected');
     expect(broken('not json')).toMatch(/strict-ts-baseline\.json: /);
+  });
+});
+
+describe('a baseline can only shrink', () => {
+  /** The legacy project recorded, then its one violation in billing.ts fixed. */
+  const fixed = (): string => {
+    const legacy = project('legacy');
+    strictTs(legacy, '--update-baseline');
+    writeFileSync(join(legacy, 'src/billing.ts'), 'export const firstAmount = (amounts: readonly number[]) => amounts[0] ?? 0;\n');
+    return legacy;
+  };
+
+  test('a fix leaves a stale entry: a warning, and the exit code stays 0', () => {
+    expect(strictTs(fixed())).toEqual({
+      code: 0,
+      out: [
+        'warning: stale baseline entry src/billing.ts no-non-null: 1 recorded, 0 found',
+        '  help: run --update-baseline, so that what was fixed cannot come back',
+        '0 new, 3 baselined, 1 stale, 1 file out of the baseline',
+      ],
+      err: [],
+    });
+  });
+
+  test('--strict-baseline fails on a stale entry', () => {
+    const { code, out } = strictTs(fixed(), '--strict-baseline');
+    expect(code).toBe(1);
+    expect(out.at(-1)).toBe('0 new, 3 baselined, 1 stale, 1 file out of the baseline');
+  });
+
+  test('--strict-baseline passes when the baseline matches', () => {
+    const legacy = project('legacy');
+    strictTs(legacy, '--update-baseline');
+    expect(strictTs(legacy, '--strict-baseline').code).toBe(0);
+  });
+
+  test('an entry partly fixed is stale, and its file is not out of the baseline', () => {
+    const legacy = project('legacy');
+    writeFileSync(
+      join(legacy, 'strict-ts-baseline.json'),
+      JSON.stringify({ version: 1, files: { 'src/orders.ts': { 'no-any': 3, 'no-cast': 1, 'no-throw': 1 }, 'src/billing.ts': { 'no-non-null': 1 } } }),
+    );
+    const { code, out } = strictTs(legacy);
+    expect(code).toBe(0);
+    expect(out).toEqual([
+      'warning: stale baseline entry src/orders.ts no-any: 3 recorded, 1 found',
+      '  help: run --update-baseline, so that what was fixed cannot come back',
+      '0 new, 4 baselined, 1 stale, 0 files out of the baseline',
+    ]);
+  });
+
+  test('updating the baseline clears the stale entry and drops the migrated file', () => {
+    const legacy = fixed();
+    strictTs(legacy, '--update-baseline');
+    expect(strictTs(legacy, '--strict-baseline')).toEqual({
+      code: 0,
+      out: ['0 new, 3 baselined, 0 stale, 0 files out of the baseline'],
+      err: [],
+    });
+  });
+
+  test('--format json lists the stale entries', () => {
+    const document = JSON.parse(strictTs(fixed(), '--format', 'json').out.join('\n'));
+    expect(document).toEqual({
+      diagnostics: [],
+      baseline: {
+        new: 0,
+        baselined: 3,
+        stale: 1,
+        migratedFiles: 1,
+        staleEntries: [{ file: 'src/billing.ts', rule: 'no-non-null', recorded: 1, found: 0 }],
+      },
+    });
   });
 });
 

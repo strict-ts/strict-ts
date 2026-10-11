@@ -12,6 +12,8 @@ export type Command =
       readonly format: Format;
       /** `use` the baseline file when there is one, `ignore` it, or `update` it with today's violations. */
       readonly baseline: BaselineMode;
+      /** Fail when the baseline allows more than what is found, so that it can only shrink. */
+      readonly strictBaseline: boolean;
     };
 
 export const usage = [
@@ -25,11 +27,12 @@ export const usage = [
   '      --format <format>  text (default) or json',
   '      --update-baseline  Record the violations found in the baseline file, and exit with 0',
   '      --no-baseline      Ignore the baseline file: refuse every violation',
+  '      --strict-baseline  Fail when the baseline allows more than what is found',
   '  -h, --help             Show this help',
 ].join('\n');
 
 /** The options that take no value. */
-const FLAGS = ['--update-baseline', '--no-baseline'];
+const FLAGS = ['--update-baseline', '--no-baseline', '--strict-baseline'];
 
 const isFormat = (value: string): value is Format => value === 'text' || value === 'json';
 
@@ -60,6 +63,9 @@ export function parseArgs(argv: readonly string[]): Result<Command, string> {
   const update = flags.has('--update-baseline');
   if (update && format !== undefined) return err('--update-baseline cannot be combined with --format');
   if (update && flags.has('--no-baseline')) return err('--update-baseline cannot be combined with --no-baseline');
+  const strictBaseline = flags.has('--strict-baseline');
+  const other = update ? '--update-baseline' : '--no-baseline';
+  if (strictBaseline && (update || flags.has('--no-baseline'))) return err(`--strict-baseline cannot be combined with ${other}`);
   const baseline = update ? 'update' : flags.has('--no-baseline') ? 'ignore' : 'use';
-  return ok({ kind: 'check', project, format: format ?? 'text', baseline });
+  return ok({ kind: 'check', project, format: format ?? 'text', baseline, strictBaseline });
 }
