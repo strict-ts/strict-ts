@@ -119,12 +119,116 @@ describe('--update-baseline', () => {
     expect(existsSync(join(legacy, 'strict-ts-baseline.json'))).toBe(false);
   });
 
-  test('the gate itself does not read the baseline yet: every violation is still refused', () => {
+});
+
+describe('the gate against a baseline', () => {
+  const recorded = (): string => {
     const legacy = project('legacy');
     strictTs(legacy, '--update-baseline');
+    return legacy;
+  };
+
+  test('old violations pass: exit code 0, and the summary counts them', () => {
+    expect(strictTs(recorded())).toEqual({ code: 0, out: ['0 new, 4 baselined'], err: [] });
+  });
+
+  test('one more violation of a recorded rule in a recorded file fails, and names the allowance', () => {
+    const legacy = recorded();
+    writeFileSync(
+      join(legacy, 'src/billing.ts'),
+      'export const firstAmount = (amounts: readonly number[]): number => amounts[0]!;\nexport const last = (amounts: readonly number[]): number => amounts.at(-1)!;\n',
+    );
+    expect(strictTs(legacy)).toEqual({
+      code: 1,
+      out: [
+        'src/billing.ts:1:68 no-non-null `!` assertion forbidden.',
+        '  help: Handle the `undefined` case explicitly, or return an Option.',
+        '  note: 1 allowed by the baseline',
+        'src/billing.ts:2:61 no-non-null `!` assertion forbidden.',
+        '  help: Handle the `undefined` case explicitly, or return an Option.',
+        '  note: 1 allowed by the baseline',
+        '',
+        '2 refused in 1 file',
+        '2 new, 3 baselined',
+      ],
+      err: [],
+    });
+  });
+
+  test('another rule in a recorded file has no allowance', () => {
+    const legacy = recorded();
+    writeFileSync(join(legacy, 'src/billing.ts'), 'export const firstAmount = (amounts: readonly number[]): number => amounts[0]!;\nexport const nothing = null;\n');
     const { code, out } = strictTs(legacy);
     expect(code).toBe(1);
+    expect(out.filter((line) => line.startsWith('src/'))).toEqual(['src/billing.ts:2:24 no-null `null` is forbidden.']);
+    expect(out.some((line) => line.includes('note:'))).toBe(false);
+    expect(out.at(-1)).toBe('1 new, 4 baselined');
+  });
+
+  test('a file outside the baseline has no allowance', () => {
+    const legacy = recorded();
+    writeFileSync(join(legacy, 'src/new.ts'), 'export const nothing = null;\n');
+    const { code, out } = strictTs(legacy);
+    expect(code).toBe(1);
+    expect(out[0]).toBe('src/new.ts:1:24 no-null `null` is forbidden.');
+    expect(out.at(-1)).toBe('1 new, 4 baselined');
+  });
+
+  test('moving code inside a file changes nothing', () => {
+    const legacy = recorded();
+    const orders = readFileSync(join(legacy, 'src/orders.ts'), 'utf8');
+    writeFileSync(join(legacy, 'src/orders.ts'), `\n\n// moved down\n${orders}`);
+    expect(strictTs(legacy)).toEqual({ code: 0, out: ['0 new, 4 baselined'], err: [] });
+  });
+
+  test("the compiler's errors are never allowed", () => {
+    const legacy = recorded();
+    writeFileSync(join(legacy, 'src/clean.ts'), 'export const double = (n: number): string => n * 2;\n');
+    const { code, out } = strictTs(legacy);
+    expect(code).toBe(1);
+    expect(out[0]).toBe("src/clean.ts:1:46 TS2322 Type 'number' is not assignable to type 'string'.");
+    expect(out.at(-1)).toBe('1 new, 4 baselined');
+  });
+
+  test('--no-baseline shows everything', () => {
+    const { code, out } = strictTs(recorded(), '--no-baseline');
+    expect(code).toBe(1);
     expect(out.at(-1)).toBe('4 refused in 2 files');
+  });
+
+  test('--format json gives the refused diagnostics and the counts', () => {
+    const legacy = recorded();
+    writeFileSync(join(legacy, 'src/new.ts'), 'export const nothing = null;\n');
+    const { code, out } = strictTs(legacy, '--format', 'json');
+    const document = JSON.parse(out.join('\n'));
+    expect(code).toBe(1);
+    expect(document.diagnostics.map((d: { file: string; rule: string }) => `${d.file} ${d.rule}`)).toEqual(['src/new.ts no-null']);
+    expect(document.baseline).toEqual({ new: 1, baselined: 4 });
+  });
+
+  test('without a baseline file nothing changes: every violation is refused, and no summary', () => {
+    const { code, out } = strictTs(project('legacy'));
+    expect(code).toBe(1);
+    expect(out.at(-1)).toBe('4 refused in 2 files');
+    expect(strictTs(project('conforming'))).toEqual({ code: 0, out: [], err: [] });
+  });
+
+  test('a baseline file that is not understood allows nothing: the project is not checked', () => {
+    const broken = (content: string): string => {
+      const legacy = project('legacy');
+      writeFileSync(join(legacy, 'strict-ts-baseline.json'), content);
+      const { code, out, err } = strictTs(legacy);
+      expect(code).toBe(2);
+      expect(out).toEqual([]);
+      return err.join('\n');
+    };
+    expect(broken('{ "version": 2, "files": {} }')).toBe('strict-ts: strict-ts-baseline.json: "version": 1 expected');
+    expect(broken('{ "version": 1 }')).toBe('strict-ts: strict-ts-baseline.json: "files": object expected');
+    expect(broken('{ "version": 1, "files": { "src/a.ts": { "no-any": -1 } } }')).toBe(
+      'strict-ts: strict-ts-baseline.json: "src/a.ts" "no-any": a positive whole number expected',
+    );
+    expect(broken('{ "version": 1, "files": { "src/a.ts": 3 } }')).toBe('strict-ts: strict-ts-baseline.json: "src/a.ts": object expected');
+    expect(broken('not json')).toMatch(/strict-ts-baseline\.json: /);
   });
 });
 

@@ -1,12 +1,20 @@
-import { check } from '@strict-ts/core';
+import { check, type Diagnostic } from '@strict-ts/core';
 import { parseArgs, usage } from './args.js';
-import { countViolations, isRecordable, serializeBaseline, toBaseline } from './baseline.js';
+import { compare, countViolations, isRecordable, parseBaseline, serializeBaseline, toBaseline } from './baseline.js';
 import { CONFIG_FILE, readSettings } from './config.js';
 import { formatJson, formatText } from './format.js';
 import { loadProject, readJsonFile, writeTextFile } from './unsafe/project.js';
 
-export { type Command, type Format, parseArgs, usage } from './args.js';
-export { type Baseline, isRecordable, serializeBaseline, toBaseline } from './baseline.js';
+export { type BaselineMode, type Command, type Format, parseArgs, usage } from './args.js';
+export {
+  type Baseline,
+  type Comparison,
+  compare,
+  isRecordable,
+  parseBaseline,
+  serializeBaseline,
+  toBaseline,
+} from './baseline.js';
 export { BASELINE_FILE, CONFIG_FILE, defaultSettings, readSettings, type Settings } from './config.js';
 export { formatJson, formatText } from './format.js';
 
@@ -22,7 +30,8 @@ const UNCHECKED = 2;
 /**
  * Runs the gate. Returns the process exit code: 0 when nothing is refused, 1 when something is, 2 when the project
  * could not be checked (wrong arguments, unreadable project or configuration, no file to check).
- * With `--update-baseline`, the violations are recorded instead of refused.
+ * With `--update-baseline`, the violations are recorded instead of refused; once recorded, only what goes beyond the
+ * record is refused.
  */
 export function run(argv: readonly string[], io: Io): number {
   const fail = (message: string): number => {
@@ -36,7 +45,7 @@ export function run(argv: readonly string[], io: Io): number {
     io.out(usage);
     return 0;
   }
-  const { project, format, updateBaseline } = command.value;
+  const { project, format, baseline: mode } = command.value;
 
   const loaded = loadProject(io.cwd, project);
   if (!loaded.ok) return fail(loaded.error);
@@ -46,7 +55,7 @@ export function run(argv: readonly string[], io: Io): number {
   if (provider.files.length === 0) return fail(`no file to check under ${rootDir}`);
 
   const found = check(provider, settings.value.config);
-  if (updateBaseline) {
+  if (mode === 'update') {
     const baseline = toBaseline(found);
     const written = writeTextFile(rootDir, settings.value.baseline, serializeBaseline(baseline));
     if (!written.ok) return fail(written.error);
@@ -60,7 +69,31 @@ export function run(argv: readonly string[], io: Io): number {
     io.out('not recorded: a baseline holds rule violations only, not compiler errors');
     return 1;
   }
-  if (format === 'json') io.out(formatJson(found));
-  else for (const line of formatText(found)) io.out(line);
-  return found.length === 0 ? 0 : 1;
+  if (mode === 'ignore') return report(found);
+
+  const recorded = readJsonFile(rootDir, settings.value.baseline);
+  if (!recorded.ok) return fail(recorded.error);
+  if (!recorded.value.some) return report(found);
+  const baseline = parseBaseline(recorded.value.value);
+  if (!baseline.ok) return fail(`${settings.value.baseline}: ${baseline.error}`);
+
+  const { refused, baselined, allowed } = compare(found, baseline.value);
+  const counts = { new: refused.length, baselined: baselined.length };
+  if (format === 'json') {
+    io.out(formatJson(refused, { baseline: counts }));
+  } else {
+    const note = (d: Diagnostic): string | undefined => {
+      const allowance = allowed(d);
+      return allowance === undefined ? undefined : `${allowance} allowed by the baseline`;
+    };
+    for (const line of formatText(refused, note)) io.out(line);
+    io.out(`${counts.new} new, ${counts.baselined} baselined`);
+  }
+  return refused.length === 0 ? 0 : 1;
+
+  function report(refused: readonly Diagnostic[]): number {
+    if (format === 'json') io.out(formatJson(refused));
+    else for (const line of formatText(refused)) io.out(line);
+    return refused.length === 0 ? 0 : 1;
+  }
 }
