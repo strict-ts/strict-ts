@@ -99,6 +99,12 @@ export function createTypeScript6Provider(
       children.push(convert(child, sourceFile));
     });
     const part = (child: ts.Node): Node => converted.get(child) ?? convert(child, sourceFile);
+    /** The expression inside its parentheses and non-null assertions: `(a)!.b` is about `a`. */
+    const unwrapped = (expression: ts.Expression): ts.Expression => {
+      let inner = expression;
+      while (api.isParenthesizedExpression(inner) || api.isNonNullExpression(inner)) inner = inner.expression;
+      return inner;
+    };
     const base = { start: node.getStart(sourceFile), end: node.getEnd(), children, isUnit: isUnit(node) };
 
     const shape = (): Node => {
@@ -118,6 +124,18 @@ export function createTypeScript6Provider(
           kind: 'identifier',
           text: node.text,
           // Asked of few identifiers, and it needs the checker: computed on demand.
+          get parameter() {
+            const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+            let owner: ts.Node | undefined = declaration;
+            while (owner !== undefined && (api.isBindingElement(owner) || api.isObjectBindingPattern(owner) || api.isArrayBindingPattern(owner))) {
+              owner = owner.parent;
+            }
+            if (owner === undefined || !api.isParameter(owner)) return 'none';
+            const written = owner.type;
+            const asksForMutation =
+              written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
+            return asksForMutation ? 'mutable' : 'readonly';
+          },
           get declaredOutside() {
             const parent: ts.Node & { readonly name?: ts.Node } = node.parent;
             // `ns` in the type `ns.Member` names a namespace, not a value.
@@ -137,8 +155,15 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part) };
       }
       if (api.isNewExpression(node)) return { ...base, kind: 'new' };
-      if (api.isPropertyAccessExpression(node)) return { ...base, kind: 'property-access' };
-      if (api.isElementAccessExpression(node)) return { ...base, kind: 'element-access' };
+      if (api.isPropertyAccessExpression(node)) {
+        return { ...base, kind: 'property-access', object: part(unwrapped(node.expression)), name: node.name.text };
+      }
+      if (api.isElementAccessExpression(node)) return { ...base, kind: 'element-access', object: part(unwrapped(node.expression)) };
+      if (api.isPrefixUnaryExpression(node) || api.isPostfixUnaryExpression(node)) {
+        const updates = node.operator === api.SyntaxKind.PlusPlusToken || node.operator === api.SyntaxKind.MinusMinusToken;
+        if (updates) return { ...base, kind: 'update', operand: part(unwrapped(node.operand)) };
+      }
+      if (api.isDeleteExpression(node)) return { ...base, kind: 'delete', operand: part(unwrapped(node.expression)) };
       if (api.isAwaitExpression(node)) return { ...base, kind: 'await' };
       if (api.isVoidExpression(node)) return { ...base, kind: 'void' };
       if (api.isNonNullExpression(node)) return { ...base, kind: 'non-null' };
@@ -150,7 +175,7 @@ export function createTypeScript6Provider(
       }
       if (api.isTypeAssertionExpression(node)) return { ...base, kind: 'type-assertion' };
       if (api.isBinaryExpression(node)) {
-        return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '' };
+        return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '', left: part(unwrapped(node.left)) };
       }
       if (api.isThrowStatement(node)) return { ...base, kind: 'throw' };
       if (api.isExpressionStatement(node)) {

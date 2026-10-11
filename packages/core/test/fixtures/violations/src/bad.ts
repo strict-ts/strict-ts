@@ -63,6 +63,10 @@ export const copied = injected;
 
 export let late!: string; // expect: no-non-null
 
+export function append(list: number[]): void {
+  list.push(1); // expect: no-param-mutation
+}
+
 // @ts-ignore
 export const masked = 1;
 

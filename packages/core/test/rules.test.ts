@@ -611,6 +611,104 @@ describe('typing gaps closed in the existing rules', () => {
   });
 });
 
+describe('no-param-mutation', () => {
+  const messages = (code: string) => checkSafe(code).map((d) => `${d.rule}@${d.start.line} ${d.message}`);
+
+  test('refuses writing into what a parameter holds', () => {
+    const code = [
+      'interface Cart { total: number; items: string[]; tags: Record<string, string> }',
+      'export function close(cart: Cart, index: number): void {',
+      '  cart.total = 0;',
+      '  cart.items[index] = "";',
+      '  cart.total += 1;',
+      '  cart.total++;',
+      '  delete cart.tags["a"];',
+      '}',
+    ].join('\n');
+    expect(messages(code)).toEqual([
+      'no-param-mutation@3 Parameter `cart` is mutated.',
+      'no-param-mutation@4 Parameter `cart` is mutated.',
+      'no-param-mutation@5 Parameter `cart` is mutated.',
+      'no-param-mutation@6 Parameter `cart` is mutated.',
+      'no-param-mutation@7 Parameter `cart` is mutated.',
+    ]);
+  });
+
+  test('refuses the methods that change an array, a map or a set', () => {
+    const code = [
+      'export function fill(list: number[], seen: Set<number>, byId: Map<string, number>): void {',
+      '  list.push(1);',
+      '  list.sort();',
+      '  seen.add(1);',
+      '  byId.set("a", 1);',
+      '  (list).reverse();',
+      '}',
+    ].join('\n');
+    expect(messages(code)).toEqual([
+      'no-param-mutation@2 Parameter `list` is mutated by `push`.',
+      'no-param-mutation@3 Parameter `list` is mutated by `sort`.',
+      'no-param-mutation@4 Parameter `seen` is mutated by `add`.',
+      'no-param-mutation@5 Parameter `byId` is mutated by `set`.',
+      'no-param-mutation@6 Parameter `list` is mutated by `reverse`.',
+    ]);
+  });
+
+  test('refuses reassigning a parameter', () => {
+    const code = 'export function clamp(value: number): number {\n  if (value < 0) value = 0;\n  return value;\n}\n';
+    expect(messages(code)).toEqual(['no-param-mutation@2 Parameter `value` is reassigned.']);
+  });
+
+  test('sees through destructuring and closures', () => {
+    const code = [
+      'export function add({ items }: { items: number[] }, [first]: number[][]): () => void {',
+      '  first?.push(1);',
+      '  return () => {',
+      '    items.push(2);',
+      '  };',
+      '}',
+    ].join('\n');
+    expect(messages(code)).toEqual([
+      'no-param-mutation@2 Parameter `first` is mutated by `push`.',
+      'no-param-mutation@4 Parameter `items` is mutated by `push`.',
+    ]);
+  });
+
+  test('accepts a parameter that asks for mutation with Mut<T>', () => {
+    const code = [
+      'import type { Mut } from "@strict-ts/std";',
+      'export function fill(list: Mut<number[]>, cart: Mut<{ total: number }>): void {',
+      '  list.push(1);',
+      '  cart.total = 0;',
+      '}',
+    ].join('\n');
+    expect(checkSafe(code)).toEqual([]);
+  });
+
+  test('accepts reading a parameter, and changing a copy or a local', () => {
+    const code = [
+      'export function sorted(list: readonly number[], limit: number): number[] {',
+      '  const copy = [...list];',
+      '  copy.sort();',
+      '  copy.push(limit);',
+      '  let count = limit;',
+      '  count += list.length;',
+      '  return copy.slice(0, count).map((n) => n + 1);',
+      '}',
+    ].join('\n');
+    expect(checkSafe(code)).toEqual([]);
+  });
+
+  test('is not asked of unsafe/', () => {
+    const code = 'import { ok } from "@strict-ts/std";\nexport const fill = (list: number[]) => ok(list.push(1));\n';
+    expect(checkUnsafe(code)).toEqual([]);
+  });
+
+  test('known limit: a mutation through another name is not seen', () => {
+    const code = 'export function fill(list: number[]): void {\n  const alias = list;\n  alias.push(1);\n}\n';
+    expect(checkSafe(code)).toEqual([]);
+  });
+});
+
 describe('strict-compiler-options', () => {
   test('names the required options that are missing', () => {
     const compilerOptions = { noImplicitReturns: false, noImplicitOverride: false };

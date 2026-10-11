@@ -46,7 +46,8 @@
           "safety-comment",
           "strict-compiler-options",
           "no-type-predicate",
-          "no-ambient"
+          "no-ambient",
+          "no-param-mutation"
         ]
       },
       "uniqueItems": true,

@@ -26,12 +26,27 @@ export type Node = NodeBase &
      * `declaredOutside`: the name refers to a value declared outside the checked files (a declaration file, a
      * dependency), so nothing checked where its type comes from.
      */
-    | { readonly kind: 'identifier'; readonly text: string; readonly declaredOutside: boolean }
+    | {
+        readonly kind: 'identifier';
+        readonly text: string;
+        readonly declaredOutside: boolean;
+        /**
+         * Whether the name refers to a parameter of a function (or to a piece destructured from one), and whether
+         * that parameter's type asks for mutation with `Mut<…>`.
+         */
+        readonly parameter: 'none' | 'readonly' | 'mutable';
+      }
     | { readonly kind: 'string-literal'; readonly text: string }
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
     | { readonly kind: 'new' }
-    | { readonly kind: 'property-access' }
-    | { readonly kind: 'element-access' }
+    /** `object.name`; parentheses around `object` are looked through. */
+    | { readonly kind: 'property-access'; readonly object: Node; readonly name: string }
+    /** `object[…]`. */
+    | { readonly kind: 'element-access'; readonly object: Node }
+    /** `x++`, `--x`. */
+    | { readonly kind: 'update'; readonly operand: Node }
+    /** `delete x.y`. */
+    | { readonly kind: 'delete'; readonly operand: Node }
     | { readonly kind: 'await' }
     | { readonly kind: 'void' }
     | { readonly kind: 'non-null' }
@@ -46,7 +61,7 @@ export type Node = NodeBase &
     /** `<T>x`. */
     | { readonly kind: 'type-assertion' }
     /** `operator` is the token as written: `===`, `+`, `??`… */
-    | { readonly kind: 'binary'; readonly operator: string }
+    | { readonly kind: 'binary'; readonly operator: string; readonly left: Node }
     | { readonly kind: 'throw' }
     | { readonly kind: 'expression-statement'; readonly expression: Node }
     | { readonly kind: 'switch'; readonly expression: Node; readonly clauses: readonly Node[] }

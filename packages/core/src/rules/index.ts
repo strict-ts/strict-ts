@@ -6,6 +6,7 @@ import { noAny } from './no-any.js';
 import { noCast } from './no-cast.js';
 import { noExternalImport } from './no-external-import.js';
 import { noNonNull } from './no-non-null.js';
+import { noParamMutation } from './no-param-mutation.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noTsDirective } from './no-ts-directive.js';
@@ -30,4 +31,5 @@ export const rules: readonly Rule[] = [
   strictCompilerOptions,
   noTypePredicate,
   noAmbient,
+  noParamMutation,
 ];
