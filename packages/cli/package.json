@@ -1,0 +1,22 @@
+{
+  "name": "@strict-ts/cli",
+  "version": "0.0.0",
+  "description": "The strict-ts CI gate: replaces tsc --noEmit, with a baseline and JSON / SARIF output.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "bin": {
+    "strict-ts": "./dist/main.js"
+  },
+  "dependencies": {
+    "@strict-ts/core": "workspace:*"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@strict-ts/core",
+  "version": "0.0.0",
+  "description": "The strict-ts rule engine. No dependency on Node: it runs in the CLI, the editor and the browser.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"]
+}

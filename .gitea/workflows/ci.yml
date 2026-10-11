@@ -1,0 +1,27 @@
+# Checks pull requests and main. Nothing is deployed: the packages are published by hand until the first release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: corepack enable && pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck and build
+        run: pnpm build
+      - name: Test
+        run: pnpm test
