@@ -10,7 +10,24 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./typescript6": {
+      "types": "./dist/typescript6/provider.d.ts",
+      "default": "./dist/typescript6/provider.js"
     }
   },
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@typescript/typescript6": "^6.0.2"
+  },
+  "peerDependenciesMeta": {
+    "@typescript/typescript6": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@typescript/typescript6": "^6.0.2"
+  }
 }
