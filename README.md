@@ -21,6 +21,7 @@ brings the other four without changing language: the code stays standard TypeScr
 | [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 11 rules behind `TypeProvider`, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | text and JSON output, `strict-ts.json` |
 | [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
+| [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on the five scenarios; not published | builds to one page |
 | `@strict-ts/language-service` | Errors underlined in the editor | phase 1 |
 | `@strict-ts/codemod` | Automatic fixes and migration of existing code | phase 1 |
 | `@strict-ts/wrap` | Generates the `unsafe/` wrappers from `.d.ts` files | phase 1 |
@@ -46,6 +47,9 @@ node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 9 r
 `-p` takes a `tsconfig.json` or its directory; `--format json` prints one JSON document. An optional `strict-ts.json`
 beside `tsconfig.json` sets `unsafeDirs`, `allowedImports` and `rules`. Exit code 2 means the project could not be
 checked.
+
+`pnpm build` also writes the playground to `packages/playground/dist`: open `index.html` in a browser, it needs no
+server and no network.
 
 Node ≥ 22.13. The work (backlog, milestones, sprints) and the docs and specs are in Plane, project
 [STS](https://plane.adserver.fr/alex/projects/2c1f2990-e14d-4f3d-9186-ebbe292b8c8f/issues/); this repo holds the code,

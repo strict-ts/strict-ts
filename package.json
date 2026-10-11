@@ -10,7 +10,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs",
     "typecheck": "tsc -b",
     "lint": "oxlint --deny-warnings packages",
     "test": "vitest run"
