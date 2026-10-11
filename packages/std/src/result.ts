@@ -68,8 +68,17 @@ function gen<Y extends Err<unknown> = never, R extends Result<unknown, unknown> 
   body: () => Generator<Y, R, unknown>,
 ): Result<ValueOf<R>, ErrorOf<Y> | ErrorOf<R>>;
 function gen(body: () => Generator<unknown, unknown, unknown> | AsyncGenerator<unknown, unknown, unknown>): unknown {
-  const step = body().next();
-  return step instanceof Promise ? step.then((s) => s.value) : step.value;
+  const steps = body();
+  const step = steps.next();
+  // Leaving on an Err closes the generator, so the `finally` blocks and `using` declarations it was in still run.
+  if (step instanceof Promise) {
+    return step.then(async (s) => {
+      if (s.done !== true) await steps.return(undefined);
+      return s.value;
+    });
+  }
+  if (step.done !== true) steps.return(undefined);
+  return step.value;
 }
 
 /** For unsafe/: runs a function that may throw (synchronous or asynchronous) and returns a Result. */
