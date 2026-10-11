@@ -43,11 +43,14 @@ export function check(
       });
 
     for (const { rule, context } of active) rule.file?.(context);
-    const walk = (node: Node, parent: Node | undefined): void => {
-      for (const { rule, context } of active) rule.visit?.(node, context, parent);
-      for (const child of node.children) walk(child, node);
+    const ancestors: Node[] = [];
+    const walk = (node: Node): void => {
+      for (const { rule, context } of active) rule.visit?.(node, context, ancestors.at(-1), ancestors);
+      ancestors.push(node);
+      for (const child of node.children) walk(child);
+      ancestors.pop();
     };
-    walk(file.root, undefined);
+    walk(file.root);
   }
 
   return found.sort(compareDiagnostics);

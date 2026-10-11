@@ -86,6 +86,7 @@ describe('one violation per rule', () => {
       'no-null',
       'no-throw',
       'no-ts-directive',
+      'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',
     ]);

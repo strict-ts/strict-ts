@@ -8,6 +8,7 @@ import { noNonNull } from './no-non-null.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noTsDirective } from './no-ts-directive.js';
+import { safetyComment } from './safety-comment.js';
 import { strictCompilerOptions } from './strict-compiler-options.js';
 import { unsafeBoundary } from './unsafe-boundary.js';
 
@@ -22,5 +23,6 @@ export const rules: readonly Rule[] = [
   exhaustiveSwitch,
   noTsDirective,
   unsafeBoundary,
+  safetyComment,
   strictCompilerOptions,
 ];

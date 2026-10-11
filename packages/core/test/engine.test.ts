@@ -42,8 +42,9 @@ describe('check', () => {
   });
 
   test('takes the unsafe directories from the configuration', () => {
-    const files = { 'lib/ffi/a.ts': 'import { ok } from "@strict-ts/std";\nexport const f = (x: unknown) => ok(x as string);\n' };
-    expect(refusals(checkFiles(files))).toEqual(['no-cast@2']);
+    const code = 'import { ok } from "@strict-ts/std";\n// SAFETY: the caller checked it\nexport const f = (x: unknown) => ok(x as string);\n';
+    const files = { 'lib/ffi/a.ts': code };
+    expect(refusals(checkFiles(files))).toEqual(['no-cast@3']);
     expect(checkFiles(files, { config: { ...defaultConfig, unsafeDirs: ['./lib/ffi/'] } })).toEqual([]);
   });
 
@@ -75,9 +76,10 @@ describe('check', () => {
             operator: '===',
             start: 0,
             end: 10,
+            isUnit: false,
             children: [
-              { kind: 'identifier', text: 'x', start: 0, end: 1, children: [] },
-              { kind: 'null-keyword', start: 6, end: 10, children: [] },
+              { kind: 'identifier', text: 'x', start: 0, end: 1, isUnit: false, children: [] },
+              { kind: 'null-keyword', start: 6, end: 10, isUnit: false, children: [] },
             ],
           },
         },
@@ -93,7 +95,7 @@ describe('check', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the eleven rules, each with a guarantee and a description', () => {
+  test('holds the twelve rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
@@ -104,6 +106,7 @@ describe('the catalogue of rules', () => {
       'no-null',
       'no-throw',
       'no-ts-directive',
+      'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',
     ]);

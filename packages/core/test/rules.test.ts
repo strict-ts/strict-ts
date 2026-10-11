@@ -27,6 +27,7 @@ describe('no-any', () => {
   test('is allowed inside unsafe/', () => {
     const code = [
       'import { ok } from "@strict-ts/std";',
+      '// SAFETY: only ever passed to String',
       'const raw: any = JSON.parse("1");',
       'export const read = () => ok(String(raw));',
     ].join('\n');
@@ -54,7 +55,11 @@ describe('no-cast', () => {
   });
 
   test('is allowed inside unsafe/', () => {
-    const code = 'import { ok } from "@strict-ts/std";\nexport const name = (x: unknown) => ok(x as string);\n';
+    const code = [
+      'import { ok } from "@strict-ts/std";',
+      '// SAFETY: the only caller passes a string',
+      'export const name = (x: unknown) => ok(x as string);',
+    ].join('\n');
     expect(checkUnsafe(code)).toEqual([]);
   });
 });
@@ -340,7 +345,7 @@ describe('unsafe-boundary', () => {
   });
 
   test('refuses an export of type any', () => {
-    const found = checkUnsafe('export const raw: any = JSON.parse("{}");\n');
+    const found = checkUnsafe('// SAFETY: none, this is the example\nexport const raw: any = JSON.parse("{}");\n');
     expect(found.map((d) => d.message)).toEqual(['The export "raw" has type `any`.']);
   });
 
@@ -381,6 +386,111 @@ describe('unsafe-boundary', () => {
 
   test('does not apply to safe code', () => {
     expect(checkSafe('export const double = (n: number): number => n * 2;\n')).toEqual([]);
+  });
+});
+
+describe('safety-comment', () => {
+  const unsafe = (...lines: readonly string[]) => checkUnsafe(['import { ok } from "@strict-ts/std";', ...lines, ''].join('\n'));
+  const cast = 'export const id = (raw: unknown) => ok(raw as string);';
+
+  test('refuses a bare cast in unsafe/, and says what to write', () => {
+    const found = unsafe(cast);
+    expect(found).toEqual([
+      {
+        rule: 'safety-comment',
+        file: 'src/unsafe/a.ts',
+        start: { line: 2, column: 40 },
+        end: { line: 2, column: 53 },
+        message: 'Unchecked cast without a SAFETY comment.',
+        help: 'Say why this holds on the line above: // SAFETY: <reason>',
+      },
+    ]);
+  });
+
+  test('accepts a cast with its reason on the line above', () => {
+    expect(unsafe('// SAFETY: validated by the schema above', cast)).toEqual([]);
+  });
+
+  test('refuses a SAFETY comment without a reason', () => {
+    expect(refusals(unsafe('// SAFETY:', cast))).toEqual(['safety-comment@3']);
+    expect(refusals(unsafe('// SAFETY:   ', cast))).toEqual(['safety-comment@3']);
+  });
+
+  test('the comment must be adjacent: a statement or a blank line in between breaks it', () => {
+    expect(refusals(unsafe('// SAFETY: validated', 'export const one = 1;', cast))).toEqual(['safety-comment@4']);
+    expect(refusals(unsafe('// SAFETY: validated', '', cast))).toEqual(['safety-comment@4']);
+  });
+
+  test('reports nothing outside unsafe/: the typing rules already refuse it there', () => {
+    const found = checkSafe(['import { ok } from "@strict-ts/std";', cast].join('\n'));
+    expect(refusals(found)).toEqual(['no-cast@2']);
+  });
+
+  test('asks the same of any, of <T>x and of a non-null assertion', () => {
+    const found = unsafe(
+      'const loose: any = 1;',
+      'export const first = (items: readonly string[]) => ok(items[0]!);',
+      'export const name = (raw: unknown) => ok(<string>raw);',
+      'void loose;',
+    );
+    expect(found.map((d) => `${d.start.line} ${d.message}`)).toEqual([
+      '2 Unchecked `any` without a SAFETY comment.',
+      '3 Unchecked `!` assertion without a SAFETY comment.',
+      '4 Unchecked cast without a SAFETY comment.',
+    ]);
+  });
+
+  test('one comment covers the whole statement below it, and other comments may sit with it', () => {
+    const code = unsafe(
+      '// Reads both ends.',
+      '// SAFETY: the list is checked non-empty by the caller,',
+      '// and its items are strings by construction.',
+      '/** The two ends of a list. */',
+      'export const ends = (items: readonly unknown[]) => ok([items[0]! as string, items.at(-1)! as string]);',
+    );
+    expect(code).toEqual([]);
+  });
+
+  test('a comment above a function covers its signature, not the statements of its body', () => {
+    const found = unsafe(
+      '// SAFETY: the parameter is only printed',
+      'export function show(value: any) {',
+      '  const text = value as string;',
+      '  return ok(text);',
+      '}',
+    );
+    expect(refusals(found)).toEqual(['safety-comment@4']);
+  });
+
+  test('a statement inside a block takes its comment inside the block', () => {
+    const found = unsafe(
+      'export function show(value: unknown) {',
+      '  // SAFETY: every caller passes a string',
+      '  const text = value as string;',
+      '  return ok(text);',
+      '}',
+    );
+    expect(found).toEqual([]);
+  });
+
+  test('a class member takes its own comment', () => {
+    const found = unsafe(
+      'export class Box {',
+      '  // SAFETY: set by the constructor of every subclass',
+      '  first = undefined as unknown as string;',
+      '  second = undefined as unknown as string;',
+      '}',
+      'export const box = () => ok(new Box());',
+    );
+    expect(refusals(found)).toEqual(['safety-comment@5', 'safety-comment@5']);
+  });
+
+  test('leaves `as const` and `satisfies` alone', () => {
+    expect(unsafe('export const kind = () => ({ ok: true as const, value: "a" satisfies string });')).toEqual([]);
+  });
+
+  test('only a // comment counts, as in Rust', () => {
+    expect(refusals(unsafe('/* SAFETY: validated */', cast))).toEqual(['safety-comment@3']);
   });
 });
 

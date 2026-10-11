@@ -57,6 +57,21 @@ export function createTypeScript6Provider(
     return self;
   };
 
+  const isUnit = (node: ts.Node): boolean =>
+    (node.kind >= api.SyntaxKind.FirstStatement && node.kind <= api.SyntaxKind.LastStatement) ||
+    api.isFunctionDeclaration(node) ||
+    api.isClassDeclaration(node) ||
+    api.isInterfaceDeclaration(node) ||
+    api.isTypeAliasDeclaration(node) ||
+    api.isEnumDeclaration(node) ||
+    api.isModuleDeclaration(node) ||
+    api.isImportDeclaration(node) ||
+    api.isImportEqualsDeclaration(node) ||
+    api.isExportDeclaration(node) ||
+    api.isExportAssignment(node) ||
+    api.isClassElement(node) ||
+    api.isTypeElement(node);
+
   // Each compiler node is converted once, children first, so a parent finds its parts already converted.
   const converted = new Map<ts.Node, Node>();
   const origin = new WeakMap<Node, ts.Node>();
@@ -67,7 +82,7 @@ export function createTypeScript6Provider(
       children.push(convert(child, sourceFile));
     });
     const part = (child: ts.Node): Node => converted.get(child) ?? convert(child, sourceFile);
-    const base = { start: node.getStart(sourceFile), end: node.getEnd(), children };
+    const base = { start: node.getStart(sourceFile), end: node.getEnd(), children, isUnit: isUnit(node) };
 
     const shape = (): Node => {
       if (node.kind === api.SyntaxKind.AnyKeyword) return { ...base, kind: 'any-keyword' };
