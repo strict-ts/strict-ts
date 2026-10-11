@@ -18,7 +18,7 @@ brings the other four without changing language: the code stays standard TypeScr
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | skeleton |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 11 rules behind `TypeProvider`, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | skeleton |
 | [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
 | `@strict-ts/language-service` | Errors underlined in the editor | phase 1 |
