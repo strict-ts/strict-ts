@@ -26,6 +26,7 @@
   "packages/codemod": {},
   "packages/core": {},
   "packages/language-service": {},
+  "packages/oxlint-plugin": {},
   "packages/playground": {},
   "packages/std": {
     "no-cast": 6,

@@ -7,5 +7,6 @@ export { check } from './engine.js';
 export type { ExportedValue, SourceFile, Type, TypeProvider } from './provider.js';
 export type { FileContext, Guarantee, ProjectContext, Report, Rule, Scope } from './rule.js';
 export { rules } from './rules/index.js';
+export { DIRECTIVE as tsDirectivePattern } from './rules/no-ts-directive.js';
 export { requiredCompilerOptions } from './rules/strict-compiler-options.js';
 export type { Node, NodeKind, Span } from './syntax.js';
