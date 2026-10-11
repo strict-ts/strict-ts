@@ -1,4 +1,5 @@
 {
+  "$schema": "./strict-ts.schema.json",
   "unsafeDirs": [
     "src/unsafe"
   ],

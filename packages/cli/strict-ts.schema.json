@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "strict-ts.json",
+  "description": "The configuration of strict-ts, read beside tsconfig.json. Every key is optional.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "The path or URL of this schema, for the editor."
+    },
+    "unsafeDirs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "src/unsafe"
+      ],
+      "description": "The directories where unchecked code may live, relative to the project root: the equivalent of `unsafe` in Rust."
+    },
+    "allowedImports": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "@strict-ts/std"
+      ],
+      "description": "The packages safe code may import. Everything else is imported from an unsafe directory only."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "no-any",
+          "no-cast",
+          "no-non-null",
+          "no-throw",
+          "no-null",
+          "no-external-import",
+          "must-use",
+          "exhaustive-switch",
+          "no-ts-directive",
+          "unsafe-boundary",
+          "safety-comment",
+          "strict-compiler-options"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "The rules to run. All of them when absent."
+    },
+    "baseline": {
+      "type": "string",
+      "minLength": 1,
+      "default": "strict-ts-baseline.json",
+      "description": "The path of the baseline file, relative to the project root."
+    }
+  }
+}

@@ -20,6 +20,7 @@ export {
   toBaseline,
 } from './baseline.js';
 export { BASELINE_FILE, CONFIG_FILE, defaultSettings, readSettings, type Settings } from './config.js';
+export { configSchema, serializeConfigSchema } from './config-schema.js';
 export { formatJson, formatText } from './format.js';
 export { formatSarif, type SarifInput } from './sarif.js';
 export { VERSION } from './version.js';
