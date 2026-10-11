@@ -24,8 +24,9 @@ function locate(job) {
   if (holder !== undefined && typeof holder !== 'function') return typeof holder[member] === 'function' ? { call: (_receiver, args) => holder[member](...args) } : undefined;
   // A method: called on a generated value of its owner.
   const receiverType = { k: 'library', name: owner, of: { k: 'any' }, and: { k: 'any' } };
-  const prototype = { ReadonlyArray: Array, ReadonlyMap: Map, ReadonlySet: Set, CallableFunction: Function, NewableFunction: Function }[owner] ?? holder;
-  if (typeof prototype !== 'function' || typeof prototype.prototype?.[member] !== 'function') return undefined;
+  // Told on a value of the owner: a generator has no class to look the method up on.
+  const sample = instance(receiverType, sequence(1), true);
+  if (sample === undefined || sample === null || typeof sample[member] !== 'function') return undefined;
   return { receiverType, call: (receiver, args) => receiver[member](...args) };
 }
 

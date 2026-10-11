@@ -59,7 +59,9 @@ describe('instrumented code', () => {
     const read = readEvents(directory, 'events.jsonl');
     if (!read.ok) throw new Error(read.error);
     // As if a person had judged `join` safe, which the generated ledger knows better than.
-    const judged = { ...effectsLedger, 'ReadonlyArray.join': { verdict: 'total', evidence: { byHand: 'judged safe, for this test' } } } as const;
+    // And as if nobody had yet run the constructor of a buffer.
+    const { 'ArrayBufferConstructor.new': _unknown, ...known } = effectsLedger;
+    const judged = { ...known, 'ReadonlyArray.join': { verdict: 'total', evidence: { byHand: 'judged safe, for this test' } } } as const;
     return summarise(read.value, judged);
   };
   const said = (findings: readonly { site: { file: string; line: number; name: string }; detail: string }[]) =>

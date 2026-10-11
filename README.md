@@ -181,6 +181,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json` |
 | `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
+| `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
 | `$schema` | none | The JSON schema, for completion and validation in the editor |
@@ -310,7 +311,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 - `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. A
   function is called safe there only when our reading of the ECMAScript specification gives it no way to throw and
   600 runs on generated values never threw. That reading is a judgement, and the two could be wrong the same way.
-  The DOM and Node are not read: their functions are refused, or classified by hand.
+  The DOM, Node and `Intl` are not read: their functions are refused, or classified by hand. A method of a typed
+  array throws once its buffer is detached: it is refused unless the project writes `"assume": ["attached-buffers"]`.
 - `no-throwing-operator` knows the operators and the accessors of ECMAScript. A property of the DOM that throws when
   read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run, nor a
   write to a frozen object. Running out of stack or of memory is outside what any rule covers, as in Rust.

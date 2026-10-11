@@ -1,4 +1,4 @@
-import { rules } from '@strict-ts/core';
+import { assumptions, rules } from '@strict-ts/core';
 import { json } from './json.js';
 
 /**
@@ -32,6 +32,14 @@ export const configSchema = {
       default: [],
       description:
         'The directories whose code must be pure, relative to the project root: no I/O, no clock, no randomness, no global state, no import of code that is not pure.',
+    },
+    assume: {
+      type: 'array',
+      items: { enum: [...assumptions] },
+      uniqueItems: true,
+      default: [],
+      description:
+        'What the project says of itself and that no rule can check. "attached-buffers": no buffer is ever detached, so the methods of typed arrays and of DataView do not throw for that.',
     },
     rules: {
       type: 'array',

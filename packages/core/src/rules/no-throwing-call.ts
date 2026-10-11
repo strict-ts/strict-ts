@@ -20,7 +20,7 @@ function threat(callee: Callee, argumentCount: number, plain: () => boolean, con
   const effect = ledger[callee.name];
   // Not in the ledger: nothing shows that it does not throw.
   if (effect === undefined) return 'is not in the effects ledger: nothing shows that it does not throw';
-  return threatOf(effect, argumentCount, effect.unprintable === true && plain());
+  return threatOf(effect, argumentCount, effect.unprintable === true && plain(), config.assume?.includes('attached-buffers') === true);
 }
 
 export const noThrowingCall: Rule = {

@@ -5256,7 +5256,7 @@
   },
   {
    "id": "sec-nativeerror",
-   "name": "_NativeError_",
+   "name": "NativeError",
    "operation": false,
    "throws": [],
    "calls": [
@@ -8785,7 +8785,7 @@
   },
   {
    "id": "sec-typedarray",
-   "name": "_TypedArray_",
+   "name": "TypedArray",
    "operation": false,
    "throws": [
     {

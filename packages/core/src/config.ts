@@ -1,3 +1,7 @@
+/** See `Config.assume`. */
+export const assumptions = ['attached-buffers'] as const;
+export type Assumption = (typeof assumptions)[number];
+
 export interface Config {
   /**
    * The directories where unchecked code may live, relative to the project root: the equivalent of Rust's `unsafe`.
@@ -11,6 +15,12 @@ export interface Config {
    * global state. None when absent.
    */
   readonly pureDirs?: readonly string[];
+  /**
+   * What the project says of itself and that no rule can check. Each is a risk the project takes in writing:
+   * `attached-buffers`: no buffer is ever detached (transferred to another thread, resized away), so the methods of
+   * typed arrays and of `DataView` do not throw for that.
+   */
+  readonly assume?: readonly Assumption[];
   /** The names of the rules to run; all of them when absent. */
   readonly rules?: readonly string[];
 }

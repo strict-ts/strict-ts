@@ -45,6 +45,7 @@ const write = (entry) => {
     ...(entry.below === undefined ? [] : [`below: ${entry.below}`]),
     ...(entry.atLeast === undefined ? [] : [`atLeast: ${entry.atLeast}`]),
     ...(entry.unprintable === undefined ? [] : ['unprintable: true']),
+    ...(entry.detached === undefined ? [] : ['detached: true']),
     `evidence: { ${[`runs: ${entry.evidence.runs}`, ...(entry.evidence.spec === undefined ? [] : [`spec: ${quote(entry.evidence.spec)}`]), ...(entry.evidence.example === undefined ? [] : [`example: ${quote(entry.evidence.example)}`])].join(', ')} }`,
   ];
   return `  ${key(entry.name)}: { ${fields.join(', ')} },`;
@@ -78,8 +79,11 @@ const text = [
   ' * of the specification was read, and one that is not here has no way to throw on the object it is read from.',
   ' */',
   'export const getters: Readonly<Record<string, string>> = {',
-  ...Object.entries(throwingGetters(verdictsOfSpec)).map(([name, found]) => `  ${quote(name)}: ${quote(`throws a ${/^(?:via \w+: )?(\w+):/.exec(found.why)?.[1] ?? 'failure'} by the specification (${found.spec})`)},`),
+  ...Object.entries(throwingGetters(verdictsOfSpec)).filter(([, found]) => found.detached !== true).map(([name, found]) => `  ${quote(name)}: ${quote(`throws a ${/^(?:via \w+: )?(\w+):/.exec(found.why)?.[1] ?? 'failure'} by the specification (${found.spec})`)},`),
   '};',
+  '',
+  '/** The same, for those that throw only on a buffer that was detached. */',
+  `export const gettersWhenDetached: readonly string[] = [${Object.entries(throwingGetters(verdictsOfSpec)).filter(([, found]) => found.detached === true).map(([name]) => quote(name)).join(', ')}];`,
   '',
   '/** The classes of the library that are a kind of operand of their own, told by the name of the type. */',
   `export const operandClasses: readonly string[] = [${CLASS_KINDS.map(quote).join(', ')}];`,
@@ -91,7 +95,7 @@ if (args.has('--report')) {
 } else if (args.has('--check')) {
   // The verdicts, not the examples: the text of an error may change with the version of the engine.
   const combinations = (source) => [...source.matchAll(/^  '([^']+)': 'throws /gm)].map((m) => m[1]).join('\n');
-  const verdicts = (source) => combinations(source) + [...source.matchAll(/^  (\S+): \{ verdict: '(\w+)'(?:, why: '[^']*')?(, below: \d+)?(, atLeast: \d+)?(, unprintable: true)?/gm)].map((m) => m.slice(1).join(' ')).join('\n');
+  const verdicts = (source) => combinations(source) + [...source.matchAll(/^  (\S+): \{ verdict: '(\w+)'(?:, why: '[^']*')?(, below: \d+)?(, atLeast: \d+)?(, unprintable: true)?(, detached: true)?/gm)].map((m) => m.slice(1).join(' ')).join('\n');
   if (verdicts(readFileSync(target, 'utf8')) !== verdicts(text)) {
     console.error('The generated effects ledger is not what the generator gives now: run `pnpm --filter @strict-ts/ledger build` and read the difference.');
     process.exitCode = 1;

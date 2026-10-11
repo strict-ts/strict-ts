@@ -5,5 +5,17 @@
   "WeakMapConstructor.new": "adds its entries by calling `set`, which throws on a key that cannot be held weakly; the reader does not follow that call",
   "WeakSetConstructor.new": "adds its values by calling `add`, which throws on a value that cannot be held weakly; the reader does not follow that call",
   "Array.toString": "calls `join` by its name, which the reader does not follow",
-  "ReadonlyArray.toString": "calls `join` by its name, which the reader does not follow"
+  "ReadonlyArray.toString": "calls `join` by its name, which the reader does not follow",
+  "AsyncGenerator.throw": "returns a rejected promise: a rejection is not a throw in the specification, and is one for the caller",
+  "Int8ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Uint8ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Uint8ClampedArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Int16ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Uint16ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Int32ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Uint32ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Float32ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "Float64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "BigInt64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given",
+  "BigUint64ArrayConstructor.from": "stores each element with `Set`, which the reader takes for a plain write; on a typed array it converts the value, and the declarations accept elements of any type when no mapping function is given"
 }

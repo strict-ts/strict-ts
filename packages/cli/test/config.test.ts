@@ -21,7 +21,7 @@ test('what is not understood is an error', () => {
   expect(read([])).toBe('strict-ts.json: object expected at the root');
   expect(read({ unsafeDirs: 'src/unsafe' })).toBe('strict-ts.json: array expected at .unsafeDirs');
   expect(read({ rules: ['no-any', 1] })).toBe('strict-ts.json: string expected at .rules[1]');
-  expect(read({ rule: ['no-any'] })).toBe('strict-ts.json: unknown key "rule" (unsafeDirs, allowedImports, pureDirs, rules, baseline)');
+  expect(read({ rule: ['no-any'] })).toBe('strict-ts.json: unknown key "rule" (unsafeDirs, allowedImports, pureDirs, assume, rules, baseline)');
   expect(read({ rules: ['no-anyy'] })).toBe('strict-ts.json: unknown rule "no-anyy"');
 });
 
@@ -36,4 +36,9 @@ test('the baseline path defaults to strict-ts-baseline.json and can be set', () 
 test('pureDirs names the directories that must be pure', () => {
   expect(read({ pureDirs: ['src/domain'] })).toEqual({ ...defaultConfig, pureDirs: ['src/domain'] });
   expect(read({ pureDirs: 'src/domain' })).toBe('strict-ts.json: array expected at .pureDirs');
+});
+
+test('an assumption is one the rules know', () => {
+  expect(read({ assume: ['attached-buffers'] })).toEqual({ ...defaultConfig, assume: ['attached-buffers'] });
+  expect(read({ assume: ['no-bugs'] })).toBe('strict-ts.json: unknown assumption "no-bugs" (attached-buffers)');
 });

@@ -4,6 +4,7 @@
 //   no way to throw      never threw           total                 ← both agree
 //   only conversions     never threw           total                 the types exclude what the conversions refuse
 //   a real way to throw  never threw           throws                the prudent one of the two
+//   a detached buffer    never threw           throws when detached  a project may say it never detaches one
 //   anything             threw on plain values throws, with the call it was seen on
 //   anything             threw on odd values   throws, unless the receiver and arguments are plain
 //   no way to throw      threw                 a contradiction: the reading of the specification is wrong. The entry
@@ -30,6 +31,7 @@ function condition(mode) {
 }
 
 const example = (mode) => Object.values(mode).find((tally) => tally.example !== undefined)?.example;
+const DETACHED = 'throws a TypeError on a buffer that was detached';
 const UNPRINTABLE = 'throws on a value it cannot convert: a symbol, an object without a prototype, a cycle';
 
 /**
@@ -40,7 +42,7 @@ export function derive(library, observed, specified = new Map(), acknowledged = 
   const entries = [];
   const quiet = {};
   const contradictions = [];
-  const counts = { functions: library.length, ran: 0, total: 0, throws: 0, throwsUnlessPlain: 0, throwsBySpecificationOnly: 0, neverThrewWithoutSpecification: 0, notRun: 0, contradictions: 0 };
+  const counts = { functions: library.length, ran: 0, total: 0, throws: 0, throwsUnlessPlain: 0, throwsBySpecificationOnly: 0, throwsWhenDetached: 0, neverThrewWithoutSpecification: 0, notRun: 0, contradictions: 0 };
   for (const declared of library) {
     const result = observed[declared.name];
     const spec = specified.get(declared.name);
@@ -50,7 +52,10 @@ export function derive(library, observed, specified = new Map(), acknowledged = 
 
     if (!ran || runs === 0) {
       counts.notRun++;
-      if (spec !== undefined && spec.real.length > 0) {
+      if (spec !== undefined && spec.real.length === 0 && spec.detached) {
+        counts.throwsWhenDetached++;
+        entries.push({ name: declared.name, verdict: 'throws', why: DETACHED, detached: true, evidence: { runs: 0, ...cited } });
+      } else if (spec !== undefined && spec.real.length > 0) {
         counts.throwsBySpecificationOnly++;
         entries.push({ name: declared.name, verdict: 'throws', why: `may throw by the specification (${spec.real[0].slice(0, 90)})`, evidence: { runs: 0, ...cited } });
       }
@@ -79,6 +84,10 @@ export function derive(library, observed, specified = new Map(), acknowledged = 
     } else if (spec.real.length > 0) {
       counts.throwsBySpecificationOnly++;
       entries.push({ name: declared.name, verdict: 'throws', why: `may throw by the specification (${spec.real[0].slice(0, 90)})`, evidence: { runs, ...cited } });
+    } else if (spec.detached) {
+      // Never threw, and by the specification it throws on a detached buffer only, which the runs do not make.
+      counts.throwsWhenDetached++;
+      entries.push({ name: declared.name, verdict: 'throws', why: DETACHED, detached: true, evidence: { runs, ...cited } });
     } else {
       counts.total++;
       entries.push({ name: declared.name, verdict: 'total', evidence: { runs, ...cited } });
