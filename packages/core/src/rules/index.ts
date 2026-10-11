@@ -12,6 +12,7 @@ import { noThrow } from './no-throw.js';
 import { noTsDirective } from './no-ts-directive.js';
 import { readonlyTypes } from './readonly-types.js';
 import { noTypePredicate } from './no-type-predicate.js';
+import { pureDomain } from './pure-domain.js';
 import { safetyComment } from './safety-comment.js';
 import { strictCompilerOptions } from './strict-compiler-options.js';
 import { unsafeBoundary } from './unsafe-boundary.js';
@@ -34,4 +35,5 @@ export const rules: readonly Rule[] = [
   noAmbient,
   noParamMutation,
   readonlyTypes,
+  pureDomain,
 ];

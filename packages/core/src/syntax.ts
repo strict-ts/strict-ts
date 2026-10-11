@@ -38,7 +38,10 @@ export type Node = NodeBase &
       }
     | { readonly kind: 'string-literal'; readonly text: string }
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
-    | { readonly kind: 'new' }
+    /** `new Callee(…)`, with the number of arguments written. */
+    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number }
+    /** A `let` or `var` statement at the top level of a module: state every importer shares. */
+    | { readonly kind: 'module-state' }
     /** `object.name`; parentheses around `object` are looked through. */
     | { readonly kind: 'property-access'; readonly object: Node; readonly name: string }
     /** `object[…]`. */

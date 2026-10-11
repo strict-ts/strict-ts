@@ -21,7 +21,7 @@ test('what is not understood is an error', () => {
   expect(read([])).toBe('strict-ts.json: object expected at the root');
   expect(read({ unsafeDirs: 'src/unsafe' })).toBe('strict-ts.json: array expected at .unsafeDirs');
   expect(read({ rules: ['no-any', 1] })).toBe('strict-ts.json: string expected at .rules[1]');
-  expect(read({ rule: ['no-any'] })).toBe('strict-ts.json: unknown key "rule" (unsafeDirs, allowedImports, rules, baseline)');
+  expect(read({ rule: ['no-any'] })).toBe('strict-ts.json: unknown key "rule" (unsafeDirs, allowedImports, pureDirs, rules, baseline)');
   expect(read({ rules: ['no-anyy'] })).toBe('strict-ts.json: unknown rule "no-anyy"');
 });
 
@@ -31,4 +31,9 @@ test('the baseline path defaults to strict-ts-baseline.json and can be set', () 
   expect(baseline({ baseline: 'ci/baseline.json' })).toBe('ci/baseline.json');
   expect(baseline({ baseline: '' })).toBe('strict-ts.json: "baseline" is empty');
   expect(baseline({ baseline: 1 })).toBe('strict-ts.json: string expected at .baseline');
+});
+
+test('pureDirs names the directories that must be pure', () => {
+  expect(read({ pureDirs: ['src/domain'] })).toEqual({ ...defaultConfig, pureDirs: ['src/domain'] });
+  expect(read({ pureDirs: 'src/domain' })).toBe('strict-ts.json: array expected at .pureDirs');
 });

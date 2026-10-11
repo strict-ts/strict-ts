@@ -60,6 +60,14 @@ describe('a conforming project', () => {
     expect(checkFiles(fixture('clean'))).toEqual([]);
   });
 
+  test('its domain directory is pure', () => {
+    const config = { ...defaultConfig, pureDirs: ['src/domain'] };
+    expect(checkFiles(fixture('clean'), { config })).toEqual([]);
+    const files = fixture('clean');
+    const user = `${files['src/domain/user.ts']}\nexport const createdAt = (): number => Date.now();\n`;
+    expect(refusals(checkFiles({ ...files, 'src/domain/user.ts': user }, { config }))).toEqual(['pure-domain@25']);
+  });
+
   test('is refused as soon as a throw slips into its domain', () => {
     const files = fixture('clean');
     const user = `${files['src/domain/user.ts']}\nexport const fail = (): never => {\n  throw new Error("no");\n};\n`;

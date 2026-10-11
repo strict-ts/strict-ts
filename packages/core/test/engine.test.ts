@@ -98,7 +98,7 @@ describe('check', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the sixteen rules, each with a guarantee and a description', () => {
+  test('holds the seventeen rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
@@ -112,6 +112,7 @@ describe('the catalogue of rules', () => {
       'no-throw',
       'no-ts-directive',
       'no-type-predicate',
+      'pure-domain',
       'readonly-types',
       'safety-comment',
       'strict-compiler-options',

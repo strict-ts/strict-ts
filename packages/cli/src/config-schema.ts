@@ -25,6 +25,13 @@ export const configSchema = {
       default: ['@strict-ts/std'],
       description: 'The packages safe code may import. Everything else is imported from an unsafe directory only.',
     },
+    pureDirs: {
+      type: 'array',
+      items: { type: 'string' },
+      default: [],
+      description:
+        'The directories whose code must be pure, relative to the project root: no I/O, no clock, no randomness, no global state, no import of code that is not pure.',
+    },
     rules: {
       type: 'array',
       items: { enum: rules.map((rule) => rule.name) },
