@@ -1,4 +1,4 @@
-// Gathers what the page embeds: the five scenarios, the standard library's sources and the compiler's libraries.
+// Gathers what the page embeds: the scenarios, the standard library's sources and the compiler's libraries.
 // Everything is read from the monorepo as it is: the examples, core's fixtures, packages/std.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -60,6 +60,42 @@ export function scenarios() {
       'Conforming project',
       'Result.gen stands in for the ? operator of Rust; fetch and JSON.parse stay in unsafe/. Try slipping a throw in.',
       project(`${fixtures}/clean`),
+    ),
+    scenario(
+      'report',
+      'What throws: a report',
+      'JSON.parse, a pattern, a bigint division, toFixed, a template: five ways to throw that no type announces.',
+      project('examples/report/classic', (name) => `src/${name}`),
+    ),
+    scenario(
+      'report-solution',
+      'What throws: conforming',
+      'What may throw is called in unsafe/ and leaves as a Result; the division gives an Option.',
+      project('examples/report/strict', (name) => `src/${name}`),
+    ),
+    scenario(
+      'cart',
+      'Mutability: a cart',
+      'Functions that change what they are given. Nothing in a signature says so.',
+      project('examples/cart/classic', (name) => `src/${name}`),
+    ),
+    scenario(
+      'cart-solution',
+      'Mutability: conforming',
+      'Read-only types, copies, and Mut<…> where changing in place is wanted. Try a push on a parameter that does not ask for it.',
+      project('examples/cart/strict', (name) => `src/${name}`),
+    ),
+    scenario(
+      'transfer',
+      'Ownership: a transfer',
+      'A transaction left open on one path, held by two owners, used after it was ended.',
+      project('examples/transfer/classic', (name) => `src/${name}`),
+    ),
+    scenario(
+      'transfer-solution',
+      'Ownership: conforming',
+      'Once<Transaction> has one owner. Remove the rollback, or use tx after the commit, and see it refused.',
+      project('examples/transfer/strict', (name) => `src/${name}`),
     ),
     scenario(
       'violations',

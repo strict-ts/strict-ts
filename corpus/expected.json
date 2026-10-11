@@ -1,4 +1,9 @@
 {
+  "examples/cart/classic": {
+    "no-param-mutation": 3,
+    "readonly-types": 8
+  },
+  "examples/cart/strict": {},
   "examples/invoice/classic": {
     "exhaustive-switch": 1,
     "must-use": 1,
@@ -12,6 +17,18 @@
     "readonly-types": 11
   },
   "examples/invoice/strict": {},
+  "examples/report/classic": {
+    "no-any": 1,
+    "no-throwing-call": 4,
+    "no-throwing-operator": 2,
+    "readonly-types": 8
+  },
+  "examples/report/strict": {},
+  "examples/transfer/classic": {
+    "no-throw": 2,
+    "readonly-types": 5
+  },
+  "examples/transfer/strict": {},
   "fixtures/codemod-app": {
     "no-param-mutation": 1,
     "no-type-predicate": 2,

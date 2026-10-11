@@ -7,7 +7,7 @@ const probes = async () => {
   const { strictTsProbe } = await import('./packages/probe/dist/unsafe/vite.js');
   // Left alone: the tests themselves; the probes' own runtime, whose text is what instrumented modules carry; and the
   // classic invoice, which is the « before » and whose cast is known not to be true.
-  const plugin = strictTsProbe({ exclude: ['/test/', '/packages/probe/src/runtime.ts', '/examples/invoice/classic/'] });
+  const plugin = strictTsProbe({ exclude: ['/test/', '/packages/probe/src/runtime.ts', '/examples/invoice/classic/', '/examples/report/classic/', '/examples/cart/classic/', '/examples/transfer/classic/'] });
   return plugin.ok ? [plugin.value] : [];
 };
 

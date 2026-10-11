@@ -1,0 +1,11 @@
+{
+  "name": "@strict-ts/example-report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What throws without saying so: a report built with JSON.parse, a pattern, a bigint division and a template, against its conforming version.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@strict-ts/std": "workspace:*"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@strict-ts/example-transfer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ownership: a transfer whose transaction may be left open or used twice, against a version where it has one owner.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@strict-ts/std": "workspace:*"
+  }
+}
