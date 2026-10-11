@@ -53,3 +53,8 @@ describe('Option', () => {
     expect(unwrapOrElse(first([]), () => 9)).toBe(9);
   });
 });
+
+test('expect gives the value, or stops the program saying what was expected', () => {
+  expect(some(3).expect('a count')).toBe(3);
+  expect(() => none.expect('the first line')).toThrow('panic: the first line: nothing');
+});

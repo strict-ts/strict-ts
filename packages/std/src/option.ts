@@ -1,4 +1,5 @@
 /** Option<T>: the equivalent of Rust's `std::option::Option`. Replaces `null`. */
+import { panic } from './panic.js';
 import { Err, Ok, type Result } from './result.js';
 
 abstract class OptionMethods {
@@ -20,6 +21,10 @@ abstract class OptionMethods {
   }
   match<T, A, B>(this: Option<T>, arms: { readonly some: (value: T) => A; readonly none: () => B }): A | B {
     return this.some ? arms.some(this.value) : arms.none();
+  }
+  /** Rust's `expect`: the value, or the program stops, saying `what` was expected. For an absence that is a bug. */
+  expect<T>(this: Option<T>, what: string): T {
+    return this.some ? this.value : panic(`${what}: nothing`);
   }
 }
 
