@@ -54,6 +54,15 @@ export type Node = NodeBase &
     | { readonly kind: 'definite-assignment' }
     /** A written `x is T` or `asserts x is T`. A predicate the compiler infers has no node. */
     | { readonly kind: 'type-predicate'; readonly asserts: boolean }
+    /** `T[]` or a tuple; `isReadonly` when written `readonly T[]`. */
+    | { readonly kind: 'array-type'; readonly isReadonly: boolean }
+    /** A type named in a type position: `Map<K, V>` has the name `Map`. */
+    | { readonly kind: 'type-reference'; readonly name: string }
+    /**
+     * A property of an interface, of a type literal or of a class, an index signature, or a constructor parameter
+     * that declares a property. `asksForMutation` when its type is written `Mut<…>`.
+     */
+    | { readonly kind: 'property'; readonly name: string; readonly isReadonly: boolean; readonly asksForMutation: boolean }
     /** A declaration under `declare`: it states a type for something defined elsewhere. */
     | { readonly kind: 'ambient-declaration' }
     /** `x as T`; `isConst` for `x as const`. */

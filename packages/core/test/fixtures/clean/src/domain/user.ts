@@ -15,7 +15,7 @@ const permissionsByRole = {
   admin: ["read", "write", "admin"],
   nurse: ["read", "write"],
   patient: ["read"],
-} satisfies Record<Role, string[]>;
+} satisfies Readonly<Record<Role, readonly string[]>>;
 
 export const permissions = (role: Role) => permissionsByRole[role];
 

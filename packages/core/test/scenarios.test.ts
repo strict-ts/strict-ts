@@ -23,13 +23,24 @@ describe('the invoice challenge', () => {
     const found = checkFiles(only(invoice, 'classic/'));
     expect(refusals(found)).toEqual([
       'no-external-import@3',
+      'readonly-types@8',
+      'readonly-types@9',
+      'readonly-types@10',
+      'readonly-types@14',
+      'readonly-types@15',
+      'readonly-types@16',
+      'readonly-types@16',
+      'readonly-types@17',
+      'readonly-types@18',
       'no-null@18',
+      'readonly-types@21',
       'no-throw@22',
       'no-null@23',
       'no-cast@31',
       'no-any@31',
       'no-non-null@35',
       'exhaustive-switch@39',
+      'readonly-types@54',
       'must-use@56',
     ]);
   });
@@ -89,6 +100,7 @@ describe('one violation per rule', () => {
       'no-throw',
       'no-ts-directive',
       'no-type-predicate',
+      'readonly-types',
       'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',

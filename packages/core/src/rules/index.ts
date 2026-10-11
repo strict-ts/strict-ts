@@ -10,6 +10,7 @@ import { noParamMutation } from './no-param-mutation.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noTsDirective } from './no-ts-directive.js';
+import { readonlyTypes } from './readonly-types.js';
 import { noTypePredicate } from './no-type-predicate.js';
 import { safetyComment } from './safety-comment.js';
 import { strictCompilerOptions } from './strict-compiler-options.js';
@@ -32,4 +33,5 @@ export const rules: readonly Rule[] = [
   noTypePredicate,
   noAmbient,
   noParamMutation,
+  readonlyTypes,
 ];

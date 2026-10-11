@@ -1,5 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
-import { err, ok, type Result } from '@strict-ts/std';
+import { err, type Mut, ok, type Result } from '@strict-ts/std';
 import { asRecord } from './unsafe/record.js';
 
 /**
@@ -17,12 +17,12 @@ export interface Baseline {
  */
 export const isRecordable = (diagnostic: Diagnostic): boolean => diagnostic.file !== '' && !/^TS\d+$/.test(diagnostic.rule);
 
-const sorted = <T>(entries: readonly (readonly [string, T])[]): Record<string, T> =>
+const sorted = <T>(entries: readonly (readonly [string, T])[]): Readonly<Record<string, T>> =>
   Object.fromEntries(entries.toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
 /** Counts the recordable diagnostics per rule per file, files and rules sorted. */
 export function toBaseline(found: readonly Diagnostic[]): Baseline {
-  const counts = new Map<string, Map<string, number>>();
+  const counts = new Map<string, Mut<Map<string, number>>>();
   for (const { file, rule } of found.filter(isRecordable)) {
     const rules = counts.get(file) ?? new Map<string, number>();
     rules.set(rule, (rules.get(rule) ?? 0) + 1);
@@ -44,11 +44,11 @@ export function parseBaseline(content: unknown): Result<Baseline, string> {
   if (root.value['version'] !== 1) return err('"version": 1 expected');
   const files = asRecord(root.value['files']);
   if (!files.some) return err('"files": object expected');
-  const checked: Record<string, Readonly<Record<string, number>>> = {};
+  const checked: Mut<Record<string, Readonly<Record<string, number>>>> = {};
   for (const [file, content] of Object.entries(files.value)) {
     const rules = asRecord(content);
     if (!rules.some) return err(`"${file}": object expected`);
-    const counts: Record<string, number> = {};
+    const counts: Mut<Record<string, number>> = {};
     for (const [rule, count] of Object.entries(rules.value)) {
       if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return err(`"${file}" "${rule}": a positive whole number expected`);
       counts[rule] = count;

@@ -11,14 +11,14 @@ brings the other four without changing language: the code stays standard TypeScr
 | Memory safety | The runtime's garbage collector | Acquired |
 | Safe typing, nothing unchecked outside `unsafe` | No `any`, cast or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Prototype |
 | No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use` | Prototype |
-| Explicit mutability | `readonly` by default, no mutation of parameters | Started: `no-param-mutation`, `Mut<T>` |
+| Explicit mutability | `readonly` by default, no mutation of parameters | Prototype: `readonly-types`, `no-param-mutation`, `Mut<T>` |
 | Ownership, no uncontrolled concurrent access | Single-use resources, state shared across `await` and workers | Research |
 
 ## Packages
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 15 rules behind `TypeProvider`, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 16 rules behind `TypeProvider`, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | text, JSON and SARIF output, `strict-ts.json`, baseline |
 | [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on the five scenarios; not published | builds to one page |
@@ -44,7 +44,7 @@ To run the gate on a project, here the two versions of the invoice challenge:
 
 ```sh
 node packages/cli/dist/main.js -p examples/invoice/strict     # exit code 0, nothing reported
-node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 9 refusals
+node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 20 refusals
 ```
 
 `-p` takes a `tsconfig.json` or its directory; `--format json` prints one JSON document, `--format sarif` a SARIF

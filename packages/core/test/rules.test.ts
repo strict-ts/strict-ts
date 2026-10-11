@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { defaultConfig } from '../src/index.js';
 import { checkFiles, checkSafe, checkUnsafe, refusals } from './project.js';
 
 describe('no-any', () => {
@@ -49,7 +50,7 @@ describe('no-cast', () => {
   test('accepts `as const` and `satisfies`', () => {
     const code = [
       'export const roles = ["admin", "user"] as const;',
-      'export const labels = { admin: "Admin", user: "User" } satisfies Record<(typeof roles)[number], string>;',
+      'export const labels = { admin: "Admin", user: "User" } satisfies Readonly<Record<(typeof roles)[number], string>>;',
     ].join('\n');
     expect(checkSafe(code)).toEqual([]);
   });
@@ -194,7 +195,7 @@ describe('must-use', () => {
 
   test('recognises a Result by its shape, whatever its name', () => {
     const code = [
-      'type Outcome = { ok: true; value: number } | { ok: false; error: string };',
+      'type Outcome = { readonly ok: true; readonly value: number } | { readonly ok: false; readonly error: string };',
       'const compute = (): Outcome => ({ ok: true, value: 1 });',
       'export function run(): void {',
       '  compute();',
@@ -612,7 +613,9 @@ describe('typing gaps closed in the existing rules', () => {
 });
 
 describe('no-param-mutation', () => {
-  const messages = (code: string) => checkSafe(code).map((d) => `${d.rule}@${d.start.line} ${d.message}`);
+  // Alone: with read-only types the compiler itself refuses most of these, and this rule is what holds without them.
+  const alone = { config: { ...defaultConfig, rules: ['no-param-mutation'] } };
+  const messages = (code: string) => checkSafe(code, alone).map((d) => `${d.rule}@${d.start.line} ${d.message}`);
 
   test('refuses writing into what a parameter holds', () => {
     const code = [
@@ -681,7 +684,7 @@ describe('no-param-mutation', () => {
       '  cart.total = 0;',
       '}',
     ].join('\n');
-    expect(checkSafe(code)).toEqual([]);
+    expect(checkSafe(code, alone)).toEqual([]);
   });
 
   test('accepts reading a parameter, and changing a copy or a local', () => {
@@ -695,7 +698,7 @@ describe('no-param-mutation', () => {
       '  return copy.slice(0, count).map((n) => n + 1);',
       '}',
     ].join('\n');
-    expect(checkSafe(code)).toEqual([]);
+    expect(checkSafe(code, alone)).toEqual([]);
   });
 
   test('is not asked of unsafe/', () => {
@@ -705,7 +708,109 @@ describe('no-param-mutation', () => {
 
   test('known limit: a mutation through another name is not seen', () => {
     const code = 'export function fill(list: number[]): void {\n  const alias = list;\n  alias.push(1);\n}\n';
+    expect(checkSafe(code, alone)).toEqual([]);
+  });
+});
+
+describe('readonly-types', () => {
+  const messages = (code: string) => checkSafe(code).map((d) => `${d.rule}@${d.start.line}:${d.start.column} ${d.message}`);
+
+  test('refuses a mutable array or tuple type, and says what to write', () => {
+    const found = checkSafe('export const total = (prices: number[], pair: [number, number]): number => prices.length + pair[0];\n');
+    expect(found.map((d) => `${d.start.column} ${d.message}`)).toEqual(['31 Mutable array type.', '47 Mutable array type.']);
+    expect(found[0]?.help).toBe('Write `readonly` in front of it, or wrap the type in `Mut<…>` when it is meant to change.');
+  });
+
+  test('refuses Array, Map, Set and a bare Record', () => {
+    const code = [
+      'export type A = Array<number>;',
+      'export type B = Map<string, number>;',
+      'export type C = Set<string>;',
+      'export type D = Record<string, number>;',
+    ].join('\n');
+    expect(messages(code)).toEqual([
+      'readonly-types@1:17 Mutable type `Array`.',
+      'readonly-types@2:17 Mutable type `Map`.',
+      'readonly-types@3:17 Mutable type `Set`.',
+      'readonly-types@4:17 Mutable type `Record`.',
+    ]);
+  });
+
+  test('refuses a property that can be reassigned: interface, type literal, class, index signature, constructor', () => {
+    const code = [
+      'export interface Line { label: string; readonly price: number }',
+      'export type Point = { x: number };',
+      'export class Counter {',
+      '  count = 0;',
+      '  constructor(public step: number) {}',
+      '}',
+      'export interface Bag { [key: string]: number }',
+    ].join('\n');
+    expect(messages(code)).toEqual([
+      'readonly-types@1:25 Property `label` can be reassigned.',
+      'readonly-types@2:23 Property `x` can be reassigned.',
+      'readonly-types@4:3 Property `count` can be reassigned.',
+      'readonly-types@5:15 Property `step` can be reassigned.',
+      'readonly-types@7:24 Property `[index]` can be reassigned.',
+    ]);
+  });
+
+  test('accepts the read-only forms', () => {
+    const code = [
+      'export interface Line { readonly label: string; readonly tags: readonly string[] }',
+      'export type Pair = readonly [number, number];',
+      'export type ById = ReadonlyMap<string, Line>;',
+      'export type Seen = ReadonlySet<string>;',
+      'export type Labels = Readonly<Record<string, string>>;',
+      'export type Items = ReadonlyArray<Line>;',
+      'export class Box {',
+      '  constructor(readonly value: number) {}',
+      '}',
+    ].join('\n');
     expect(checkSafe(code)).toEqual([]);
+  });
+
+  test('accepts what asks for mutation with Mut<…>, on a type or on a property', () => {
+    const code = [
+      'import type { Mut } from "@strict-ts/std";',
+      'export type Draft = Mut<{ title: string; tags: string[]; byId: Map<string, number> }>;',
+      'export interface Counter { count: Mut<number>; readonly log: Mut<string[]> }',
+      'export const collect = (): number[] => {',
+      '  const seen: Mut<number[]> = [];',
+      '  seen.push(1);',
+      '  return seen;',
+      '};',
+    ].join('\n');
+    expect(messages(code)).toEqual(['readonly-types@4:28 Mutable array type.']);
+  });
+
+  test('the compiler then refuses the mutation itself, through any name', () => {
+    const code = [
+      'export function fill(list: readonly number[], byId: ReadonlyMap<string, number>): void {',
+      '  const alias = list;',
+      '  alias.push(1);',
+      '  byId.set("a", 1);',
+      '}',
+    ].join('\n');
+    const config = { ...defaultConfig, rules: ['readonly-types'] };
+    expect(refusals(checkSafe(code, { config }))).toEqual(['TS2339@3', 'TS2339@4']);
+  });
+
+  test('the schemas of the standard library infer read-only types', () => {
+    const code = [
+      'import { s } from "@strict-ts/std";',
+      'const Cart = s.object({ id: s.string, items: s.array(s.number), note: s.optional(s.string) });',
+      'export function clear(cart: s.Infer<typeof Cart>): void {',
+      '  cart.id = "";',
+      '  cart.items.push(1);',
+      '}',
+    ].join('\n');
+    const config = { ...defaultConfig, rules: ['readonly-types'] };
+    expect(refusals(checkSafe(code, { config }))).toEqual(['TS2540@4', 'TS2339@5']);
+  });
+
+  test('is not asked of unsafe/', () => {
+    expect(checkUnsafe('import { ok } from "@strict-ts/std";\nexport const first = (items: string[]) => ok(items.length);\n')).toEqual([]);
   });
 });
 

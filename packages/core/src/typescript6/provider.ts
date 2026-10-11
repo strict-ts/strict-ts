@@ -2,6 +2,7 @@
 // passed in by the caller (the CLI imports it, the playground loads it in the page), so core imports its types only.
 import type ts from '@typescript/typescript6';
 import { type Diagnostic, diagnosticAt, locator, type Position } from '../diagnostic.js';
+import type { Mut } from '../mut.js';
 import type { ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
 import type { Node } from '../syntax.js';
 
@@ -94,7 +95,7 @@ export function createTypeScript6Provider(
   const origin = new WeakMap<Node, ts.Node>();
 
   const convert = (node: ts.Node, sourceFile: ts.SourceFile): Node => {
-    const children: Node[] = [];
+    const children: Mut<Node[]> = [];
     api.forEachChild(node, (child) => {
       children.push(convert(child, sourceFile));
     });
@@ -116,6 +117,32 @@ export function createTypeScript6Provider(
       }
       if ((api.isVariableDeclaration(node) || api.isPropertyDeclaration(node)) && node.exclamationToken !== undefined) {
         return { ...base, kind: 'definite-assignment' };
+      }
+      if (api.isArrayTypeNode(node) || api.isTupleTypeNode(node)) {
+        const owner = node.parent;
+        const isReadonly = api.isTypeOperatorNode(owner) && owner.operator === api.SyntaxKind.ReadonlyKeyword;
+        return { ...base, kind: 'array-type', isReadonly };
+      }
+      if (api.isTypeReferenceNode(node)) {
+        const named = node.typeName;
+        return { ...base, kind: 'type-reference', name: api.isIdentifier(named) ? named.text : named.right.text };
+      }
+      const declaresProperty =
+        api.isPropertySignature(node) ||
+        api.isPropertyDeclaration(node) ||
+        api.isIndexSignatureDeclaration(node) ||
+        (api.isParameter(node) && api.isParameterPropertyDeclaration(node, node.parent));
+      if (declaresProperty) {
+        const modifiers = api.canHaveModifiers(node) ? (api.getModifiers(node) ?? []) : [];
+        const written = node.type;
+        return {
+          ...base,
+          kind: 'property',
+          name: node.name === undefined ? '[index]' : node.name.getText(sourceFile),
+          isReadonly: modifiers.some((modifier) => modifier.kind === api.SyntaxKind.ReadonlyKeyword),
+          asksForMutation:
+            written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut',
+        };
       }
       if (api.isTypePredicateNode(node)) return { ...base, kind: 'type-predicate', asserts: node.assertsModifier !== undefined };
       if (api.isIdentifier(node)) {
@@ -282,7 +309,7 @@ export function createTypeScript6Provider(
       const sourceFile = sources.get(file);
       const module = sourceFile === undefined ? undefined : checker.getSymbolAtLocation(sourceFile);
       if (sourceFile === undefined || module === undefined) return [];
-      const exported: ExportedValue[] = [];
+      const exported: Mut<ExportedValue[]> = [];
       for (const symbol of checker.getExportsOfModule(module)) {
         const target = (symbol.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
         if ((target.flags & api.SymbolFlags.Value) === 0) continue;

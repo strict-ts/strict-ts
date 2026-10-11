@@ -63,7 +63,7 @@ export const copied = injected;
 
 export let late!: string; // expect: no-non-null
 
-export function append(list: number[]): void {
+export function append(list: number[]): void { // expect: readonly-types
   list.push(1); // expect: no-param-mutation
 }
 

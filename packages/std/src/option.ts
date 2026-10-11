@@ -18,7 +18,7 @@ abstract class OptionMethods {
   okOr<T, const E>(this: Option<T>, error: E): Result<T, E> {
     return this.some ? new Ok(this.value) : new Err(error);
   }
-  match<T, A, B>(this: Option<T>, arms: { some: (value: T) => A; none: () => B }): A | B {
+  match<T, A, B>(this: Option<T>, arms: { readonly some: (value: T) => A; readonly none: () => B }): A | B {
     return this.some ? arms.some(this.value) : arms.none();
   }
 }

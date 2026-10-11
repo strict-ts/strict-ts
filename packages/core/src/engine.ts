@@ -1,5 +1,6 @@
 import { type Config, defaultConfig, isUnsafe } from './config.js';
 import { compareDiagnostics, type Diagnostic, diagnosticAt, locator } from './diagnostic.js';
+import type { Mut } from './mut.js';
 import type { TypeProvider } from './provider.js';
 import type { FileContext, Rule } from './rule.js';
 import { rules as allRules } from './rules/index.js';
@@ -15,7 +16,7 @@ export function check(
   rules: readonly Rule[] = allRules,
 ): readonly Diagnostic[] {
   const enabled = rules.filter((rule) => config.rules === undefined || config.rules.includes(rule.name));
-  const found: Diagnostic[] = [...provider.compilerDiagnostics];
+  const found: Mut<Diagnostic[]> = [...provider.compilerDiagnostics];
 
   for (const rule of enabled) {
     rule.project?.({
@@ -44,7 +45,7 @@ export function check(
       });
 
     for (const { rule, context } of active) rule.file?.(context);
-    const ancestors: Node[] = [];
+    const ancestors: Mut<Node[]> = [];
     const walk = (node: Node): void => {
       for (const { rule, context } of active) rule.visit?.(node, context, ancestors.at(-1), ancestors);
       ancestors.push(node);
