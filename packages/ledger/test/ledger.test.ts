@@ -185,3 +185,24 @@ describe('generating values', () => {
     expect(typeof generate({ k: 'objectLike' }, random, true)).toBe('object');
   });
 });
+
+describe('operators and accessors', () => {
+  test('the operators that throw are found by running them, and kept only where the compiler accepts the operands', async () => {
+    const { operators } = await import('../scripts/operators.mjs');
+    const { table } = operators();
+    expect(table['/ bigint bigint']).toBe('throws a RangeError, as seen with 0n / 0n');
+    expect(table['template object']).toMatch(/^throws a TypeError/);
+    // The compiler refuses a number mixed with a bigint: the exception is real and nobody can write it.
+    expect(table['+ number bigint']).toBeUndefined();
+    // Never threw on any pair of values.
+    expect(table['/ number number']).toBeUndefined();
+    expect(table['< Date Date']).toBeUndefined();
+    expect(table['template Date']).toBeUndefined();
+  });
+
+  test('an accessor is found on the object it is read from: only what is not a check of the receiver is kept', async () => {
+    const { throwingGetters } = await import('../scripts/spec.mjs');
+    const kept = JSON.parse(readFileSync(new URL('../spec/facts.json', import.meta.url), 'utf8'));
+    expect(Object.keys(throwingGetters(analyse(kept.clauses)))).toEqual(['DataView.byteLength', 'DataView.byteOffset']);
+  });
+});

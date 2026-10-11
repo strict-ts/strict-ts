@@ -11,9 +11,16 @@ export interface Type {
   readonly isBooleanLiteral: boolean;
   /**
    * A plain value, by its type: a string, a number, a boolean, a bigint, null or undefined, a union of those, or an
-   * array of those. Converting one to text or to a number does not throw.
+   * array of those; a brand on one (`string & { … }`) leaves it plain. Converting one to text or to a number does
+   * not throw.
    */
   readonly isPlain: boolean;
+  /**
+   * The kinds of value the type admits, one for each member of a union: `string`, `number`, `bigint`, `boolean`,
+   * `symbol`, `undefined`, `null`, `array` (an array of plain values), the name of a class of the compiler's own
+   * libraries (`Date`, `Map`), or `object` for anything else. A type parameter admits what its constraint does.
+   */
+  readonly kinds: readonly string[];
   /** `Promise` or `PromiseLike`. */
   readonly isPromise: boolean;
   /** The members of a union, or the type itself. */
@@ -75,7 +82,7 @@ export interface TypeProvider {
   readonly typeOf: (node: Node) => Type;
   readonly exportsOf: (file: SourceFile) => readonly ExportedValue[];
   /**
-   * What a `call` or `new` node reaches, when the compiler can tell. Absent for a value called as a function without
+   * What a `call` or `new` node reaches (a tagged template is a call), when the compiler can tell. Absent for a value called as a function without
    * a declaration behind it.
    */
   readonly calleeOf: (node: Node) => Callee | undefined;

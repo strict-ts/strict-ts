@@ -58,7 +58,8 @@
           "no-param-mutation",
           "readonly-types",
           "pure-domain",
-          "no-throwing-call"
+          "no-throwing-call",
+          "no-throwing-operator"
         ]
       },
       "uniqueItems": true,

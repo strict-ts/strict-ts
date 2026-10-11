@@ -71,3 +71,5 @@ export function append(list: number[]): void { // expect: readonly-types
 export const masked = 1;
 
 export const config = readFileSync;
+
+export const share = (total: bigint, parts: bigint): bigint => total / parts; // expect: no-throwing-operator

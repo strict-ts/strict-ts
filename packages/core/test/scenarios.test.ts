@@ -109,6 +109,7 @@ describe('one violation per rule', () => {
       'no-param-mutation',
       'no-throw',
       'no-throwing-call',
+      'no-throwing-operator',
       'no-ts-directive',
       'no-type-predicate',
       'readonly-types',

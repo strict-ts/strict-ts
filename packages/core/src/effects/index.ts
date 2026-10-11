@@ -1,4 +1,6 @@
 import { generated, observed } from './generated.js';
+
+export { getters, operandClasses, operators } from './generated.js';
 import type { Effect, Ledger } from './ledger.js';
 import { record } from '../record.js';
 import { seed } from './seed.js';

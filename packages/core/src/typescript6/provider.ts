@@ -42,18 +42,39 @@ export function createTypeScript6Provider(
     api.TypeFlags.EnumLiteral |
     api.TypeFlags.Undefined;
 
-  const plainFlags =
-    api.TypeFlags.StringLike | api.TypeFlags.NumberLike | api.TypeFlags.BooleanLike | api.TypeFlags.BigIntLike | api.TypeFlags.Undefined | api.TypeFlags.Null | api.TypeFlags.Void;
-  const isPlain = (type: ts.Type, depth: number): boolean => {
-    if ((type.flags & plainFlags) !== 0) return true;
-    if (depth > 4) return false;
-    if (type.isUnion()) return type.types.every((member) => isPlain(member, depth + 1));
+  const primitiveKinds: readonly (readonly [number, string])[] = [
+    [api.TypeFlags.StringLike, 'string'],
+    [api.TypeFlags.NumberLike, 'number'],
+    [api.TypeFlags.BigIntLike, 'bigint'],
+    [api.TypeFlags.BooleanLike, 'boolean'],
+    [api.TypeFlags.ESSymbolLike, 'symbol'],
+    [api.TypeFlags.Undefined | api.TypeFlags.Void, 'undefined'],
+    [api.TypeFlags.Null, 'null'],
+  ];
+  const isPlainKind = (kind: string): boolean => kind !== 'object' && kind !== 'symbol' && !/^[A-Z]/.test(kind);
+  /** The kinds of value a type admits: see `Type.kinds`. */
+  const kindsOf = (written: ts.Type, depth: number): readonly string[] => {
+    // A type that waits for another (a type parameter, `keyof T`, `T[K]`) admits what its constraint admits.
+    const type = (written.flags & api.TypeFlags.Instantiable) === 0 ? written : (checker.getBaseConstraintOfType(written) ?? written);
+    const primitive = primitiveKinds.find(([flags]) => (type.flags & flags) !== 0);
+    if (primitive !== undefined) return [primitive[1]];
+    if (depth > 4) return ['object'];
+    if (type.isUnion()) return [...new Set(type.types.flatMap((member) => kindsOf(member, depth + 1)))];
+    if (type.isIntersection()) {
+      // A brand on a primitive: the value is the primitive.
+      const branded = type.types.flatMap((member) => kindsOf(member, depth + 1)).find((kind) => isPlainKind(kind) && kind !== 'array');
+      return [branded ?? 'object'];
+    }
     if (checker.isArrayType(type) || checker.isTupleType(type)) {
       // What an index gives: the item type of an array, the union of the item types of a tuple.
       const item = checker.getIndexTypeOfType(type, api.IndexKind.Number);
-      return item !== undefined && isPlain(item, depth + 1);
+      return [item !== undefined && kindsOf(item, depth + 1).every(isPlainKind) ? 'array' : 'object'];
     }
-    return false;
+    const symbol = type.getSymbol();
+    const declarations = symbol?.getDeclarations() ?? [];
+    const fromLibrary = declarations.length > 0 && declarations.every((declaration) => program.isSourceFileDefaultLibrary(declaration.getSourceFile()));
+    const name = symbol?.getName();
+    return [fromLibrary && name !== undefined && /^[A-Z]\w*$/.test(name) ? name : 'object'];
   };
 
   const wrapType = (type: ts.Type): Type => {
@@ -67,7 +88,10 @@ export function createTypeScript6Provider(
       isLiteral: (type.flags & literal) !== 0,
       isBooleanLiteral: (type.flags & api.TypeFlags.BooleanLiteral) !== 0,
       get isPlain() {
-        return isPlain(type, 0);
+        return kindsOf(type, 0).every(isPlainKind);
+      },
+      get kinds() {
+        return kindsOf(type, 0);
       },
       isPromise,
       get members() {
@@ -205,6 +229,14 @@ export function createTypeScript6Provider(
       if (api.isCallExpression(node)) {
         return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part) };
       }
+      if (api.isTaggedTemplateExpression(node)) {
+        const template = node.template;
+        const substitutions = api.isTemplateExpression(template) ? template.templateSpans.map((span) => part(span.expression)) : [];
+        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions] };
+      }
+      if (api.isTemplateExpression(node) && !api.isTaggedTemplateExpression(node.parent)) {
+        return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
+      }
       if (api.isNewExpression(node)) {
         return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0 };
       }
@@ -219,6 +251,7 @@ export function createTypeScript6Provider(
       if (api.isPrefixUnaryExpression(node) || api.isPostfixUnaryExpression(node)) {
         const updates = node.operator === api.SyntaxKind.PlusPlusToken || node.operator === api.SyntaxKind.MinusMinusToken;
         if (updates) return { ...base, kind: 'update', operand: part(unwrapped(node.operand)) };
+        return { ...base, kind: 'unary', operator: api.tokenToString(node.operator) ?? '', operand: part(unwrapped(node.operand)) };
       }
       if (api.isDeleteExpression(node)) return { ...base, kind: 'delete', operand: part(unwrapped(node.expression)) };
       if (api.isAwaitExpression(node)) return { ...base, kind: 'await' };
@@ -232,7 +265,7 @@ export function createTypeScript6Provider(
       }
       if (api.isTypeAssertionExpression(node)) return { ...base, kind: 'type-assertion' };
       if (api.isBinaryExpression(node)) {
-        return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '', left: part(unwrapped(node.left)) };
+        return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '', left: part(unwrapped(node.left)), right: part(unwrapped(node.right)) };
       }
       if (api.isThrowStatement(node)) return { ...base, kind: 'throw' };
       if (api.isTryStatement(node)) return { ...base, kind: 'try', block: part(node.tryBlock), hasCatch: node.catchClause !== undefined };
@@ -337,6 +370,7 @@ export function createTypeScript6Provider(
     isLiteral: false,
     isBooleanLiteral: false,
     isPlain: false,
+    kinds: ['object'],
     isPromise: false,
     get members() {
       return [unknownOrigin];
@@ -360,7 +394,8 @@ export function createTypeScript6Provider(
     },
     calleeOf: (node) => {
       const source = origin.get(node);
-      return source !== undefined && (api.isCallExpression(source) || api.isNewExpression(source)) ? readCallee(source) : undefined;
+      const calls = source !== undefined && (api.isCallExpression(source) || api.isNewExpression(source) || api.isTaggedTemplateExpression(source));
+      return calls ? readCallee(source) : undefined;
     },
     exportsOf: (file) => {
       const sourceFile = sources.get(file);
@@ -412,7 +447,7 @@ export function calleeReader(
   program: ts.Program,
   rootDir: string,
   packageNameOf?: (fileName: string) => string | undefined,
-): (call: ts.CallExpression | ts.NewExpression) => Callee | undefined {
+): (call: ts.CallExpression | ts.NewExpression | ts.TaggedTemplateExpression) => Callee | undefined {
   const checker = program.getTypeChecker();
   const checked = new Set(checkedFileNames(program, rootDir));
   return (call) => {

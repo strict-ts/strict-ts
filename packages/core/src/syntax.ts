@@ -37,6 +37,7 @@ export type Node = NodeBase &
         readonly parameter: 'none' | 'readonly' | 'mutable';
       }
     | { readonly kind: 'string-literal'; readonly text: string }
+    /** A call. A tagged template is one too: its arguments are the template, then each substitution. */
     | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
     /** `new Callee(…)`, with the number of arguments written. */
     | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number }
@@ -73,7 +74,11 @@ export type Node = NodeBase &
     /** `<T>x`. */
     | { readonly kind: 'type-assertion' }
     /** `operator` is the token as written: `===`, `+`, `??`… */
-    | { readonly kind: 'binary'; readonly operator: string; readonly left: Node }
+    | { readonly kind: 'binary'; readonly operator: string; readonly left: Node; readonly right: Node }
+    /** `+x`, `-x`, `~x`, `!x`. */
+    | { readonly kind: 'unary'; readonly operator: string; readonly operand: Node }
+    /** A template with substitutions, not handed to a tag: each `parts` is converted to text. */
+    | { readonly kind: 'template'; readonly parts: readonly Node[] }
     | { readonly kind: 'throw' }
     /** A `try` statement: its guarded block, and whether a `catch` clause takes what it throws. */
     | { readonly kind: 'try'; readonly block: Node; readonly hasCatch: boolean }

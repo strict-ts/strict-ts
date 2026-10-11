@@ -128,6 +128,7 @@ is both, `project` is once for the whole project.
 | `must-use` | errors | all | A `Result`, an `Option` or a `Promise` is not ignored. To drop one on purpose: `void expr` |
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
 | `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function the effects ledger does not show to be safe, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
+| `no-throwing-operator` | errors | all | An operator or a read that may throw on what its operands may be (a bigint `/`, `%` or `**`, the conversion of a value that is not plain in a template, a `+` or a comparison, an array length that is not a literal, a property of the library that runs code) is written in a `try` with a `catch` |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
@@ -283,6 +284,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
 | `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
 | `textOf(value)`, `record(pairs)` | What `String(value)` and `Object.fromEntries` do, without their exceptions |
+| `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | The three bigint operators that throw, giving an `Option` |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
 | `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
 
@@ -290,7 +292,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 18 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 19 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -308,8 +310,10 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 - `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. A
   function is called safe there only when our reading of the ECMAScript specification gives it no way to throw and
   600 runs on generated values never threw. That reading is a judgement, and the two could be wrong the same way.
-  The DOM and Node are not read: their functions are refused, or classified by hand. A getter or an operator that
-  throws is not a call and is not seen.
+  The DOM and Node are not read: their functions are refused, or classified by hand.
+- `no-throwing-operator` knows the operators and the accessors of ECMAScript. A property of the DOM that throws when
+  read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run, nor a
+  write to a frozen object. Running out of stack or of memory is outside what any rule covers, as in Rust.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.

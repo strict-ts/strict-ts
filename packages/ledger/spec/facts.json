@@ -4948,6 +4948,29 @@
    ]
   },
   {
+   "id": "sec-get-object.prototype.__proto__",
+   "name": "get Object.prototype.__proto__",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "ToObject:this"
+   ]
+  },
+  {
+   "id": "sec-set-object.prototype.__proto__",
+   "name": "set Object.prototype.__proto__",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If _status_ is *false*, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "RequireObjectCoercible:this"
+   ]
+  },
+  {
    "id": "sec-object.prototype.__defineGetter__",
    "name": "Object.prototype.__defineGetter__",
    "operation": false,
@@ -5154,6 +5177,15 @@
     }
    ],
    "calls": []
+  },
+  {
+   "id": "sec-symbol.prototype.description",
+   "name": "get Symbol.prototype.description",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "thisSymbolValue"
+   ]
   },
   {
    "id": "sec-symboldescriptivestring",
@@ -6965,6 +6997,13 @@
    ]
   },
   {
+   "id": "sec-get-regexp-@@species",
+   "name": "get RegExp [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
    "id": "sec-regexp.prototype.exec",
    "name": "RegExp.prototype.exec",
    "operation": false,
@@ -6973,6 +7012,15 @@
     "RegExpBuiltinExec",
     "RequireInternalSlot",
     "ToString"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.dotAll",
+   "name": "get RegExp.prototype.dotAll",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
    ]
   },
   {
@@ -6990,6 +7038,47 @@
     }
    ],
    "calls": []
+  },
+  {
+   "id": "sec-get-regexp.prototype.flags",
+   "name": "get RegExp.prototype.flags",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If _R_ is not an Object, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "Get"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.global",
+   "name": "get RegExp.prototype.global",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.hasIndices",
+   "name": "get RegExp.prototype.hasIndices",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.ignorecase",
+   "name": "get RegExp.prototype.ignoreCase",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
+   ]
   },
   {
    "id": "sec-regexp.prototype-@@match",
@@ -7026,6 +7115,15 @@
     "SpeciesConstructor",
     "ToLength",
     "ToString"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.multiline",
+   "name": "get RegExp.prototype.multiline",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
    ]
   },
   {
@@ -7076,6 +7174,22 @@
    "calls": []
   },
   {
+   "id": "sec-get-regexp.prototype.source",
+   "name": "get RegExp.prototype.source",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If _R_ is not an Object, throw a *TypeError* exception."
+    },
+    {
+     "kind": "TypeError",
+     "step": "Otherwise, throw a *TypeError* exception."
+    }
+   ],
+   "calls": []
+  },
+  {
    "id": "sec-regexp.prototype-@@split",
    "name": "RegExp.prototype [ @@split ]",
    "operation": false,
@@ -7095,6 +7209,15 @@
     "ToLength",
     "ToString",
     "ToUint32"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.sticky",
+   "name": "get RegExp.prototype.sticky",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
    ]
   },
   {
@@ -7125,6 +7248,15 @@
    "calls": [
     "Get",
     "ToString"
+   ]
+  },
+  {
+   "id": "sec-get-regexp.prototype.unicode",
+   "name": "get RegExp.prototype.unicode",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RegExpHasFlag"
    ]
   },
   {
@@ -7273,6 +7405,13 @@
     "CreateDataPropertyOrThrow",
     "Set"
    ]
+  },
+  {
+   "id": "sec-get-array-@@species",
+   "name": "get Array [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
   },
   {
    "id": "sec-array.prototype.at",
@@ -7997,6 +8136,13 @@
    ]
   },
   {
+   "id": "sec-get-%typedarray%-@@species",
+   "name": "get %TypedArray% [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
    "id": "sec-%typedarray%.prototype.at",
    "name": "%TypedArray%.prototype.at",
    "operation": false,
@@ -8004,6 +8150,33 @@
    "calls": [
     "ToIntegerOrInfinity",
     "ValidateTypedArray"
+   ]
+  },
+  {
+   "id": "sec-get-%typedarray%.prototype.buffer",
+   "name": "get %TypedArray%.prototype.buffer",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
+   "id": "sec-get-%typedarray%.prototype.bytelength",
+   "name": "get %TypedArray%.prototype.byteLength",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
+   "id": "sec-get-%typedarray%.prototype.byteoffset",
+   "name": "get %TypedArray%.prototype.byteOffset",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
    ]
   },
   {
@@ -8180,6 +8353,15 @@
    "calls": [
     "ToIntegerOrInfinity",
     "ValidateTypedArray"
+   ]
+  },
+  {
+   "id": "sec-get-%typedarray%.prototype.length",
+   "name": "get %TypedArray%.prototype.length",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
    ]
   },
   {
@@ -8431,6 +8613,13 @@
    ]
   },
   {
+   "id": "sec-get-%typedarray%.prototype-@@tostringtag",
+   "name": "get %TypedArray%.prototype [ @@toStringTag ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
    "id": "typedarray-species-create",
    "name": "TypedArraySpeciesCreate",
    "operation": true,
@@ -8649,6 +8838,13 @@
    ]
   },
   {
+   "id": "sec-get-map-@@species",
+   "name": "get Map [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
    "id": "sec-map.prototype.clear",
    "name": "Map.prototype.clear",
    "operation": false,
@@ -8727,6 +8923,15 @@
    ]
   },
   {
+   "id": "sec-get-map.prototype.size",
+   "name": "get Map.prototype.size",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
    "id": "sec-map.prototype.values",
    "name": "Map.prototype.values",
    "operation": false,
@@ -8773,6 +8978,13 @@
     "IteratorValue",
     "OrdinaryCreateFromConstructor"
    ]
+  },
+  {
+   "id": "sec-get-set-@@species",
+   "name": "get Set [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
   },
   {
    "id": "sec-set.prototype.add",
@@ -8828,6 +9040,15 @@
   {
    "id": "sec-set.prototype.has",
    "name": "Set.prototype.has",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
+   "id": "sec-get-set.prototype.size",
+   "name": "get Set.prototype.size",
    "operation": false,
    "throws": [],
    "calls": [
@@ -9097,6 +9318,27 @@
    "calls": []
   },
   {
+   "id": "sec-get-arraybuffer-@@species",
+   "name": "get ArrayBuffer [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
+   "id": "sec-get-arraybuffer.prototype.bytelength",
+   "name": "get ArrayBuffer.prototype.byteLength",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If IsSharedArrayBuffer(_O_) is *true*, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
    "id": "sec-arraybuffer.prototype.slice",
    "name": "ArrayBuffer.prototype.slice",
    "operation": false,
@@ -9167,6 +9409,27 @@
    "calls": [
     "AllocateSharedArrayBuffer",
     "ToIndex"
+   ]
+  },
+  {
+   "id": "sec-sharedarraybuffer-@@species",
+   "name": "get SharedArrayBuffer [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
+  },
+  {
+   "id": "sec-get-sharedarraybuffer.prototype.bytelength",
+   "name": "get SharedArrayBuffer.prototype.byteLength",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If IsSharedArrayBuffer(_O_) is *false*, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "RequireInternalSlot"
    ]
   },
   {
@@ -9268,6 +9531,43 @@
     "OrdinaryCreateFromConstructor",
     "RequireInternalSlot",
     "ToIndex"
+   ]
+  },
+  {
+   "id": "sec-get-dataview.prototype.buffer",
+   "name": "get DataView.prototype.buffer",
+   "operation": false,
+   "throws": [],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
+   "id": "sec-get-dataview.prototype.bytelength",
+   "name": "get DataView.prototype.byteLength",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If IsDetachedBuffer(_buffer_) is *true*, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "RequireInternalSlot"
+   ]
+  },
+  {
+   "id": "sec-get-dataview.prototype.byteoffset",
+   "name": "get DataView.prototype.byteOffset",
+   "operation": false,
+   "throws": [
+    {
+     "kind": "TypeError",
+     "step": "If IsDetachedBuffer(_buffer_) is *true*, throw a *TypeError* exception."
+    }
+   ],
+   "calls": [
+    "RequireInternalSlot"
    ]
   },
   {
@@ -10190,6 +10490,13 @@
    "calls": [
     "PromiseResolve"
    ]
+  },
+  {
+   "id": "sec-get-promise-@@species",
+   "name": "get Promise [ @@species ]",
+   "operation": false,
+   "throws": [],
+   "calls": []
   },
   {
    "id": "sec-promise.prototype.catch",

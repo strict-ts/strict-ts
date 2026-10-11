@@ -139,6 +139,7 @@ describe('the catalogue of rules', () => {
       'no-param-mutation',
       'no-throw',
       'no-throwing-call',
+      'no-throwing-operator',
       'no-ts-directive',
       'no-type-predicate',
       'pure-domain',
