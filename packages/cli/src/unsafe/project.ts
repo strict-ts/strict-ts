@@ -1,5 +1,5 @@
 // unsafe/: the file system and the compiler. Everything that may throw or return `any` leaves here as a Result.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { TypeProvider } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
@@ -45,6 +45,19 @@ export function readJsonFile(directory: string, name: string): Result<Option<unk
   const path = join(directory, name);
   return attempt(
     (): Option<unknown> => (existsSync(path) ? Option.some<unknown>(JSON.parse(readFileSync(path, 'utf8'))) : Option.none),
+    (cause) => `${path}: ${describe(cause)}`,
+  );
+}
+
+/** Writes a text file, creating its directory. `name` is relative to `directory`. Returns the path written. */
+export function writeTextFile(directory: string, name: string, text: string): Result<string, string> {
+  const path = resolve(directory, name);
+  return attempt(
+    (): string => {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+      return path;
+    },
     (cause) => `${path}: ${describe(cause)}`,
   );
 }
