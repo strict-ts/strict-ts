@@ -71,14 +71,23 @@ function gen(body: () => Generator<unknown, unknown, unknown> | AsyncGenerator<u
   const steps = body();
   const step = steps.next();
   // Leaving on an Err closes the generator, so the `finally` blocks and `using` declarations it was in still run.
+  // `return` throws on a generator that is running. This one is suspended at its `yield`; the `try` is for the rule,
+  // which reads in the specification that `return` can throw and cannot see that it will not here.
+  const close = (): unknown => {
+    try {
+      return steps.return(undefined);
+    } catch {
+      return undefined;
+    }
+  };
   if (step instanceof Promise) {
     return step.then(async (s) => {
-      if (s.done !== true) await steps.return(undefined);
+      if (s.done !== true) await close();
       return s.value;
     });
   }
   // Here the generator is the synchronous one: what `return` gives back is not a promise, and nothing to wait for.
-  if (step.done !== true) void steps.return(undefined);
+  if (step.done !== true) void close();
   return step.value;
 }
 

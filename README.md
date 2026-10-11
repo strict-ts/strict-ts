@@ -306,9 +306,10 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
 - `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. A
-  function is in it as throwing when it was seen to throw on generated values; as safe, for now, on a person's
-  judgement backed by runs that never threw, not yet on the specification. A getter or an operator that throws is not
-  a call and is not seen.
+  function is called safe there only when our reading of the ECMAScript specification gives it no way to throw and
+  600 runs on generated values never threw. That reading is a judgement, and the two could be wrong the same way.
+  The DOM and Node are not read: their functions are refused, or classified by hand. A getter or an operator that
+  throws is not a call and is not seen.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.

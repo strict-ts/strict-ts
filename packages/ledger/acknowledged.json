@@ -1,0 +1,9 @@
+{
+  "NewableFunction.call": "calls a class as a function, which throws; the reader takes a call of a function for the caller's own code",
+  "PromiseConstructor.any": "returns a rejected promise on an empty list: a rejection is not a throw in the specification, and is one for the caller",
+  "PromiseConstructor.reject": "returns a rejected promise: a rejection is not a throw in the specification, and is one for the caller",
+  "WeakMapConstructor.new": "adds its entries by calling `set`, which throws on a key that cannot be held weakly; the reader does not follow that call",
+  "WeakSetConstructor.new": "adds its values by calling `add`, which throws on a value that cannot be held weakly; the reader does not follow that call",
+  "Array.toString": "calls `join` by its name, which the reader does not follow",
+  "ReadonlyArray.toString": "calls `join` by its name, which the reader does not follow"
+}

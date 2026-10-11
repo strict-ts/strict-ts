@@ -1,5 +1,15 @@
-// Turns what the runs showed into ledger entries. Only what the runs can decide is decided here: a function that
-// threw gets the verdict `throws`, with the conditions the runs show. One that never threw is evidence, not proof.
+// Turns what the runs showed and what the specification says into ledger entries.
+//
+//   the specification    the runs              the entry
+//   no way to throw      never threw           total                 ← both agree
+//   only conversions     never threw           total                 the types exclude what the conversions refuse
+//   a real way to throw  never threw           throws                the prudent one of the two
+//   anything             threw on plain values throws, with the call it was seen on
+//   anything             threw on odd values   throws, unless the receiver and arguments are plain
+//   no way to throw      threw                 a contradiction: the reading of the specification is wrong. The entry
+//                                              says throws, and the build fails unless the case is acknowledged.
+//
+// A function that was not run gets an entry only when the specification gives it a real way to throw.
 
 const sum = (mode, field) => Object.values(mode ?? {}).reduce((total, count) => total + count[field], 0);
 
@@ -20,47 +30,59 @@ function condition(mode) {
 }
 
 const example = (mode) => Object.values(mode).find((tally) => tally.example !== undefined)?.example;
+const UNPRINTABLE = 'throws on a value it cannot convert: a symbol, an object without a prototype, a cycle';
 
-export function derive(library, observed) {
+/**
+ * `specified` maps a declared name to what the specification says of it: `{ id, real: string[], converts }`.
+ * `acknowledged` maps a name to why the runs and the reading of the specification may differ for it.
+ */
+export function derive(library, observed, specified = new Map(), acknowledged = {}) {
   const entries = [];
   const quiet = {};
-  const counts = { functions: library.length, runnable: 0, ran: 0, notLocated: 0, timedOut: 0, throws: 0, throwsOnOddValuesOnly: 0, neverThrew: 0 };
+  const contradictions = [];
+  const counts = { functions: library.length, ran: 0, total: 0, throws: 0, throwsUnlessPlain: 0, throwsBySpecificationOnly: 0, neverThrewWithoutSpecification: 0, notRun: 0, contradictions: 0 };
   for (const declared of library) {
-    if (!declared.runnable) continue;
-    counts.runnable++;
     const result = observed[declared.name];
-    if (result === undefined || !result.located) {
-      counts.notLocated++;
+    const spec = specified.get(declared.name);
+    const ran = declared.runnable && result !== undefined && result.located && !result.timedOut && !result.crashed;
+    const runs = ran ? sum(result.modes.plain, 'runs') + sum(result.modes.any, 'runs') : 0;
+    const cited = spec === undefined ? {} : { spec: spec.id };
+
+    if (!ran || runs === 0) {
+      counts.notRun++;
+      if (spec !== undefined && spec.real.length > 0) {
+        counts.throwsBySpecificationOnly++;
+        entries.push({ name: declared.name, verdict: 'throws', why: `may throw by the specification (${spec.real[0].slice(0, 90)})`, evidence: { runs: 0, ...cited } });
+      }
       continue;
     }
-    if (result.timedOut || result.crashed) {
-      counts.timedOut++;
-      continue;
-    }
-    const { plain, any } = result.modes;
-    const runs = sum(plain, 'runs') + sum(any, 'runs');
-    if (runs === 0) continue;
     counts.ran++;
-    if (sum(plain, 'threw') > 0) {
+    const { plain, any } = result.modes;
+    const threwPlain = sum(plain, 'threw') > 0;
+    const threwOdd = sum(any, 'threw') > 0;
+    if ((threwPlain || threwOdd) && spec !== undefined && spec.real.length === 0 && !spec.converts) {
+      counts.contradictions++;
+      contradictions.push({ name: declared.name, seen: example(threwPlain ? plain : any), spec: spec.id, acknowledged: acknowledged[declared.name] });
+    }
+    if (threwPlain) {
       counts.throws++;
       const seen = example(plain);
       const [call, error] = seen.split(' → ');
       const article = /^[AEIO]/.test(error) ? 'an' : 'a';
-      entries.push({ name: declared.name, verdict: 'throws', why: `throws ${article} ${error}, as seen with ${call}`, ...condition(plain), evidence: { runs, example: seen } });
-    } else if (sum(any, 'threw') > 0) {
-      counts.throwsOnOddValuesOnly++;
-      entries.push({
-        name: declared.name,
-        verdict: 'throws',
-        why: 'throws on a value it cannot convert: a symbol, an object without a prototype, a cycle',
-        unprintable: true,
-        ...condition(any),
-        evidence: { runs, example: example(any) },
-      });
-    } else {
-      counts.neverThrew++;
+      entries.push({ name: declared.name, verdict: 'throws', why: `throws ${article} ${error}, as seen with ${call}`, ...condition(plain), evidence: { runs, ...cited, example: seen } });
+    } else if (threwOdd) {
+      counts.throwsUnlessPlain++;
+      entries.push({ name: declared.name, verdict: 'throws', why: UNPRINTABLE, unprintable: true, ...condition(any), evidence: { runs, ...cited, example: example(any) } });
+    } else if (spec === undefined) {
+      counts.neverThrewWithoutSpecification++;
       quiet[declared.name] = runs;
+    } else if (spec.real.length > 0) {
+      counts.throwsBySpecificationOnly++;
+      entries.push({ name: declared.name, verdict: 'throws', why: `may throw by the specification (${spec.real[0].slice(0, 90)})`, evidence: { runs, ...cited } });
+    } else {
+      counts.total++;
+      entries.push({ name: declared.name, verdict: 'total', evidence: { runs, ...cited } });
     }
   }
-  return { entries: entries.toSorted((a, b) => (a.name < b.name ? -1 : 1)), quiet, summary: { counts, quiet } };
+  return { entries: entries.toSorted((a, b) => (a.name < b.name ? -1 : 1)), quiet, contradictions, summary: { counts, quiet, contradictions } };
 }
