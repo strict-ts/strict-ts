@@ -4,14 +4,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run as gate } from '@strict-ts/cli';
 import { afterEach, describe, expect, test } from 'vitest';
-import { applyEdits, type Fix, keepWhatHolds, run } from '../src/index.js';
+import { applyEdits, type Fix, keepUnblamed, keepWhatHolds, placesAfter, run, type Trial } from '../src/index.js';
 
 const fixture = fileURLToPath(new URL('fixtures/app/', import.meta.url));
 const copies: string[] = [];
-function project(): string {
+function project(fixture = 'app'): string {
   const directory = mkdtempSync(join(tmpdir(), 'strict-ts-fix-'));
   copies.push(directory);
-  cpSync(fixture, directory, { recursive: true });
+  cpSync(fileURLToPath(new URL(`fixtures/${fixture}/`, import.meta.url)), directory, { recursive: true });
   return directory;
 }
 afterEach(() => {
@@ -155,6 +155,45 @@ describe('strict-ts-fix', () => {
   });
 });
 
+describe('the fix at fault is not where the error is', () => {
+  test('each fix that fails is found, and no other is dropped', () => {
+    const directory = project('flows');
+    expect(fix(directory).out).toEqual([
+      'readonly-types: 12 fixes applied, 9 left',
+      // `loadout[slot] = id` writes to both names of the key, and not to `label`.
+      '  src/flows.ts:5:3 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:6:3 left as it is: the project does not compile with the fix',
+      // The alias whose map is filled elsewhere: the map stays, the lists in it are fixed.
+      '  src/flows.ts:15:21 left as it is: the project does not compile with the fix',
+      // What `names` returns is sorted in place by a caller that wrote no type.
+      '  src/flows.ts:21:26 left as it is: the project does not compile with the fix',
+      // `[] as number[]`, pushed into through the object that holds it.
+      '  src/flows.ts:31:37 left as it is: the project does not compile with the fix',
+      // The member behind `Data['rows']`.
+      '  src/flows.ts:37:28 left as it is: the project does not compile with the fix',
+      // `target` is pushed into, and `made` only fails because it is given to it.
+      '  src/flows.ts:45:30 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:49:15 left as it is: the project does not compile with the fix',
+      // `tally.counts[one.slot] += 1` writes to the record, whatever the key is read from.
+      '  src/flows.ts:58:31 left as it is: the project does not compile with the fix',
+      'no-type-predicate: 1 fix applied, 0 left',
+      '1 file written',
+    ]);
+    const fixed = read(directory, 'src/flows.ts');
+    expect(fixed).toContain('readonly label: string;');
+    expect(fixed).toContain('export type Store = Map<string, readonly number[]>;');
+    expect(fixed).toContain('export function sorted(): readonly string[] {');
+    expect(fixed).toContain('export function make(): readonly number[] {');
+    // The predicate is gone, and with it the object type that a fix was to be written in.
+    expect(fixed).toContain('values.filter((value) => typeof value === "object");');
+    expect(fixed).toContain('export function count(tally: Tally, seen: readonly { readonly slot: Slot }[]): void {');
+    // A second run finds nothing more to do, and the same nine places left.
+    const again = fix(directory).out;
+    expect(again[0]).toBe('readonly-types: 0 fixes applied, 9 left');
+    expect(again.slice(-2)).toEqual(['no-type-predicate: 0 fixes applied, 0 left', '0 files written']);
+  });
+});
+
 describe('the pieces', () => {
   const at = (start: number, end: number, text: string, rule = 'r'): Fix => ({ rule, file: 'a.ts', at: start, edits: [{ start, end, text }] });
 
@@ -177,5 +216,88 @@ describe('the pieces', () => {
     });
     expect(kept.map((kept) => kept.at)).toEqual([0, 1, 3, 4, 6]);
     expect(builds).toBeLessThan(fixes.length * 2);
+  });
+
+  test('applyEdits drops an edit inside what another one removes', () => {
+    expect(applyEdits('f(x): x is { a: 1 } => x', [at(13, 13, 'readonly '), at(4, 19, '')])).toBe('f(x) => x');
+  });
+
+  test('placesAfter says where each fix is in the text as fixed', () => {
+    const removed: Fix = { rule: 'r', file: 'a.ts', at: 6, edits: [{ start: 4, end: 18, text: '' }] };
+    const fixes = [at(0, 0, 'readonly '), at(2, 3, 'XYZ'), removed, at(20, 20, '!')];
+    // What a fix inserts at its own place does not move it; what is removed is found where the removal starts.
+    expect(placesAfter(fixes).map((placed) => placed.at)).toEqual([0, 11, 15, 17]);
+  });
+
+  describe('keepUnblamed', () => {
+    const fixes = Array.from({ length: 40 }, (_, n) => at(n, n, String(n)));
+    const pick = (...numbers: readonly number[]): readonly Fix[] => numbers.flatMap((n) => fixes.slice(n, n + 1));
+    /**
+     * A project where each fix of `bad` causes one error. `hints` says what that error points at: the fix itself
+     * when nothing is said, other fixes as well, or nothing at all.
+     */
+    const projectWith = (bad: readonly number[], hints: Readonly<Record<number, readonly number[]>> = {}, needs: Readonly<Record<number, number>> = {}) => {
+      let builds = 0;
+      const tryWith = (kept: readonly Fix[]): Trial => {
+        builds++;
+        const applied = new Set(kept.map((fix) => fix.at));
+        const errors = [
+          ...bad.filter((n) => applied.has(n)).map((n) => ({ where: `bad ${n}`, fixes: pick(...(hints[n] ?? [n])).filter((fix) => applied.has(fix.at)) })),
+          // A fix that only holds when another one is applied.
+          ...Object.entries(needs)
+            .filter(([n, other]) => applied.has(Number(n)) && !applied.has(other))
+            .map(([n]) => ({ where: `needs ${n}`, fixes: pick(Number(n)) })),
+        ];
+        return { holds: errors.length === 0, errors };
+      };
+      return { tryWith, builds: () => builds };
+    };
+    const numbers = (kept: readonly Fix[]): readonly number[] => kept.map((fix) => fix.at);
+    const allBut = (...out: readonly number[]): readonly number[] => fixes.map((fix) => fix.at).filter((n) => !out.includes(n));
+
+    test('a fix that an error names alone is dropped, in two compilations whatever their number', () => {
+      const { tryWith, builds } = projectWith([2, 5, 11, 17, 23, 31]);
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(2, 5, 11, 17, 23, 31));
+      expect(builds()).toBe(2);
+    });
+
+    test('of the fixes an error names together, only the one at fault is dropped', () => {
+      const { tryWith, builds } = projectWith([7, 30], { 7: [3, 4, 5, 6, 7, 8, 9, 10], 30: [29, 30] });
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(7, 30));
+      expect(builds()).toBeLessThan(10);
+    });
+
+    test('a fix that failed only because another one was out comes back', () => {
+      // 12 is named together with 13, the one at fault; while 12 is out, 20 fails too, and holds once 12 is back.
+      const { tryWith } = projectWith([13], { 13: [12, 13] }, { 20: 12 });
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(13));
+    });
+
+    test('a fix that holds only with one that is at fault is dropped with it', () => {
+      const { tryWith } = projectWith([12], {}, { 20: 12 });
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(12, 20));
+    });
+
+    test('errors that point at nothing spell the fix that causes them', () => {
+      const { tryWith, builds } = projectWith([9, 26, 33], { 9: [], 26: [], 33: [] });
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(9, 26, 33));
+      // Six compilations, one for each binary digit of 40, for the three errors together; the search by halves
+      // would take some for each of them.
+      expect(builds()).toBeLessThanOrEqual(12);
+    });
+
+    test('a hint that names the wrong fix costs compilations, never a wrong result', () => {
+      const { tryWith } = projectWith([9, 26], { 9: [10], 26: [1, 2] });
+      const kept = keepUnblamed(fixes, tryWith);
+      expect(tryWith(kept).holds).toBe(true);
+      expect(numbers(kept)).not.toContain(9);
+      expect(numbers(kept)).not.toContain(26);
+    });
+
+    test('with nothing to fix or nothing at fault, one compilation', () => {
+      const { tryWith, builds } = projectWith([]);
+      expect(keepUnblamed(fixes, tryWith)).toEqual(fixes);
+      expect(builds()).toBe(1);
+    });
   });
 });
