@@ -1,0 +1,21 @@
+{
+  "name": "@strict-ts/language-service",
+  "version": "0.0.0",
+  "description": "The strict-ts gate in the editor: a TypeScript language service plugin that underlines what the rules refuse.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@strict-ts/cli": "workspace:*",
+    "@strict-ts/core": "workspace:*",
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2",
+    "esbuild": "^0.28.2"
+  }
+}
