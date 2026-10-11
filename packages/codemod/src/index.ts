@@ -16,7 +16,7 @@ export interface Io {
 export const usage = [
   'Usage: strict-ts-fix [options]',
   '',
-  'Fixes what strict-ts refuses, where a fix is mechanical. A fix is kept only if the project still compiles.',
+  'Fixes what strict-ts refuses, where a fix is mechanical. A fix is kept only if the project still compiles and is refused for nothing more.',
   '',
   'Options:',
   '  -p, --project <path>  A tsconfig.json, or a directory that holds one (default: the current directory)',
@@ -75,7 +75,7 @@ export function run(argv: readonly string[], io: Io): number {
     const fixed = applied.filter((place) => place.rule === rule).length;
     const kept = left.filter((place) => place.rule === rule);
     io.out(`${rule}: ${count(fixed, 'fix', 'fixes')}${dryRun ? ' would be' : ''} applied, ${kept.length} left`);
-    for (const place of kept) io.out(`  ${place.file}:${place.line}:${place.column} left as it is: the project does not compile with the fix`);
+    for (const place of kept) io.out(`  ${place.file}:${place.line}:${place.column} left as it is: with the fix the project does not compile, or is refused for more`);
   }
   io.out(dryRun ? 'dry run: nothing written' : `${count(written.length, 'file', 'files')} written`);
   return 0;

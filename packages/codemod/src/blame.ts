@@ -1,4 +1,4 @@
-// Which fixes a compiler error points at: the declarations its place reads, followed to where a fix wrote. A hint
+// Which fixes an error of the compiler, or a refusal of the gate, points at: the declarations its place reads, followed to where a fix wrote. A hint
 // for the search and never a verdict: what is kept is compiled again.
 import type ts from '@typescript/typescript6';
 import type { Fix, Placed } from './fix.js';
@@ -20,7 +20,7 @@ const READ_ONLY_PROPERTY: readonly number[] = [2540, 2704];
 export function blamedFixes(
   api: typeof ts,
   checker: ts.TypeChecker,
-  diagnostic: ts.Diagnostic,
+  diagnostic: Pick<ts.Diagnostic, 'file' | 'start' | 'length' | 'code' | 'messageText'>,
   placedIn: (fileName: string) => readonly Placed[],
 ): readonly Fix[] {
   const file = diagnostic.file;

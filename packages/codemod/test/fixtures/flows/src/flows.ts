@@ -59,3 +59,8 @@ export type Tally = { counts: Record<Slot, number> };
 export function count(tally: Tally, seen: { slot: Slot }[]): void {
   for (const one of seen) tally.counts[one.slot] += 1;
 }
+
+// A fix that compiles and weakens typing: `Array.isArray` on a read-only array gives `any[]`.
+export function firstOf(value: string | string[]): string {
+  return Array.isArray(value) ? (value[0] ?? "") : value;
+}

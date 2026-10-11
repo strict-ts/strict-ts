@@ -1,7 +1,7 @@
 {
   "name": "@strict-ts/codemod",
   "version": "0.0.0",
-  "description": "Automatic fixes for what strict-ts refuses: each one is kept only if the project still compiles.",
+  "description": "Automatic fixes for what strict-ts refuses: each one is kept only if the project still compiles and is refused for nothing more.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
