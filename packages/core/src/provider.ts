@@ -98,6 +98,12 @@ export interface TypeProvider {
    */
   readonly expectedOf: (node: Node) => Type | undefined;
   /**
+   * Every value an expression can have, when the compiler knows them all: a literal, a constant of a literal type, a
+   * union of those, an object or an array made of those, a regular expression. Absent for anything else, and past
+   * 16 values.
+   */
+  readonly valuesOf: (node: Node) => readonly unknown[] | undefined;
+  /**
    * Whether the place of an expression is declared with `Mut<…>`: the parameter it is an argument for, the variable
    * it initializes, the return type of the function it is returned from.
    */

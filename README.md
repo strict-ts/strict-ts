@@ -182,6 +182,12 @@ The DOM has no specification that can be read that way, so its functions are onl
 to throw (`querySelector("")`, `createElement` on a name that is not one), and are refused like any other. 700 never
 threw: that is not a proof, so they are refused too, unless the project writes `"assume": ["dom-as-observed"]`.
 
+**Arguments written in the call.** `new RegExp('^a+$')`, `BigInt('12')` and `JSON.parse('{}')` throw on some
+arguments, and not on these. When the compiler knows every argument (a literal, a constant, an object of those), the
+gate runs the call and accepts it if it does not throw. A method on a receiver that is not written, `price.toFixed(2)`
+or `date.toLocaleDateString('fr-FR')`, is run on a list of receivers of its class: that is accepted only when the
+project writes `"assume": ["generated-receivers"]`.
+
 A function that is not in the ledger is refused: Node, the parts of the DOM a bare page cannot run (audio, WebGL,
 service workers), a package that is not in `allowedImports`.
 
@@ -252,7 +258,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 | `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw. `react` covers `@types/react` |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
 | `testDirs` | `["test", "tests"]` | The directories that hold tests. A file named `*.test.*` or `*.spec.*`, or under `__tests__`, is a test wherever it is. A test is checked like any code, except that it may throw, call what throws and import what it needs |
-| `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that. `dom-as-observed`: a function of the DOM that never threw when it was run in a browser is taken not to throw |
+| `assume` | none | What the project says of itself and that no rule can check. `attached-buffers`: no buffer is ever detached, so typed arrays and `DataView` do not throw for that. `dom-as-observed`: a function of the DOM that never threw when it was run in a browser is taken not to throw. `generated-receivers`: a method whose arguments are written in the call, and that did not throw on a list of receivers, is taken not to throw |
 | `rules` | all | The rules to run |
 | `baseline` | `strict-ts-baseline.json` | Where the baseline is read and written |
 | `$schema` | none | The JSON schema, for completion and validation in the editor |
@@ -417,6 +423,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused
   unless the project writes `"assume": ["attached-buffers"]`.
+- A call that is run because its arguments are written is run in the gate's engine. The code may run in another,
+  where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
 - A value typed read-only can still reach a mutable type through a property of an object literal or the right side

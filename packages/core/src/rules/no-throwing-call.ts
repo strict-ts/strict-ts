@@ -3,6 +3,7 @@ import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
 import { threatOf } from '../effects/ledger.js';
 import { ledger } from '../effects/index.js';
+import { runs } from '../unsafe/run.js';
 import { isCaught, isTrusted } from './caught.js';
 
 
@@ -23,6 +24,25 @@ function threat(callee: Callee, argumentCount: number, plain: () => boolean, con
   return threatOf(effect, argumentCount, effect.unprintable === true && plain(), config.assume?.includes('attached-buffers') === true, config.assume?.includes('dom-as-observed') === true);
 }
 
+const MOST = 16;
+
+/**
+ * Whether a call does not throw on the arguments written in it. Without a receiver, running the call says so. With
+ * one, it is run on a list of receivers of the class, which is enough only for a project that says so.
+ */
+function neverThrowsAsWritten(name: string, written: readonly (readonly unknown[] | undefined)[], receiver: readonly unknown[] | undefined, config: Config): boolean {
+  let lists: readonly (readonly unknown[])[] = [[]];
+  for (const values of written) {
+    // An argument whose values the compiler does not know: nothing to run.
+    if (values === undefined) return false;
+    lists = lists.flatMap((chosen) => values.map((value) => [...chosen, value]));
+    if (lists.length > MOST) return false;
+  }
+  const outcome = runs(name, lists, receiver);
+  if (!outcome.ok || !outcome.value.quiet) return false;
+  return !outcome.value.hasReceiver || config.assume?.includes('generated-receivers') === true;
+}
+
 export const noThrowingCall: Rule = {
   name: 'no-throwing-call',
   guarantee: 'errors',
@@ -30,7 +50,7 @@ export const noThrowingCall: Rule = {
     'A call that may throw without its type saying so is caught where it is made: inside `attempt`, or in a `try` with a `catch`.',
   scope: 'all',
   inTests: false,
-  visit(node, { config, calleeOf, typeOf, report }, _parent, ancestors) {
+  visit(node, { config, calleeOf, typeOf, valuesOf, report }, _parent, ancestors) {
     if (node.kind !== 'call' && node.kind !== 'new') return;
     const callee = calleeOf(node);
     if (callee === undefined) return;
@@ -42,6 +62,9 @@ export const noThrowingCall: Rule = {
     };
     const why = threat(callee, node.kind === 'call' ? node.arguments.length : node.argumentCount, plain, config);
     if (why === undefined) return;
+    // Arguments that are all written in the call: the call is run, and what it does is known.
+    const receiver = node.kind === 'call' && node.callee.kind === 'property-access' ? valuesOf(node.callee.object) : undefined;
+    if (callee.origin.kind === 'library' && neverThrowsAsWritten(callee.name, node.arguments.map(valuesOf), receiver, config)) return;
     if (isCaught(node, ancestors, calleeOf, config)) return;
     const shown = callee.name === '' ? 'This call' : `\`${callee.name.replace(/\.$/, '').replace(/Constructor\b/, '')}\``;
     report(node, `${shown} ${why}.`, 'Call it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');

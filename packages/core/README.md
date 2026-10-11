@@ -19,6 +19,7 @@ const refused = check(provider, defaultConfig); // readonly Diagnostic[], the co
 | `src/syntax.ts` | The syntax a rule reads: a neutral tree that names only what rules tell apart (`call`, `as`, `switch`, `property`, `binary`, `template`, and for the rules that follow a function: `block`, `variable`, `function`, `if`, `return`); everything else is `other` |
 | `src/provider.ts` | `TypeProvider`: the files to check; what a rule may ask about a type (`isAny`, `members`, `awaited`, `property`, `returns`, `kinds`: the kinds of value it admits, `isOnce`); what a call reaches (`calleeOf`) and what type a place expects (`expectedOf`) |
 | `src/effects/` | The effects ledger: each function of the standard library with its verdict and its evidence, the operators and the accessors that throw. `generated.ts` (ECMAScript) and `dom.ts` (the DOM, as seen in a browser) are written by `packages/ledger`; `seed.ts` holds what is classified by hand. Read by `no-throwing-call` and `no-throwing-operator` |
+| `src/unsafe/run.ts` | The one place where core runs anything: a function of the language, found by its name, on arguments written in a call. What it throws leaves as a value |
 | `src/config.ts` | `Config`: the unsafe, pure and test directories, the allowed packages, what the project assumes |
 | `src/rule.ts` | `Rule`: a name, the guarantee it serves, a scope, and the hooks `visit` (every node), `file`, `project` |
 | `src/engine.ts` | `check`: runs the rules on a provider and sorts what they report |
