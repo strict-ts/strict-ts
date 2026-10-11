@@ -67,6 +67,17 @@ export interface Comparison {
   readonly baselined: readonly Diagnostic[];
   /** For a refused violation of a rule and file the baseline knows: how many it allows there. */
   readonly allowed: (diagnostic: Diagnostic) => number | undefined;
+  /** Entries that allow more than what is found: a fixed violation could come back under them. */
+  readonly stale: readonly StaleEntry[];
+  /** How many files of the baseline now hold no violation at all: migrated out of it. */
+  readonly migratedFiles: number;
+}
+
+export interface StaleEntry {
+  readonly file: string;
+  readonly rule: string;
+  readonly recorded: number;
+  readonly found: number;
 }
 
 /**
@@ -81,5 +92,11 @@ export function compare(found: readonly Diagnostic[], baseline: Baseline): Compa
     refused: found.filter((d) => !within(d)),
     baselined: found.filter(within),
     allowed: (d) => (allowance(d) > 0 ? allowance(d) : undefined),
+    stale: Object.entries(baseline.files).flatMap(([file, rules]) =>
+      Object.entries(rules)
+        .map(([rule, recorded]) => ({ file, rule, recorded, found: actual[file]?.[rule] ?? 0 }))
+        .filter((entry) => entry.found < entry.recorded),
+    ),
+    migratedFiles: Object.keys(baseline.files).filter((file) => actual[file] === undefined).length,
   };
 }

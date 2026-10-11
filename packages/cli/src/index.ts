@@ -9,6 +9,7 @@ export { type BaselineMode, type Command, type Format, parseArgs, usage } from '
 export {
   type Baseline,
   type Comparison,
+  type StaleEntry,
   compare,
   isRecordable,
   parseBaseline,
@@ -45,7 +46,7 @@ export function run(argv: readonly string[], io: Io): number {
     io.out(usage);
     return 0;
   }
-  const { project, format, baseline: mode } = command.value;
+  const { project, format, baseline: mode, strictBaseline } = command.value;
 
   const loaded = loadProject(io.cwd, project);
   if (!loaded.ok) return fail(loaded.error);
@@ -77,19 +78,26 @@ export function run(argv: readonly string[], io: Io): number {
   const baseline = parseBaseline(recorded.value.value);
   if (!baseline.ok) return fail(`${settings.value.baseline}: ${baseline.error}`);
 
-  const { refused, baselined, allowed } = compare(found, baseline.value);
-  const counts = { new: refused.length, baselined: baselined.length };
+  const { refused, baselined, allowed, stale, migratedFiles } = compare(found, baseline.value);
+  const counts = { new: refused.length, baselined: baselined.length, stale: stale.length, migratedFiles };
   if (format === 'json') {
-    io.out(formatJson(refused, { baseline: counts }));
+    io.out(formatJson(refused, { baseline: { ...counts, staleEntries: stale } }));
   } else {
     const note = (d: Diagnostic): string | undefined => {
       const allowance = allowed(d);
       return allowance === undefined ? undefined : `${allowance} allowed by the baseline`;
     };
     for (const line of formatText(refused, note)) io.out(line);
-    io.out(`${counts.new} new, ${counts.baselined} baselined`);
+    for (const entry of stale) {
+      io.out(`warning: stale baseline entry ${entry.file} ${entry.rule}: ${entry.recorded} recorded, ${entry.found} found`);
+    }
+    if (stale.length > 0) io.out('  help: run --update-baseline, so that what was fixed cannot come back');
+    io.out(
+      `${counts.new} new, ${counts.baselined} baselined, ${counts.stale} stale, ` +
+        `${migratedFiles} ${migratedFiles === 1 ? 'file' : 'files'} out of the baseline`,
+    );
   }
-  return refused.length === 0 ? 0 : 1;
+  return refused.length > 0 || (strictBaseline && stale.length > 0) ? 1 : 0;
 
   function report(refused: readonly Diagnostic[]): number {
     if (format === 'json') io.out(formatJson(refused));
