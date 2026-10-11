@@ -1,0 +1,1 @@
+{ "unsafeDirs": ["lib/ffi"], "rules": ["no-cast", "no-null"] }
