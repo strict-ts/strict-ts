@@ -12,11 +12,15 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "strict-ts": "./dist/main.js"
   },
   "dependencies": {
-    "@strict-ts/core": "workspace:*"
+    "@strict-ts/core": "workspace:*",
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2"
   }
 }
