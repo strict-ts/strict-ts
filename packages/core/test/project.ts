@@ -24,6 +24,8 @@ export const strictOptions = {
 export interface Project {
   readonly config?: Config;
   readonly compilerOptions?: ts.CompilerOptions;
+  /** Check these files only, by their name in the project; all of them when absent. */
+  readonly only?: readonly string[];
 }
 
 // The standard library's declarations are the same in every program: parsed once.
@@ -64,7 +66,9 @@ export function checkFiles(files: Readonly<Record<string, string>>, project: Pro
     },
   };
   const program = ts.createProgram({ rootNames: [...virtual.keys()], options, host });
-  return check(createTypeScript6Provider(ts, program, { rootDir: ROOT }), project.config ?? defaultConfig);
+  const only = project.only;
+  const asked = only === undefined ? { rootDir: ROOT } : { rootDir: ROOT, only: (fileName: string) => only.includes(fileName.slice(ROOT.length + 1)) };
+  return check(createTypeScript6Provider(ts, program, asked), project.config ?? defaultConfig);
 }
 
 /** Checks one safe file, `src/a.ts`. */

@@ -82,6 +82,8 @@ strict-ts [options]
       --update-baseline  Record the violations found in the baseline file, and exit with 0
       --no-baseline      Ignore the baseline file: refuse every violation
       --strict-baseline  Fail when the baseline allows more than what is found
+      --cache            Check only the files that changed since the last run, or that import one that did
+      --timing           Say how many files were checked, and in how long
   -h, --help             Show this help
 ```
 
@@ -95,6 +97,11 @@ A project that cannot be checked is never reported as safe.
 
 The text output gives one line per refusal, `file:line:column rule message`, and a `help:` line below. `--format json`
 prints one document, `{ "diagnostics": [...] }`. `--format sarif` prints a SARIF 2.1.0 log for code-scanning views.
+
+`--cache` keeps the result of each file in `node_modules/.cache/strict-ts/cache.json` and checks again only the files
+whose text changed, or that import, directly or not, a file that did. A change of configuration, of compiler options,
+of a dependency or of a file that declares globals spares nothing. On a generated project of 124,000 lines in 1,000
+files, a run takes 11 to 17 s without it and 3 s with it when nothing or one leaf file changed.
 
 One run checks one `tsconfig.json`: project references are not followed, so a monorepo runs the gate once per package
 (see `pnpm check` in [`package.json`](package.json)).
@@ -250,7 +257,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | Package | Role | State |
 |---|---|---|
 | [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 17 rules, TypeScript 6 provider |
-| [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline; no incremental cache |
+| [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |

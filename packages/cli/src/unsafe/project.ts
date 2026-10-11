@@ -1,19 +1,29 @@
 // unsafe/: the file system and the compiler. Everything that may throw or return `any` leaves here as a Result.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { TypeProvider } from '@strict-ts/core';
-import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
+import { checkedFileNames, createTypeScript6Provider } from '@strict-ts/core/typescript6';
 import { attempt, err, ok, Option, type Result } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
+import { type Facts, fileKeys } from '../cache.js';
+import { VERSION } from '../version.js';
 
 export interface Project {
   /** The directory of tsconfig.json: the root that paths in diagnostics and in the configuration start from. */
   readonly rootDir: string;
-  readonly provider: TypeProvider;
+  /** The names of the files the rules read, relative to the root. */
+  readonly files: readonly string[];
+  /** The program as the rules read it; `only` restricts it to some of those files. */
+  readonly provider: (only?: ReadonlySet<string>) => TypeProvider;
+  /** What decides the result of a run, for the cache. `settings` is what the run was configured with. */
+  readonly facts: (settings: string) => Facts;
 }
 
 const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+
+const hash = (text: string): string => createHash('sha1').update(text).digest('hex');
 
 /** Loads the program a tsconfig.json describes. `project` is that file or its directory, relative to `cwd`. */
 export function loadProject(cwd: string, project: string | undefined): Result<Project, string> {
@@ -34,8 +44,44 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
       options: parsed.options,
       ...(parsed.projectReferences === undefined ? {} : { projectReferences: parsed.projectReferences }),
     });
-    const rootDir = dirname(tsconfig);
-    return ok({ rootDir, provider: createTypeScript6Provider(ts, program, { rootDir }) });
+    const rootDir = dirname(tsconfig).replaceAll('\\', '/');
+    const relative = (fileName: string): string => (fileName.startsWith(`${rootDir}/`) ? fileName.slice(rootDir.length + 1) : fileName);
+    const checked = new Set(checkedFileNames(program, rootDir));
+
+    const facts = (settings: string): Facts => {
+      // A file that declares globals, or adds to a module from outside, can change the types of any other file:
+      // it counts with the environment, so that a change to it spares nothing.
+      const declaresGlobals = (sourceFile: ts.SourceFile): boolean =>
+        !ts.isExternalModule(sourceFile) || /\bdeclare\s+(?:global\b|module\s+['"])/.test(sourceFile.text);
+      const resolutions = ts.createModuleResolutionCache(rootDir, (fileName) => fileName, parsed.options);
+      const outside = program
+        .getSourceFiles()
+        .filter((sourceFile) => !checked.has(sourceFile.fileName) || declaresGlobals(sourceFile))
+        .map((sourceFile) => `${sourceFile.fileName}:${hash(sourceFile.text)}`)
+        .toSorted();
+      const files = Object.fromEntries(
+        program
+          .getSourceFiles()
+          .filter((sourceFile) => checked.has(sourceFile.fileName))
+          .map((sourceFile) => {
+            const imports = ts
+              .preProcessFile(sourceFile.text, true, true)
+              .importedFiles.map((imported) => ts.resolveModuleName(imported.fileName, sourceFile.fileName, parsed.options, ts.sys, resolutions).resolvedModule?.resolvedFileName)
+              .flatMap((resolved) => (resolved !== undefined && checked.has(resolved) ? [relative(resolved)] : []));
+            return [relative(sourceFile.fileName), { hash: hash(sourceFile.text), imports }];
+          }),
+      );
+      const environment = hash(JSON.stringify([VERSION, ts.version, parsed.options, settings, outside]));
+      return { environment, keys: fileKeys(files, hash) };
+    };
+
+    return ok({
+      rootDir,
+      files: [...checked].map(relative),
+      provider: (only) =>
+        createTypeScript6Provider(ts, program, only === undefined ? { rootDir } : { rootDir, only: (fileName) => only.has(relative(fileName)) }),
+      facts,
+    });
   }, describe);
   return loaded.andThen((result) => result);
 }
