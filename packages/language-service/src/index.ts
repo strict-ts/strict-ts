@@ -7,6 +7,7 @@ import { check, type Diagnostic, rules } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
 import { none, ok, type Option, type Result, some } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
+import { loadedForEveryProject } from './unsafe/host.js';
 import { parseJson } from './unsafe/json.js';
 
 /** Diagnostic codes start here, one per rule in the catalogue's order: an editor shows « strict-ts(90001) ». */
@@ -86,7 +87,13 @@ function init(modules: { readonly typescript: typeof ts }): ts.server.PluginModu
       };
     };
 
+    // Loaded for every project by an editor extension, the plugin only speaks where a project asked for strict-ts:
+    // one with a `strict-ts.json`. Named in a `tsconfig.json`, it was asked for there.
+    const forEveryProject = loadedForEveryProject(info).some;
+    const askedFor = (): boolean => !forEveryProject || readFile(`${rootDir}/${CONFIG_FILE}`) !== undefined;
+
     const strictDiagnostics = (fileName: string): readonly ts.Diagnostic[] => {
+      if (!askedFor()) return [];
       const program = service.getProgram();
       const sourceFile = program?.getSourceFile(fileName);
       if (program === undefined || sourceFile === undefined) return [];

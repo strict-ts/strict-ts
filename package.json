@@ -10,7 +10,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs && tsc -p packages/language-service && node packages/language-service/scripts/build.mjs",
+    "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs && tsc -p packages/language-service && node packages/language-service/scripts/build.mjs && node packages/vscode/scripts/build.mjs",
     "typecheck": "tsc -b",
     "lint": "oxlint --deny-warnings packages",
     "test": "vitest run",

@@ -1,0 +1,22 @@
+{
+  "name": "strict-ts",
+  "displayName": "strict-ts",
+  "description": "What strict-ts refuses, underlined as you type, in the projects that have a strict-ts.json.",
+  "version": "0.0.1",
+  "publisher": "strict-ts",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "contributes": {
+    "typescriptServerPlugins": [
+      {
+        "name": "@strict-ts/language-service",
+        "enableForWorkspaceTypeScriptVersions": true
+      }
+    ]
+  }
+}

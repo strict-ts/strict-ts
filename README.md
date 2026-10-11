@@ -307,15 +307,27 @@ About the baseline itself:
 
 ## In the editor
 
-A TypeScript language service plugin shows the same refusals as you type. In `tsconfig.json`:
+In VS Code, and the editors built on it, install the extension the repo builds:
+
+```sh
+pnpm build
+code --install-extension packages/vscode/dist/strict-ts.vsix
+```
+
+Reload the window, and open a project that has a `strict-ts.json` beside its `tsconfig.json` (an empty `{}` is
+enough): the same refusals as the gate are underlined as you type. In a project without that file the extension
+shows nothing. What the baseline allows is a warning, what goes beyond it an error.
+
+The extension holds no rule: it hands a TypeScript language service plugin to the TypeScript the editor runs, which
+must be 6 or earlier. A native TypeScript 7 server has no plugin API. The plugin was tried against a real TypeScript
+5.9 server started as the editor starts it; the extension itself has not been opened in an editor yet.
+
+Another editor that runs `tsserver` can name the plugin in `tsconfig.json`, when the workspace has its own
+TypeScript 6 with the plugin beside it:
 
 ```json
 { "compilerOptions": { "plugins": [{ "name": "@strict-ts/language-service" }] } }
 ```
-
-What the baseline allows is shown as a warning, what goes beyond it as an error. The plugin API exists up to
-TypeScript 6: the editor must use the workspace's TypeScript, not a native TypeScript 7 server. It is tested against
-the language service API, and has not been tried in an editor yet.
 
 ## Checking what strict-ts took on trust: the probes
 
@@ -379,7 +391,8 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
-| [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |
+| [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tried against a real TypeScript server |
+| [`@strict-ts/vscode`](packages/vscode) | The VS Code extension that carries the plugin; not published | builds a VSIX; not opened in an editor yet |
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
 | [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on eleven scenarios; not published | builds to one page, or to one file with the compiler inside |

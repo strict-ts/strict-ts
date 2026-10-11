@@ -1,0 +1,14 @@
+{
+  "name": "@strict-ts/vscode",
+  "version": "0.0.0",
+  "private": true,
+  "description": "strict-ts in VS Code: an extension that hands the language service plugin to the editor's own TypeScript.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@strict-ts/language-service": "workspace:*"
+  }
+}
