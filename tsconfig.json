@@ -20,6 +20,9 @@
       "path": "packages/oxlint-plugin"
     },
     {
+      "path": "packages/probe"
+    },
+    {
       "path": "examples/invoice"
     }
   ]

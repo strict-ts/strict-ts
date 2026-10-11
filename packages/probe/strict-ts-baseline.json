@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "files": {
+    "src/runtime.ts": {
+      "must-use": 1,
+      "no-any": 2,
+      "no-cast": 9,
+      "no-throw": 1,
+      "no-throwing-call": 3,
+      "readonly-types": 30
+    }
+  }
+}

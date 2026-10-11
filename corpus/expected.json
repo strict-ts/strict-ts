@@ -29,6 +29,14 @@
   "packages/language-service": {},
   "packages/oxlint-plugin": {},
   "packages/playground": {},
+  "packages/probe": {
+    "must-use": 1,
+    "no-any": 2,
+    "no-cast": 9,
+    "no-throw": 1,
+    "no-throwing-call": 3,
+    "readonly-types": 30
+  },
   "packages/std": {
     "no-any": 1,
     "no-cast": 6,
