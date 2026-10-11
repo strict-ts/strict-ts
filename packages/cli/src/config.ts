@@ -1,4 +1,4 @@
-import { type Config, defaultConfig, rules } from '@strict-ts/core';
+import { type Config, assumptions, defaultConfig, rules } from '@strict-ts/core';
 import { err, ok, type Option, type Result, s } from '@strict-ts/std';
 import { configSchema } from './config-schema.js';
 
@@ -22,6 +22,7 @@ const File = s.object({
   unsafeDirs: s.optional(s.array(s.string)),
   allowedImports: s.optional(s.array(s.string)),
   pureDirs: s.optional(s.array(s.string)),
+  assume: s.optional(s.array(s.string)),
   rules: s.optional(s.array(s.string)),
   baseline: s.optional(s.string),
 });
@@ -45,7 +46,10 @@ export function readSettings(content: Option<unknown>): Result<Settings, string>
     unsafeDirs: file.unsafeDirs ?? defaultConfig.unsafeDirs,
     allowedImports: file.allowedImports ?? defaultConfig.allowedImports,
   };
-  const placed = file.pureDirs === undefined ? base : { ...base, pureDirs: file.pureDirs };
+  const unknownAssumption = file.assume?.find((name) => !assumptions.some((known) => known === name));
+  if (unknownAssumption !== undefined) return err(`${CONFIG_FILE}: unknown assumption "${unknownAssumption}" (${assumptions.join(', ')})`);
+  const pure = file.pureDirs === undefined ? base : { ...base, pureDirs: file.pureDirs };
+  const placed = file.assume === undefined ? pure : { ...pure, assume: assumptions.filter((known) => file.assume?.includes(known) === true) };
   return ok({
     config: file.rules === undefined ? placed : { ...placed, rules: file.rules },
     baseline: file.baseline ?? BASELINE_FILE,

@@ -6,6 +6,9 @@
 // a callback is not callable, cannot be reached by a call the compiler accepted. The lists below say which marks
 // are of that kind. They are the judgement in this file, and what `build.mjs` checks against the runs.
 
+const TYPED_ARRAYS = ['Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array', 'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array'];
+const NATIVE_ERRORS = ['EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError'];
+
 /** Splits the document into its clauses: `{ id, attributes, header, algorithms }`, each with its own text only. */
 export function clauses(html) {
   const found = [];
@@ -52,7 +55,8 @@ export function facts(html) {
       }
       return {
         id: clause.id,
-        name: (clause.header.includes('(') ? clause.header.slice(0, clause.header.indexOf('(')) : clause.header).trim(),
+        // `_TypedArray_ ( … )` stands for each of the typed arrays: the name without its marks.
+        name: (clause.header.includes('(') ? clause.header.slice(0, clause.header.indexOf('(')) : clause.header).trim().replace(/^_(\w+)_$/, '$1'),
         operation: /type="[^"]*abstract operation/.test(clause.attributes) || /type="[^"]*(?:host-defined|implementation-defined)/.test(clause.attributes),
         throws,
         calls: [...calls].toSorted(),
@@ -85,7 +89,7 @@ const UNREACHABLE = new Set([
 const CONVERSIONS = new Set([
   'ToString', 'ToNumber', 'ToNumeric', 'ToPrimitive', 'OrdinaryToPrimitive', 'ToIntegerOrInfinity', 'ToLength', 'ToInt32', 'ToUint32',
   'ToInt16', 'ToUint16', 'ToInt8', 'ToUint8', 'ToUint8Clamp', 'ToPropertyKey', 'ToPropertyDescriptor', 'ToObject', 'RequireObjectCoercible',
-  'CreateListFromArrayLike',
+  'CreateListFromArrayLike', 'ToBigInt', 'ToBigInt64', 'ToBigUint64',
 ]);
 
 /** A step that throws because a value is not of the type the declarations require. */
@@ -93,6 +97,8 @@ const TYPE_GUARD = [
   /is not an Object/, /is not a (?:String|Number|BigInt|Boolean)\b/, /IsCallable\([^)]*\) is \*false\*/, /IsConstructor\([^)]*\) is \*false\*/,
   /does not have an? \[\[/, /is (?:either )?\*undefined\* or \*null\*/, /NewTarget is (?:not )?\*undefined\*/, /is not callable/,
   /is not a Symbol/, /IsPromise\([^)]*\) is \*false\*/, /_status_ is \*false\*/,
+  // What a constructor other than the library's own would have to give back wrongly.
+  /\[\[ContentType\]\] is not/, /\[\[ArrayLength\]\] &lt;/,
   /is not a constructor/, /\bis \*true\*, throw a \*TypeError\*.*IsRegExp|_isRegExp_ is \*true\*/,
 ];
 /**
@@ -102,6 +108,11 @@ const TYPE_GUARD = [
 const RECEIVER_GUARD = [/^Otherwise, throw a \*TypeError\*/, /IsSharedArrayBuffer\(_O_\)/];
 /** A step that throws on a value that cannot be converted. */
 const CONVERSION_GUARD = [/is a Symbol/, /is an? (?:BigInt|Symbol), throw a \*TypeError\*/];
+/**
+ * A step that throws on a buffer that was detached: handed to another thread, or transferred. Kept apart: a project
+ * may say that it never detaches one.
+ */
+const DETACHED = [/IsDetachedBuffer/];
 /** A step that throws past a size no machine holds. */
 const SIZE_LIMIT = [/2<sup>53<\/sup>/, /2\*\*53/, /2<sup>32<\/sup>/];
 
@@ -114,14 +125,16 @@ export function analyse(all) {
   const known = new Map();
   const visit = (clause, path) => {
     if (known.has(clause.name)) return known.get(clause.name);
-    if (path.includes(clause.name)) return { real: [], converts: false };
+    if (path.includes(clause.name)) return { real: [], converts: false, detached: false };
     const real = [];
     let converts = false;
+    let detached = false;
     const accessor = /^[gs]et /.test(clause.name);
     for (const thrown of clause.throws) {
       if (accessor && RECEIVER_GUARD.some((pattern) => pattern.test(thrown.step))) continue;
       if (TYPE_GUARD.some((pattern) => pattern.test(thrown.step)) || SIZE_LIMIT.some((pattern) => pattern.test(thrown.step))) continue;
-      if (CONVERSION_GUARD.some((pattern) => pattern.test(thrown.step))) converts = true;
+      if (DETACHED.some((pattern) => pattern.test(thrown.step))) detached = true;
+      else if (CONVERSION_GUARD.some((pattern) => pattern.test(thrown.step))) converts = true;
       else real.push(`${thrown.kind}: ${thrown.step.replace(/<[^>]+>/g, '').slice(0, 110)}`);
     }
     for (const written of clause.calls) {
@@ -141,13 +154,14 @@ export function analyse(all) {
       }
       const inner = visit(callee, [...path, clause.name]);
       converts ||= inner.converts;
+      detached ||= inner.detached;
       for (const reason of inner.real) {
         // The operation an accessor hands its receiver to checks it in its place.
         if (accessor && RECEIVER_GUARD.some((pattern) => pattern.test(reason.replace(/^(?:via \w+: )?\w+: /, '')))) continue;
         real.push(reason.startsWith('via ') ? reason : `via ${called}: ${reason}`);
       }
     }
-    const result = { real: [...new Set(real)].slice(0, 4), converts };
+    const result = { real: [...new Set(real)].slice(0, 4), converts, detached };
     known.set(clause.name, result);
     return result;
   };
@@ -158,11 +172,18 @@ export function analyse(all) {
 export function declaredNames(specName) {
   // Functions the specification defines by pointing at another one.
   const same = { parseFloat: ['NumberConstructor.parseFloat'], parseInt: ['NumberConstructor.parseInt'], 'Set.prototype.values': ['Set.keys', 'ReadonlySet.keys'] };
+  // One clause for the eleven typed arrays, and one for the six errors of the language.
+  if (specName.includes('%TypedArray%.')) return TYPED_ARRAYS.flatMap((name) => namesOf(specName.replace('%TypedArray%', name)));
+  if (specName === 'TypedArray') return TYPED_ARRAYS.flatMap(namesOf);
+  if (specName === 'NativeError') return NATIVE_ERRORS.flatMap(namesOf);
   return [...namesOf(specName), ...(same[specName] ?? [])];
 }
 
 function namesOf(specName) {
-  const constructors = ['String', 'Number', 'Boolean', 'BigInt', 'Symbol', 'Array', 'Object', 'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'Error', 'Function'];
+  const constructors = [
+    'String', 'Number', 'Boolean', 'BigInt', 'Symbol', 'Array', 'Object', 'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'Error', 'Function',
+    'ArrayBuffer', 'SharedArrayBuffer', 'DataView', 'WeakRef', 'FinalizationRegistry', 'AggregateError', 'Proxy', ...TYPED_ARRAYS, ...NATIVE_ERRORS,
+  ];
   const readonly = { Array: 'ReadonlyArray', Map: 'ReadonlyMap', Set: 'ReadonlySet' };
   const method = /^(\w+)\.prototype\.(\w+)$/.exec(specName);
   if (method !== null) {
@@ -184,7 +205,9 @@ export function throwingGetters(verdicts) {
   const found = {};
   for (const [name, verdict] of verdicts) {
     const getter = /^get (\w+)\.prototype\.(\w+)$/.exec(name);
-    if (getter !== null && verdict.real.length > 0) found[`${getter[1]}.${getter[2]}`] = { why: verdict.real[0], spec: verdict.id };
+    if (getter === null) continue;
+    if (verdict.real.length > 0) found[`${getter[1]}.${getter[2]}`] = { why: verdict.real[0], spec: verdict.id };
+    else if (verdict.detached) found[`${getter[1]}.${getter[2]}`] = { why: 'TypeError: detached', spec: verdict.id, detached: true };
   }
   return found;
 }

@@ -76,11 +76,11 @@ describe('reading the specification', () => {
   });
 
   test('a wrong receiver and a callback that is not callable are not: the types exclude them', () => {
-    expect(read.get('Array.prototype.map')).toEqual({ id: 'sec-array.prototype.map', real: [], converts: false });
+    expect(read.get('Array.prototype.map')).toEqual({ id: 'sec-array.prototype.map', real: [], converts: false, detached: false });
   });
 
   test('a conversion of an argument is kept apart: whether it can fail depends on the types', () => {
-    expect(read.get('Math.abs')).toEqual({ id: 'sec-math.abs', real: [], converts: true });
+    expect(read.get('Math.abs')).toEqual({ id: 'sec-math.abs', real: [], converts: true, detached: false });
   });
 
   test('what an operation throws is handed on to the function that calls it with `?`', () => {

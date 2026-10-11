@@ -98,6 +98,14 @@ export function instance(type, random, plain, depth = 0) {
   const item = () => generate(type.of ?? { k: 'any' }, random, plain, depth + 1);
   const other = () => generate(type.and ?? { k: 'any' }, random, plain, depth + 1);
   const few = (make) => Array.from({ length: random.pick([0, 1, 2, 4]) }, make);
+  if (/^(?:Big)?(?:Ui|I)nt\d+(?:Clamped)?Array$|^Float\d+Array$/.test(type.name)) {
+    const size = random.pick([0, 1, 2, 8]);
+    const big = type.name.startsWith('Big');
+    // Sometimes over memory two threads share: what `Atomics` is for.
+    const made = new globalThis[type.name](random.chance(0.3) ? new SharedArrayBuffer(size * globalThis[type.name].BYTES_PER_ELEMENT) : size);
+    for (let index = 0; index < size; index++) made[index] = big ? random.pick(BIGINTS.filter((value) => value < 2n ** 62n && value > -(2n ** 62n))) : random.pick([0, 1, 2, 3, 127, 255]);
+    return made;
+  }
   switch (type.name) {
     case 'String':
       return random.pick(STRINGS);
@@ -128,6 +136,32 @@ export function instance(type, random, plain, depth = 0) {
     case 'Set':
     case 'ReadonlySet':
       return new Set(few(item));
+    case 'ArrayBuffer':
+    case 'ArrayBufferLike':
+      return new ArrayBuffer(random.pick([0, 8, 16, 24]));
+    case 'SharedArrayBuffer':
+      return new SharedArrayBuffer(random.pick([0, 8, 16, 24]));
+    case 'DataView':
+      return new DataView(new ArrayBuffer(random.pick([0, 8, 16])));
+    case 'ArrayBufferView':
+      return new Uint8Array(random.pick([0, 2, 8]));
+    case 'Generator':
+    case 'Iterator':
+      return (function* generated() {
+        yield 1;
+        yield 2;
+        return 3;
+      })();
+    case 'AsyncGenerator':
+    case 'AsyncIterator':
+      return (async function* generated() {
+        yield 1;
+        return 2;
+      })();
+    case 'WeakRef':
+      return new WeakRef({});
+    case 'FinalizationRegistry':
+      return new FinalizationRegistry(() => undefined);
     case 'WeakMap':
       return new WeakMap();
     case 'WeakSet':

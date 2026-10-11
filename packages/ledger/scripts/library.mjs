@@ -2,13 +2,21 @@
 // under the name the rules know it by, with the types of its parameters as descriptions a generator can follow.
 import ts from '@typescript/typescript6';
 
-/** The owners whose functions are run. The rest (typed arrays, Atomics, Intl, generators…) is listed, not run. */
+export const TYPED_ARRAYS = ['Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array', 'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array'];
+export const NATIVE_ERRORS = ['EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError'];
+
+/** The owners whose functions are run. The rest is listed, not run: `Intl`, which another specification defines, and
+ * the interfaces a caller implements (a proxy handler, an iterator, a property descriptor). */
 export const RUNNABLE = new Set([
   'String', 'StringConstructor', 'Number', 'NumberConstructor', 'Boolean', 'BooleanConstructor', 'BigInt', 'BigIntConstructor',
   'Symbol', 'SymbolConstructor', 'Array', 'ReadonlyArray', 'ArrayConstructor', 'Object', 'ObjectConstructor', 'Math', 'JSON',
   'Date', 'DateConstructor', 'RegExp', 'RegExpConstructor', 'Map', 'ReadonlyMap', 'MapConstructor', 'Set', 'ReadonlySet',
   'SetConstructor', 'WeakMap', 'WeakMapConstructor', 'WeakSet', 'WeakSetConstructor', 'Promise', 'PromiseConstructor',
-  'Error', 'ErrorConstructor', 'Reflect', 'CallableFunction', 'NewableFunction', '',
+  'Error', 'ErrorConstructor', 'Reflect', 'CallableFunction', 'NewableFunction', 'Function', '',
+  ...TYPED_ARRAYS.flatMap((name) => [name, `${name}Constructor`]),
+  ...NATIVE_ERRORS.map((name) => `${name}Constructor`), 'AggregateErrorConstructor',
+  'ArrayBuffer', 'ArrayBufferConstructor', 'SharedArrayBuffer', 'SharedArrayBufferConstructor', 'DataView', 'DataViewConstructor',
+  'Atomics', 'Generator', 'AsyncGenerator', 'WeakRef', 'WeakRefConstructor', 'FinalizationRegistry', 'FinalizationRegistryConstructor',
 ]);
 /** Never run, whatever their owner: they execute text. */
 const NEVER = new Set(['eval', 'FunctionConstructor.new', 'FunctionConstructor.', 'Function.new']);

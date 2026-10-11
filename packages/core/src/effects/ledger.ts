@@ -28,6 +28,11 @@ export interface Effect {
    * null, undefined, and arrays of those) is then safe.
    */
   readonly unprintable?: true;
+  /**
+   * For `throws`: only on a buffer that was detached (handed to another thread, transferred). A project that says
+   * it never detaches one (`assume: ["attached-buffers"]`) may make the call.
+   */
+  readonly detached?: true;
   readonly evidence: Evidence;
 }
 
@@ -35,12 +40,14 @@ export type Ledger = Readonly<Record<string, Effect>>;
 
 /**
  * Whether an entry makes a call a possible exception, and why. `plain` says whether the receiver and the arguments
- * of the call are all plain values, as far as their types tell.
+ * of the call are all plain values, as far as their types tell; `attached`, whether the project says that no buffer
+ * is ever detached.
  */
-export function threatOf(effect: Effect, argumentCount: number, plain = false): string | undefined {
+export function threatOf(effect: Effect, argumentCount: number, plain = false, attached = false): string | undefined {
   if (effect.verdict === 'total') return undefined;
   if (effect.below !== undefined && argumentCount >= effect.below) return undefined;
   if (effect.atLeast !== undefined && argumentCount < effect.atLeast) return undefined;
   if (effect.unprintable === true && plain) return undefined;
+  if (effect.detached === true && attached) return undefined;
   return effect.why ?? 'may throw';
 }

@@ -16,7 +16,7 @@ Two readings of each function, and an entry from the two.
 functions, methods and constructors, with the types of their parameters. `scripts/values.mjs` generates values that
 fit those types, from a seeded sequence, in two ways: **plain** (strings, numbers, booleans, null, undefined, arrays
 of those) and **anything** (also symbols, objects without a prototype, cycles) wherever a type says nothing.
-`scripts/fuzz.mjs` calls 353 of the functions 300 times in each way, in a thread that is stopped and restarted past a
+`scripts/fuzz.mjs` calls 802 of the functions 300 times in each way, in a thread that is stopped and restarted past a
 function that never returns.
 
 **What the specification says.** `scripts/spec.mjs` reads the ECMAScript specification as its authors write it. Every
@@ -50,14 +50,34 @@ The reader of the specification also reads its 32 accessors: two can throw on th
 
 ## Where it stands
 
-385 generated entries: 269 `total`, each with its clause of the specification and 600 runs that never threw; 116
-`throws`. Seven contradictions, all understood and written in `acknowledged.json` (a rejected promise, which is not
-a throw in the specification; a call the reader does not follow).
+778 generated entries for the 844 functions:
+
+| Entries | Verdict | On what |
+|---|---|---|
+| 293 | `total` | The clause of the specification and 600 runs that never threw |
+| 195 | `throws` | A call that was seen to throw; 24 of them only on what is not plain |
+| 284 | `throws` with `detached` | The specification: only on a buffer that was detached. The runs never threw |
+| 6 | `throws` | The specification only: no run found it |
+
+Nineteen contradictions, all understood and written in `acknowledged.json`: a rejected promise, which is not a throw
+in the specification; a call the reader does not follow; `Int8Array.from(["a"])`, which the declarations accept.
+
+### A detached buffer
+
+Every method of a typed array or of a `DataView` throws once its buffer was handed to another thread or transferred.
+No run does that, and no rule can tell that a project never does. So these entries carry the condition `detached`,
+and a project answers it in writing, in `strict-ts.json`:
+
+```json
+{ "assume": ["attached-buffers"] }
+```
+
+Without that line, the calls are refused.
 
 ## What it does not do
 
-- It runs 353 of the 844 functions. Typed arrays, `Atomics`, `Intl`, generators and iterators are not run; they get
-  an entry only when the specification gives them a real way to throw, and are refused otherwise.
+- It runs 802 of the 844 functions. The rest is `Intl`, which another specification defines, and the interfaces a
+  caller implements (a proxy handler, an iterator): they are refused.
 - **The reading of the specification is a judgement.** The lists of what a typed call cannot reach were written by
   hand and tuned until they agreed with the runs. A function both readings get wrong the same way would be called
   safe.

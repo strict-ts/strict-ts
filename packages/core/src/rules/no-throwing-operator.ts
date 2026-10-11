@@ -1,4 +1,4 @@
-import { getters, operandClasses, operators } from '../effects/index.js';
+import { getters, gettersWhenDetached, operandClasses, operators } from '../effects/index.js';
 import type { Type } from '../provider.js';
 import type { Rule } from '../rule.js';
 import { isCaught } from './caught.js';
@@ -7,7 +7,7 @@ import { isCaught } from './caught.js';
 const COMPOUND = /^(\+|-|\*\*?|\/|%|<<|>>>?|&|\||\^)=$/;
 /** The operators the table has something against: the others need no type. */
 const listed = new Set(Object.keys(operators).map((combination) => combination.slice(0, combination.indexOf(' '))));
-const getterNames = new Set(Object.keys(getters).map((name) => name.slice(name.indexOf('.') + 1)));
+const getterNames = new Set([...Object.keys(getters), ...gettersWhenDetached].map((name) => name.slice(name.indexOf('.') + 1)));
 const sameClass: Readonly<Record<string, string>> = { ReadonlyMap: 'Map', ReadonlySet: 'Set' };
 
 /** The kinds of a type as the table names them: a class it did not run is an object like any other. */
@@ -88,7 +88,9 @@ export const noThrowingOperator: Rule = {
     // A property that runs code when read. Asked only of the names the table has: most reads need no type.
     if (!getterNames.has(node.name)) return;
     for (const kind of typeOf(node.object).kinds) {
-      const why = getters[`${kind}.${node.name}`];
+      const attached = config.assume?.includes('attached-buffers') === true;
+      const whenDetached = !attached && gettersWhenDetached.includes(`${kind}.${node.name}`);
+      const why = getters[`${kind}.${node.name}`] ?? (whenDetached ? 'throws a TypeError on a buffer that was detached' : undefined);
       if (why === undefined || caught()) continue;
       report(node, `Reading \`${kind}.${node.name}\` ${why}.`, 'Read it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');
       return;

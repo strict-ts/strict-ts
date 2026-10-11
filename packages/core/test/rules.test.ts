@@ -1139,9 +1139,26 @@ describe('no-throwing-call', () => {
   });
 
   test('a library function that is not in the ledger is refused: nothing shows that it does not throw', () => {
-    expect(safe('export const pad = (n: number): ArrayBuffer => new ArrayBuffer(n);')).toEqual([
-      '1 `ArrayBuffer.new` is not in the effects ledger: nothing shows that it does not throw.',
+    expect(safe('export const order = (locale: string): Intl.Collator => new Intl.Collator(locale);')).toEqual([
+      '1 `Collator.new` is not in the effects ledger: nothing shows that it does not throw.',
     ]);
+  });
+
+  test('typed arrays and buffers are in the ledger: what was seen to throw, and what throws on a detached buffer', () => {
+    const lines = [
+      'export const a = (size: number): ArrayBuffer => new ArrayBuffer(size);',
+      'export const b = (bytes: Uint8Array): Uint8Array => bytes.slice(1);',
+      'export const c = (bytes: Uint8Array, value: number): boolean => bytes.includes(value);',
+      'export const d = (view: DataView): number => view.getUint8(0);',
+    ];
+    expect(safe(...lines)).toEqual([
+      '1 `ArrayBuffer.new` throws a RangeError.',
+      '2 `Uint8Array.slice` throws a TypeError on a buffer that was detached.',
+      '3 `Uint8Array.includes` throws a TypeError on a buffer that was detached.',
+      '4 `DataView.getUint8` throws a RangeError.',
+    ]);
+    const assumed = said(checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], assume: ['attached-buffers'] } }));
+    expect(assumed).toEqual(['1 `ArrayBuffer.new` throws a RangeError.', '4 `DataView.getUint8` throws a RangeError.']);
   });
 
   test('an entry may depend on how many arguments are given', () => {
@@ -1269,7 +1286,7 @@ describe('no-throwing-operator', () => {
         'export const c = (bytes: Uint8Array, pattern: RegExp): string => `${bytes.byteLength} ${pattern.flags}`;',
         'export const d = (holder: { readonly caller: string }): string => holder.caller;',
       ),
-    ).toEqual(['1 Reading `DataView.byteLength` throws a TypeError by the specification (sec-get-dataview.prototype.bytelength).', '2 Reading `caller` on a function throws a TypeError.']);
+    ).toEqual(['1 Reading `DataView.byteLength` throws a TypeError on a buffer that was detached.', '2 Reading `caller` on a function throws a TypeError.']);
   });
 
   test('accepts what is caught where it is written', () => {
