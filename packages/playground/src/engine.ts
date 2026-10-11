@@ -40,6 +40,7 @@ export interface Playground {
 const PROJECT = '/project';
 const STD = '/std';
 const LIB = '/lib';
+const ENV = '/env/env.d.ts';
 /** How the standard library's files are named in the page and in diagnostics. */
 export const STD_NAME = '@strict-ts/std';
 
@@ -60,8 +61,9 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
     const files = new Map<string, string>();
     for (const [name, text] of Object.entries(environment.libs)) files.set(`${LIB}/${name}`, text);
     for (const [name, text] of Object.entries(environment.std)) files.set(`${STD}/${name}`, text);
-    files.set(`${PROJECT}/env.d.ts`, environment.ambient);
-    const rootNames = [`${PROJECT}/env.d.ts`];
+    // The ambient globals sit outside the project, as a dependency's types would.
+    files.set(ENV, environment.ambient);
+    const rootNames = [ENV];
     for (const [name, text] of Object.entries(request.files)) {
       files.set(`${PROJECT}/${name}`, text);
       rootNames.push(`${PROJECT}/${name}`);

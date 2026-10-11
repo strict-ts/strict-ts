@@ -135,6 +135,7 @@ describe('no-external-import', () => {
     expect(refusals(checkSafe(code))).toEqual([
       'no-external-import@1',
       'no-external-import@2',
+      'no-ambient@3',
       'no-external-import@4',
       'no-external-import@5',
     ]);
@@ -491,6 +492,122 @@ describe('safety-comment', () => {
 
   test('only a // comment counts, as in Rust', () => {
     expect(refusals(unsafe('/* SAFETY: validated */', cast))).toEqual(['safety-comment@3']);
+  });
+});
+
+describe('no-type-predicate', () => {
+  test('refuses a written predicate: nothing checks that the body proves it', () => {
+    const found = checkSafe('export const isText = (value: unknown): value is string => true;\n');
+    expect(refusals(found)).toEqual(['no-type-predicate@1']);
+    expect(found[0]?.help).toBe('Remove the annotation and let the compiler infer the predicate, or parse the value with a schema.');
+  });
+
+  test('accepts the predicate the compiler infers from the body, and it narrows as well', () => {
+    const code = [
+      'type Status = "draft" | "sent";',
+      'const isStatus = (value: string) => value === "draft" || value === "sent";',
+      'export const parse = (value: string): Status | undefined => (isStatus(value) ? value : undefined);',
+    ].join('\n');
+    expect(checkSafe(code)).toEqual([]);
+  });
+
+  test('refuses an assertion signature, and a predicate in a type', () => {
+    const code = [
+      'export function assertText(value: unknown): asserts value is string {}',
+      'export type Guard = (value: unknown) => value is string;',
+    ].join('\n');
+    const found = checkSafe(code);
+    expect(found.map((d) => `${d.start.line} ${d.message}`)).toEqual([
+      '1 Assertion signature forbidden: nothing checks what it asserts.',
+      '2 Written type predicate forbidden: nothing checks that the body proves it.',
+    ]);
+  });
+
+  test('in unsafe/ it needs its reason', () => {
+    const guard = 'const isText = (value: unknown): value is string => typeof value === "string";\nexport const text = (value: unknown) => Option.from(isText(value) ? value : undefined);\n';
+    const header = 'import { Option } from "@strict-ts/std";\n';
+    expect(refusals(checkUnsafe(header + guard))).toEqual(['safety-comment@2']);
+    expect(checkUnsafe(`${header}// SAFETY: the body is the typeof check itself\n${guard}`)).toEqual([]);
+  });
+});
+
+describe('no-ambient', () => {
+  test('refuses declare in a source file', () => {
+    const code = [
+      'declare const injected: string;',
+      'declare function now(): string;',
+      'export const stamp = (): string => `${injected} ${now()}`;',
+    ].join('\n');
+    const found = checkSafe(code);
+    expect(refusals(found)).toEqual(['no-ambient@1', 'no-ambient@2']);
+    expect(found[0]?.message).toBe('`declare` is forbidden: it states a type the compiler cannot check.');
+  });
+
+  test('refuses declare global and declare module', () => {
+    const global = ['export {};', 'declare global {', '  interface Window { readonly token: string }', '}'].join('\n');
+    expect(refusals(checkSafe(global))).toEqual(['no-ambient@2']);
+    expect(refusals(checkSafe('declare module "*.svg";\n'))).toEqual(['no-ambient@1']);
+  });
+
+  test("refuses the project's own declaration files outside unsafe/", () => {
+    const files = {
+      'src/a.ts': 'export const stamp = (): string => injected;\n',
+      'src/globals.d.ts': 'declare const injected: string;\n',
+    };
+    expect(checkFiles(files)).toEqual([
+      {
+        rule: 'no-ambient',
+        file: 'src/globals.d.ts',
+        start: { line: 1, column: 1 },
+        end: { line: 1, column: 1 },
+        message: 'Declaration file outside unsafe/: what it declares is taken on trust.',
+        help: 'Move it into an unsafe directory, beside the wrappers that use it.',
+      },
+    ]);
+  });
+
+  test('accepts a declaration file in an unsafe directory, and declare there with its reason', () => {
+    const files = {
+      'src/a.ts': 'import { token } from "./unsafe/env.js";\nexport const header = (): string => token().unwrapOr("");\n',
+      'src/unsafe/globals.d.ts': 'declare const injected: string | undefined;\n',
+      'src/unsafe/env.ts': 'import { Option } from "@strict-ts/std";\nexport const token = () => Option.from(injected);\n',
+    };
+    expect(checkFiles(files)).toEqual([]);
+    const local = 'import { Option } from "@strict-ts/std";\ndeclare const injected: string | undefined;\nexport const token = () => Option.from(injected);\n';
+    expect(refusals(checkUnsafe(local))).toEqual(['safety-comment@2']);
+    expect(checkUnsafe(local.replace('declare const', '// SAFETY: set by the bundler at build time\ndeclare const'))).toEqual([]);
+  });
+
+  test('says nothing of the declaration files of dependencies', () => {
+    expect(checkSafe('export const log = (): void => console.log(process.env["HOME"]);\n')).toEqual([]);
+  });
+});
+
+describe('typing gaps closed in the existing rules', () => {
+  test('no-non-null refuses a definite assignment, on a variable and on a property', () => {
+    const code = ['let late!: string;', 'export class Box {', '  value!: number;', '}', 'export const read = (): string => late;'].join('\n');
+    const found = checkSafe(code);
+    expect(found.map((d) => `${d.rule}@${d.start.line} ${d.message}`)).toEqual([
+      'no-non-null@1 Definite assignment `!:` forbidden.',
+      'no-non-null@3 Definite assignment `!:` forbidden.',
+    ]);
+  });
+
+  test('no-any refuses a bare name of type any that a dependency declares', () => {
+    const code = 'import { z } from "zod";\nexport const schema: string = z;\n';
+    const config = { unsafeDirs: ['src/unsafe'], allowedImports: ['zod'] };
+    const found = checkSafe(code, { config });
+    expect(found.map((d) => `${d.rule}@${d.start.line} ${d.message}`)).toEqual(['no-any@2 `z` has type `any`.']);
+  });
+
+  test('no-any still reports an any made in the file once, where it enters', () => {
+    const code = 'export function parse(text: string): string {\n  const data = JSON.parse(text);\n  return String(data) + String(data);\n}\n';
+    expect(refusals(checkSafe(code))).toEqual(['no-any@2']);
+  });
+
+  test('a namespace used in a type is not a value of type any', () => {
+    const code = 'import { s } from "@strict-ts/std";\nconst Name = s.string;\nexport type Name = s.Infer<typeof Name>;\n';
+    expect(checkSafe(code)).toEqual([]);
   });
 });
 

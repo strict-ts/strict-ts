@@ -18,11 +18,12 @@ export function check(
   const found: Diagnostic[] = [...provider.compilerDiagnostics];
 
   for (const rule of enabled) {
-    if (rule.scope !== 'project') continue;
     rule.project?.({
+      config,
       compilerOptions: provider.compilerOptions,
-      report: (message, help) =>
-        found.push({ rule: rule.name, file: PROJECT_FILE, start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, message, help }),
+      declarationFiles: provider.declarationFiles,
+      report: (message, help, file = PROJECT_FILE) =>
+        found.push({ rule: rule.name, file, start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, message, help }),
     });
   }
 

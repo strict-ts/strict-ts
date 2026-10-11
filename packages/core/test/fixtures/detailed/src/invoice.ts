@@ -34,7 +34,7 @@ export function total(invoice: Invoice): number {
 
 const invalid = (reason: string): Result<never, InvoiceError> => err({ kind: "invalid", reason });
 
-function isStatus(value: string): value is Status {
+function isStatus(value: string) {
   return value === "draft" || value === "sent" || value === "paid" || value === "cancelled";
 }
 

@@ -1,21 +1,8 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
-import type ts from '@typescript/typescript6';
-import { createPlayground, type Environment, type Outcome, type Playground, STD_NAME } from './engine.js';
-
-interface Scenario {
-  readonly id: string;
-  readonly label: string;
-  readonly intro: string;
-  readonly flags: Readonly<Record<string, boolean>>;
-  readonly files: Readonly<Record<string, string>>;
-}
-
-interface Data {
-  readonly tsVersion: string;
-  readonly scenarios: readonly Scenario[];
-  readonly env: Environment;
-}
+import type { Data, Scenario } from './data.js';
+import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
+import { compiler, pageData, parseJson } from './unsafe/page.js';
 
 interface Workspace {
   files: Record<string, string>;
@@ -35,8 +22,8 @@ interface State {
   filter: string | undefined;
 }
 
-declare const DATA: Data;
-declare const COMPILER: typeof ts | undefined;
+const DATA: Data = pageData().unwrapOr({ tsVersion: '', scenarios: [], env: { libs: {}, std: {}, ambient: '' } });
+const COMPILER = compiler().unwrapOr(undefined);
 
 const STORE = 'strict-ts-playground-v3';
 const STD_PREFIX = `${STD_NAME}/`;
@@ -76,7 +63,7 @@ function freshWorkspace(scenario: Scenario | undefined): Workspace {
 
 const state: State = { scenario: DATA.scenarios[0]?.id ?? '', workspaces: {}, tab: 'problems', filter: undefined };
 try {
-  const saved: unknown = JSON.parse(localStorage.getItem(STORE) ?? 'null');
+  const saved = parseJson(localStorage.getItem(STORE) ?? 'null').unwrapOr(undefined);
   if (typeof saved === 'object' && saved !== null && 'scenario' in saved && 'workspaces' in saved) {
     const known = typeof saved.scenario === 'string' && scenarioById(saved.scenario) !== undefined;
     if (known) Object.assign(state, saved, { filter: undefined });

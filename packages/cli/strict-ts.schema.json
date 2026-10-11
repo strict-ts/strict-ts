@@ -44,7 +44,9 @@
           "no-ts-directive",
           "unsafe-boundary",
           "safety-comment",
-          "strict-compiler-options"
+          "strict-compiler-options",
+          "no-type-predicate",
+          "no-ambient"
         ]
       },
       "uniqueItems": true,

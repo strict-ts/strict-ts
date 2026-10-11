@@ -6,6 +6,7 @@ import { check, type Config, defaultConfig, type Diagnostic } from '../src/index
 import { createTypeScript6Provider } from '../src/typescript6/provider.js';
 
 const ROOT = '/strict-ts-fixture';
+const ENV = '/strict-ts-environment/env.d.ts';
 const std = fileURLToPath(new URL('../../std/src/index.ts', import.meta.url));
 const fixtures = new URL('fixtures/', import.meta.url);
 const env = readFileSync(new URL('env.d.ts', fixtures), 'utf8');
@@ -29,7 +30,12 @@ export interface Project {
 const parsed = new Map<string, ts.SourceFile | undefined>();
 
 export function checkFiles(files: Readonly<Record<string, string>>, project: Project = {}): readonly Diagnostic[] {
-  const virtual = new Map(Object.entries({ 'env.d.ts': env, ...files }).map(([name, text]) => [`${ROOT}/${name}`, text]));
+  // The ambient globals sit outside the project, as the types of a dependency would: inside it, a declaration file
+  // is itself refused.
+  const virtual = new Map([
+    [ENV, env],
+    ...Object.entries(files).map(([name, text]) => [`${ROOT}/${name}`, text] as const),
+  ]);
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,

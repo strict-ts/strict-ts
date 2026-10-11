@@ -7,6 +7,9 @@ const unchecked = (node: Node): string | undefined => {
   if (node.kind === 'as' && !node.isConst) return 'cast';
   if (node.kind === 'type-assertion') return 'cast';
   if (node.kind === 'non-null') return '`!` assertion';
+  if (node.kind === 'definite-assignment') return 'definite assignment';
+  if (node.kind === 'type-predicate') return 'type predicate';
+  if (node.kind === 'ambient-declaration') return '`declare`';
   return undefined;
 };
 
@@ -35,7 +38,7 @@ function isJustified(text: string, offset: number): boolean {
 export const safetyComment: Rule = {
   name: 'safety-comment',
   guarantee: 'typing',
-  description: 'In unsafe/, an `any`, a cast or a `!` is preceded by a comment that says why it holds: // SAFETY: <reason>.',
+  description: 'In unsafe/, an `any`, a cast, a `!`, a written type predicate or a `declare` is preceded by a comment that says why it holds: // SAFETY: <reason>.',
   scope: 'unsafe',
   visit(node, { file, report }, _parent, ancestors) {
     const what = unchecked(node);

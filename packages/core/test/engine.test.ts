@@ -78,12 +78,13 @@ describe('check', () => {
             end: 10,
             isUnit: false,
             children: [
-              { kind: 'identifier', text: 'x', start: 0, end: 1, isUnit: false, children: [] },
+              { kind: 'identifier', text: 'x', declaredOutside: false, start: 0, end: 1, isUnit: false, children: [] },
               { kind: 'null-keyword', start: 6, end: 10, isUnit: false, children: [] },
             ],
           },
         },
       ],
+      declarationFiles: [],
       compilerOptions: {},
       compilerDiagnostics: [],
       typeOf: () => expect.unreachable('the spy asks for no type'),
@@ -95,10 +96,11 @@ describe('check', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the twelve rules, each with a guarantee and a description', () => {
+  test('holds the fourteen rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'must-use',
+      'no-ambient',
       'no-any',
       'no-cast',
       'no-external-import',
@@ -106,6 +108,7 @@ describe('the catalogue of rules', () => {
       'no-null',
       'no-throw',
       'no-ts-directive',
+      'no-type-predicate',
       'safety-comment',
       'strict-compiler-options',
       'unsafe-boundary',
