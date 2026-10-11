@@ -15,6 +15,7 @@ export interface FileContext {
   readonly config: Config;
   readonly typeOf: (node: Node) => Type;
   readonly calleeOf: (node: Node) => Callee | undefined;
+  readonly isOwnModule: (specifier: Node) => boolean;
   readonly expectedOf: (node: Node) => Type | undefined;
   readonly asksForMutation: (node: Node) => boolean;
   readonly valuesOf: (node: Node) => readonly unknown[] | undefined;

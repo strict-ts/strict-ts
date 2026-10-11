@@ -1236,6 +1236,75 @@ describe('no-throwing-call on a function value', () => {
   });
 });
 
+describe('no-throwing-call and what an allowed package exports from another', () => {
+  const said = (allowedImports: readonly string[]) =>
+    checkEverything(
+      {
+        'src/a.ts': [
+          'import { ref } from "vue";',
+          'import * as Vue from "vue";',
+          'import { ref as inner } from "@vue/reactivity";',
+          'export const a = ref(1);',
+          'export const b = Vue.ref(2);',
+          'export const c = inner(3);',
+          'export const d = auto(4);',
+          '',
+        ].join('\n'),
+        // What a framework generates for the names it imports by itself.
+        'types/imports.d.ts': 'export {};\ndeclare global {\n  const auto: typeof import("vue").ref;\n}\n',
+        'node_modules/vue/index.d.ts': 'export { ref } from "@vue/reactivity";\n',
+        'node_modules/@vue/reactivity/index.d.ts': 'export declare function ref(x: number): number;\n',
+      },
+      { config: { unsafeDirs: ['src/unsafe'], allowedImports } },
+    )
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message}`);
+
+  test('what is imported from an allowed package is trusted, wherever that package keeps it', () => {
+    expect(said([])).toHaveLength(4);
+    // Imported from the inner package itself, it is the inner package that must be allowed.
+    expect(said(['vue'])).toEqual(['6 `ref` is declared in "@vue/reactivity", whose types do not say whether it throws.']);
+    expect(said(['vue', '@vue/reactivity'])).toEqual([]);
+  });
+});
+
+describe('no-external-import and the path aliases of a project', () => {
+  const found = (specifier: string) =>
+    refusals(
+      checkFiles(
+        {
+          'src/lib/types.ts': 'export const size = 1;\n',
+          'src/a.ts': `import { size } from "${specifier}";\nexport const a = size;\n`,
+          'node_modules/dep/index.d.ts': 'export declare const size: number;\n',
+          'vendor/legacy.d.ts': 'export declare const size: number;\n',
+        },
+        {
+          compilerOptions: {
+            paths: {
+              '@/*': ['/strict-ts-fixture/src/*'],
+              'own-name': ['/strict-ts-fixture/src/lib/types.ts'],
+              'hidden/*': ['/strict-ts-fixture/node_modules/*'],
+              legacy: ['/strict-ts-fixture/vendor/legacy.d.ts'],
+            },
+          },
+        },
+      ),
+    ).filter((refusal) => refusal.startsWith('no-external-import'));
+
+  test('an alias that leads to a file of the project is that file, not a dependency', () => {
+    expect(found('@/lib/types')).toEqual([]);
+    expect(found('own-name')).toEqual([]);
+  });
+
+  test('an alias that leads to a dependency, or nowhere, is refused', () => {
+    expect(found('hidden/dep')).toEqual(['no-external-import@1']);
+    expect(found('dep')).toEqual(['no-external-import@1']);
+    // Declarations the project keeps for a library say what the library is: the rules do not read it.
+    expect(found('legacy')).toEqual(['no-external-import@1']);
+    expect(found('@/lib/missing')).toEqual(['no-external-import@1']);
+  });
+});
+
 describe('no-throwing-call on arguments written in the call', () => {
   const said = (lines: readonly string[], assume?: readonly 'generated-receivers'[]) =>
     checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], ...(assume === undefined ? {} : { assume }) } })
