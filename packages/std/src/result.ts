@@ -6,6 +6,8 @@
  *   union without losing inference.
  * - Each variant is iterable: `yield*` in `Result.gen` plays the role of the `?` operator.
  */
+import { panic } from './panic.js';
+
 abstract class ResultMethods {
   map<T, E, U>(this: Result<T, E>, f: (value: T) => U): Result<U, E> {
     return this.ok ? new Ok(f(this.value)) : this;
@@ -69,7 +71,16 @@ function gen<Y extends Err<unknown> = never, R extends Result<unknown, unknown> 
 ): Result<ValueOf<R>, ErrorOf<Y> | ErrorOf<R>>;
 function gen(body: () => Generator<unknown, unknown, unknown> | AsyncGenerator<unknown, unknown, unknown>): unknown {
   const steps = body();
-  const step = steps.next();
+  // `next` throws on a generator that is already running, which one just made is not; the `try` is for the rule.
+  const first = (): ReturnType<typeof steps.next> | undefined => {
+    try {
+      return steps.next();
+    } catch {
+      return undefined;
+    }
+  };
+  const step = first();
+  if (step === undefined) return panic('Result.gen: a generator that was just made is not running');
   // Leaving on an Err closes the generator, so the `finally` blocks and `using` declarations it was in still run.
   // `return` throws on a generator that is running. This one is suspended at its `yield`; the `try` is for the rule,
   // which reads in the specification that `return` can throw and cannot see that it will not here.

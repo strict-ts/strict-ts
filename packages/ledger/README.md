@@ -21,18 +21,29 @@ function that never returns.
 
 **What the specification says.** `scripts/spec.mjs` reads the ECMAScript specification as its authors write it. Every
 step that may fail says so there: `throw a *RangeError* exception`, or a call marked `?`, which hands the callee's
-failure on. Following those marks from a function gives every way it can throw. Some of those ways a typed call
-cannot reach (a wrong receiver, a callback that is not callable, a size no machine holds), and some depend on the
-types of the parameters (a conversion that fails on a symbol). The lists that say which are the judgement of the
-reader. `scripts/spec-facts.mjs` fetches the specification (ECMAScript 2023) and writes what it found to
-`spec/facts.json`, kept in the repo so that a build needs no network.
+failure on. Following those marks from a function gives every way it can throw.
+
+Not every such way concerns typed code, and the reader does not assume which. It follows where each value of an
+algorithm comes from (the receiver, a parameter, what a callback returned, a primitive the algorithm made), through
+the operations a function hands its arguments to, and then asks the declared types:
+
+- a check that a parameter is callable, or is an object, holds when every declared signature gives the parameter
+  that kind, and is a real way to throw otherwise;
+- a conversion (`? ToString(_x_)`) can fail only on a kind of value the conversion refuses and the declared type
+  lets in. What each conversion refuses is a table of ten lines, which a test checks by running each conversion.
+
+What is left to judgement is three short lists: the operations that run the caller's own code (a callback, a
+getter), the checks of the receiver's class, and the sizes no machine holds. `scripts/spec-facts.mjs` fetches the
+specification (ECMAScript 2023) and writes what it found to `spec/facts.json`, kept in the repo so that a build
+needs no network.
 
 `scripts/derive.mjs` then decides:
 
 | The specification | The runs | The entry |
 |---|---|---|
 | No way to throw | Never threw | `total`: both agree |
-| Only conversions | Never threw, even on what cannot be converted | `total`: the types exclude what the conversions refuse |
+| A conversion that refuses a primitive the declared types let in | Never threw | `total`: the runs try every primitive kind a type admits |
+| A conversion that refuses some objects the declared types let in | Never threw | `throws` with `unprintable`: no run can try every object |
 | A real way to throw | Never threw | `throws`: the prudent one of the two |
 | Anything | Threw on plain values | `throws`, with the call it was seen on, and `below` or `atLeast` when it only threw for some numbers of arguments |
 | Anything | Threw only on what is not plain | `throws` with `unprintable`: safe when the receiver and the arguments are plain by their types |
@@ -54,12 +65,12 @@ The reader of the specification also reads its 32 accessors: two can throw on th
 
 | Entries | Verdict | On what |
 |---|---|---|
-| 293 | `total` | The clause of the specification and 600 runs that never threw |
-| 195 | `throws` | A call that was seen to throw; 24 of them only on what is not plain |
+| 291 | `total` | The clause of the specification and 600 runs that never threw |
+| 196 | `throws` | A call that was seen to throw, or a conversion that may meet an object it refuses; 25 of them only on what is not plain |
 | 284 | `throws` with `detached` | The specification: only on a buffer that was detached. The runs never threw |
-| 6 | `throws` | The specification only: no run found it |
+| 7 | `throws` | The specification only: no run found it |
 
-Nineteen contradictions, all understood and written in `acknowledged.json`: a rejected promise, which is not a throw
+Twenty-two contradictions, all understood and written in `acknowledged.json`: a rejected promise, which is not a throw
 in the specification; a call the reader does not follow; `Int8Array.from(["a"])`, which the declarations accept.
 
 ### A detached buffer
@@ -78,9 +89,8 @@ Without that line, the calls are refused.
 
 - It runs 802 of the 844 functions. The rest is `Intl`, which another specification defines, and the interfaces a
   caller implements (a proxy handler, an iterator): they are refused.
-- **The reading of the specification is a judgement.** The lists of what a typed call cannot reach were written by
-  hand and tuned until they agreed with the runs. A function both readings get wrong the same way would be called
-  safe.
+- **Three lists are still a judgement**: the operations taken to run the caller's own code, the checks of the
+  receiver's class, the sizes no machine holds. A write to a frozen object is taken for a plain write.
 - The DOM and Node have no specification this reads: their entries stay by hand, or absent.
 - A result too long for the engine (`Invalid string length`) is a limit of the machine, like running out of memory,
   and is not counted as an exception.
