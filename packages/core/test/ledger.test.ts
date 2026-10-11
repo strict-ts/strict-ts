@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { effectsLedger, threatOf } from '../src/index.js';
+import { effectsLedger, hasShape, type Shape, threatOf } from '../src/index.js';
 
 describe('the effects ledger', () => {
   const entries = Object.entries(effectsLedger);
@@ -35,6 +35,48 @@ describe('the effects ledger', () => {
     expect(fill === undefined ? undefined : threatOf(fill, 4, false, false, true)).toBeUndefined();
     // Judged by hand to throw, and never seen to: the judgement stays.
     expect(effectsLedger['Storage.setItem']?.verdict).toBe('throws');
+  });
+
+  test('the written arguments a function of the DOM is quiet on: on one that throws, written by hand, and run', () => {
+    const written = entries.filter(([, effect]) => effect.written !== undefined);
+    expect(written.map(([name]) => name).toSorted()).toEqual([
+      'CanvasGradient.addColorStop',
+      'DOMTokenList.add',
+      'DOMTokenList.remove',
+      'DOMTokenList.replace',
+      'DOMTokenList.toggle',
+      'Document.createElement',
+      'Element.closest',
+      'Element.matches',
+      'Element.setAttribute',
+      'ParentNode.querySelector',
+      'ParentNode.querySelectorAll',
+    ]);
+    for (const [name, effect] of written) {
+      expect(effect.verdict, name).toBe('throws');
+      expect(effect.written?.runs ?? 0, name).toBeGreaterThan(1000);
+      expect(effect.written?.clause.length ?? 0, name).toBeGreaterThan(20);
+    }
+  });
+
+  test('a shape lets through less than the browser does, never more', () => {
+    const shaped = (shape: Shape, values: readonly unknown[]) => values.filter((value) => hasShape(shape, value));
+    expect(shaped('token', ['hidden', 'app--shake', 'é', '', 'two words', 'tab\there', 'line\n', 7])).toEqual(['hidden', 'app--shake', 'é']);
+    expect(shaped('element-name', ['div', 'canvas', 'my-element', 'h1', '', 'Div', '1st', 'a b', 'a--b', '-a', 'é'])).toEqual(['div', 'canvas', 'my-element', 'h1']);
+    expect(shaped('attribute-name', ['role', 'aria-hidden', 'data-theme', 'data-a-b1', 'onclick', 'src', 'href', 'class', 'data-', 'aria', 'DATA-X'])).toEqual(['role', 'aria-hidden', 'data-theme', 'data-a-b1']);
+    expect(
+      shaped('selector', ['#menu', '.planet-card-visual', '[data-move]', 'button.upgrade-btn', 'input, select, [role="dialog"]', 'ul > li + li ~ p', '*', ' div ', '', '#1st', 'li:not(.a)', 'a:hover', 'a >', '> a', 'a,,b', '[a=]', '.é', 'a\\.b']),
+    ).toEqual(['#menu', '.planet-card-visual', '[data-move]', 'button.upgrade-btn', 'input, select, [role="dialog"]', 'ul > li + li ~ p', '*', ' div ']);
+    expect(shaped('colour', ['#fff', '#ffff', '#a1b2c3', '#a1b2c3d4', 'rgb(1,2,3)', 'rgba(15, 23, 42, 0.15)', 'rgba(0,0,0,0)', '#ff', '#ggg', 'tomato', 'rgb(1 2 3)', 'rgb(1,2)', 'hsl(1,2%,3%)', ''])).toEqual([
+      '#fff',
+      '#ffff',
+      '#a1b2c3',
+      '#a1b2c3d4',
+      'rgb(1,2,3)',
+      'rgba(15, 23, 42, 0.15)',
+      'rgba(0,0,0,0)',
+    ]);
+    expect(shaped('unit', [0, 1, 0.55, -0.1, 1.5, Number.NaN, '0'])).toEqual([0, 1, 0.55]);
   });
 
   test('a function is called safe only when the specification and the runs agree', () => {

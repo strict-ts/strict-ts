@@ -3,7 +3,8 @@
 
 export { type Assumption, type Config, assumptions, defaultConfig, isPure, isTest, isUnsafe } from './config.js';
 export { type Diagnostic, type Position, compareDiagnostics, diagnosticAt, locator } from './diagnostic.js';
-export { type Effect, type Evidence, type Ledger, threatOf } from './effects/ledger.js';
+export { type Effect, type Evidence, type Ledger, quietAsWritten, threatOf, type Written } from './effects/ledger.js';
+export { hasShape, type Shape } from './effects/shapes.js';
 export { ledger as effectsLedger } from './effects/index.js';
 export { check } from './engine.js';
 export type { Callee, ExportedValue, Origin, SourceFile, Type, TypeProvider } from './provider.js';

@@ -1,7 +1,7 @@
 import type { Config } from '../config.js';
 import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
-import { threatOf } from '../effects/ledger.js';
+import { quietAsWritten, threatOf } from '../effects/ledger.js';
 import { ledger } from '../effects/index.js';
 import { runs } from '../unsafe/run.js';
 import { isCaught, isTrusted } from './caught.js';
@@ -69,6 +69,9 @@ export const noThrowingCall: Rule = {
     // Arguments that are all written in the call: the call is run, and what it does is known.
     const receiver = node.kind === 'call' && node.callee.kind === 'property-access' ? valuesOf(node.callee.object) : undefined;
     if (callee.origin.kind === 'library' && neverThrowsAsWritten(callee.name, node.arguments.map(valuesOf), receiver, config)) return;
+    // The DOM cannot be run here: its calls were run in a browser, on arguments of the shapes the ledger names.
+    const entry = callee.origin.kind === 'library' && node.kind === 'call' ? ledger[callee.name] : undefined;
+    if (entry !== undefined && config.assume?.includes('dom-as-observed') === true && quietAsWritten(entry, node.arguments.map(valuesOf))) return;
     if (isCaught(node, ancestors, calleeOf, config)) return;
     const shown = callee.name === '' ? 'This call' : `\`${callee.name.replace(/\.$/, '').replace(/Constructor\b/, '')}\``;
     report(node, `${shown} ${why}.`, 'Call it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');

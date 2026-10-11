@@ -181,6 +181,8 @@ kinds of operand, and only the combinations the compiler accepts are kept.
 The DOM has no specification that can be read that way, so its functions are only run, in a browser: 764 were seen
 to throw (`querySelector("")`, `createElement` on a name that is not one), and are refused like any other. 700 never
 threw: that is not a proof, so they are refused too, unless the project writes `"assume": ["dom-as-observed"]`.
+With that line, a function seen to throw is also accepted on arguments that are written in the call and have a
+shape that was run in a browser: `classList.add("hidden")`, `querySelector("#menu")`, `createElement("canvas")`.
 
 **Arguments written in the call.** `new RegExp('^a+$')`, `BigInt('12')` and `JSON.parse('{}')` throw on some
 arguments, and not on these. When the compiler knows every argument (a literal, a constant, an object of those), the
@@ -278,7 +280,8 @@ games), strict-ts refuses from 9 to 35 places per 100 lines. In order of what it
 5. **By hand**: `null`, `!`, casts, and what throws.
 
 For a browser application, `"assume": ["dom-as-observed"]` accepts the functions of the DOM that never threw when
-they were run in a browser: 378 of the calls refused in the six applications. What stays refused whatever you do:
+they were run in a browser: 378 of the calls refused in the six applications. It also accepts eleven that do
+throw, on harmless arguments written in the call (`classList.add("hidden")`): 134 more. What stays refused whatever you do:
 61 calls into what a bare page cannot run (audio, service workers, `Intl`), and calls into Node unless `"node"` is
 in `allowedImports`.
 

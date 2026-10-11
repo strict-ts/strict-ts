@@ -1,5 +1,6 @@
 // The effects ledger: what is known of each function declared outside the checked files. The rule no-throwing-call
 // reads nothing else. A function that is not in it is not known not to throw, and is refused.
+import { hasShape, type Shape } from './shapes.js';
 
 /** What tells that an entry is right. An entry without a specification clause and without runs is a judgement. */
 export interface Evidence {
@@ -11,6 +12,18 @@ export interface Evidence {
   readonly example?: string;
   /** Classified by a person: why. Used where there is no specification to read and nothing to run. */
   readonly byHand?: string;
+}
+
+/**
+ * The arguments on which a function that may throw does not: one shape for each argument in turn, and `rest` for
+ * every one after them. Shown by calls in a browser, `runs` of them, none of which threw.
+ */
+export interface Written {
+  readonly shapes: readonly Shape[];
+  readonly rest?: Shape;
+  /** What the shapes were written from: the method of the DOM or HTML standard, and what it says throws. */
+  readonly clause: string;
+  readonly runs: number;
 }
 
 export interface Effect {
@@ -39,6 +52,12 @@ export interface Effect {
    * (`assume: ["dom-as-observed"]`).
    */
   readonly observedOnly?: true;
+  /**
+   * For `throws`, in the DOM: not on arguments that are written in the call and have these shapes
+   * (`classList.add('hidden')`). As everything known of the DOM, this was seen and not read: it counts for a
+   * project that takes the runs as enough (`assume: ["dom-as-observed"]`).
+   */
+  readonly written?: Written;
   readonly evidence: Evidence;
 }
 
@@ -59,4 +78,17 @@ export function threatOf(effect: Effect, argumentCount: number, plain = false, a
   if (effect.unprintable === true && plain) return undefined;
   if (effect.detached === true && attached) return undefined;
   return effect.why ?? 'may throw';
+}
+
+/**
+ * Whether a call is one its entry says does not throw as written. `values` gives, for each argument, every value it
+ * can have, or nothing when the compiler does not know them: then the call is not written, and nothing is said.
+ */
+export function quietAsWritten(effect: Effect, values: readonly (readonly unknown[] | undefined)[]): boolean {
+  const written = effect.written;
+  if (written === undefined) return false;
+  return values.every((possible, index) => {
+    const shape = written.shapes[index] ?? written.rest;
+    return shape !== undefined && possible !== undefined && possible.length > 0 && possible.every((value) => hasShape(shape, value));
+  });
 }
