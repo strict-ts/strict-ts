@@ -19,10 +19,17 @@ describe('the effects ledger', () => {
 
   test('how many entries are still judgements, and not derived', () => {
     const byHand = entries.filter(([, effect]) => effect.evidence.spec === undefined && effect.evidence.runs === undefined);
-    // What is left by hand: the DOM, and the few functions the generator does not run. To bring down.
-    expect(byHand.length).toBeLessThanOrEqual(45);
-    const backedByRuns = entries.filter(([, effect]) => effect.evidence.runs !== undefined);
-    expect(backedByRuns.length).toBeGreaterThan(180);
+    // What is left by hand: the DOM, which has no specification this project reads, and a handful of others.
+    expect(byHand.length).toBeLessThanOrEqual(40);
+  });
+
+  test('a function is called safe only when the specification and the runs agree', () => {
+    const safe = entries.filter(([, effect]) => effect.verdict === 'total' && effect.evidence.byHand === undefined);
+    expect(safe.length).toBeGreaterThan(250);
+    for (const [name, effect] of safe) {
+      expect(effect.evidence.spec, name).toMatch(/^sec-/);
+      expect(effect.evidence.runs, name).toBeGreaterThan(100);
+    }
   });
 
   test('what the runs showed wins over a judgement: join was judged safe, and throws on a symbol', () => {
@@ -30,7 +37,7 @@ describe('the effects ledger', () => {
     expect(effectsLedger['ReadonlyArray.reduce']).toMatchObject({ verdict: 'throws', below: 2 });
     expect(effectsLedger['Number.toString']).toMatchObject({ verdict: 'throws', atLeast: 1 });
     expect(effectsLedger['String.padEnd']?.verdict).toBe('total');
-    expect(effectsLedger['String.padEnd']?.evidence.runs).toBe(600);
+    expect(effectsLedger['String.padEnd']?.evidence).toEqual({ runs: 600, spec: 'sec-string.prototype.padend' });
   });
 
   test('a function that only throws on what it cannot convert is safe on plain values', () => {

@@ -6,7 +6,7 @@
       "no-any": 2,
       "no-cast": 9,
       "no-throw": 1,
-      "no-throwing-call": 4,
+      "no-throwing-call": 3,
       "readonly-types": 30
     }
   }
