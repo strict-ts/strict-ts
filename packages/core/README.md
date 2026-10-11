@@ -18,7 +18,7 @@ const refused = check(provider, defaultConfig); // readonly Diagnostic[], the co
 |---|---|
 | `src/syntax.ts` | The syntax a rule reads: a neutral tree that names only what rules tell apart (`call`, `as`, `switch`, `property`…); everything else is `other` |
 | `src/provider.ts` | `TypeProvider`: the files to check, and what a rule may ask about a type (`isAny`, `members`, `awaited`, `property`, `returns`…) |
-| `src/rules/throwing.ts` | The table of the standard library's functions that throw on what their types accept, read by `no-throwing-call` |
+| `src/effects/` | The effects ledger: each outside function with its verdict and its evidence, read by `no-throwing-call`. A function that is not in it is refused |
 | `src/rule.ts` | `Rule`: a name, the guarantee it serves, a scope, and the hooks `visit` (every node), `file`, `project` |
 | `src/engine.ts` | `check`: runs the rules on a provider and sorts what they report |
 | `src/rules/` | One file per rule; `index.ts` is the catalogue |

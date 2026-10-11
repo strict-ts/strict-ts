@@ -1,7 +1,7 @@
 // The rules of strict-ts that need no type, as an Oxlint plugin: Oxlint parses in parallel and natively, so these
 // three run far faster than through the TypeScript API. They refuse the same code, at the same places, as the rules
 // of the same name in @strict-ts/core; a test compares the two on real projects.
-import { isUnsafe, tsDirectivePattern } from '@strict-ts/core';
+import { isUnsafe, matchesOf, tsDirectivePattern } from '@strict-ts/core';
 
 /** The little of the ESLint rule API that these rules use, which is what Oxlint gives a JavaScript plugin. */
 interface Position {
@@ -38,8 +38,8 @@ const unsafeDirs = (context: Context): readonly string[] => {
 
 /** Whether the file sits in an unsafe directory, by its path from where Oxlint runs. */
 const inUnsafe = (context: Context): boolean => {
-  const root = `${context.cwd.replaceAll('\\', '/').replace(/\/+$/, '')}/`;
-  const file = context.filename.replaceAll('\\', '/');
+  const root = `${context.cwd.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
+  const file = context.filename.replace(/\\/g, '/');
   return isUnsafe(file.startsWith(root) ? file.slice(root.length) : file, { unsafeDirs: unsafeDirs(context), allowedImports: [] });
 };
 
@@ -78,10 +78,10 @@ const noTsDirective: Rule = {
   create: (context) => ({
     Program: () => {
       const { text, getLocFromIndex } = context.sourceCode;
-      for (const match of text.matchAll(tsDirectivePattern)) {
+      for (const match of matchesOf(text, tsDirectivePattern)) {
         const start = getLocFromIndex(match.index);
-        const end = getLocFromIndex(match.index + match[0].length);
-        context.report({ loc: { start, end }, message: `@ts-${match[1] ?? ''} is forbidden. Fix the type error instead of hiding it.` });
+        const end = getLocFromIndex(match.index + match.text.length);
+        context.report({ loc: { start, end }, message: `@ts-${match.groups[0] ?? ''} is forbidden. Fix the type error instead of hiding it.` });
       }
     },
   }),

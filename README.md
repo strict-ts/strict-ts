@@ -127,7 +127,7 @@ is both, `project` is once for the whole project.
 | `no-null` | errors | safe | No `null`, as a value or as a type. Comparing with `=== null` stays allowed |
 | `must-use` | errors | all | A `Result`, an `Option` or a `Promise` is not ignored. To drop one on purpose: `void expr` |
 | `exhaustive-switch` | errors | all | A `switch` covers every member of a finite union, or has a `default` |
-| `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function known to throw, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
+| `no-throwing-call` | errors | all | A call that may throw without its type saying so (a library function the effects ledger does not show to be safe, any function of a package that is not allowed) is made inside `attempt`, or in a `try` with a `catch` |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
@@ -272,8 +272,9 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- `no-throwing-call` knows the functions of the JavaScript library that throw from a table, which is not complete: one
-  that is not in it is taken not to throw. A getter or an operator that throws is not a call and is not seen.
+- `no-throwing-call` reads an effects ledger: a function of the standard library that is not in it is refused. Its
+  entries are, for now, judgements made by hand, not yet derived from the specification. A getter or an operator that
+  throws is not a call and is not seen.
 - `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
 - A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.

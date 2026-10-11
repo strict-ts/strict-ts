@@ -2,7 +2,8 @@ import type { Config } from '../config.js';
 import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
-import { THROWING, THROWING_BELOW } from './throwing.js';
+import { threatOf } from '../effects/ledger.js';
+import { seed as ledger } from '../effects/seed.js';
 
 const inside = (node: Node, outer: Node): boolean => outer.start <= node.start && node.end <= outer.end;
 
@@ -12,7 +13,7 @@ const isTrusted = (name: string | undefined, config: Config): boolean =>
 /** What makes a call a possible exception, or undefined when nothing is known against it. */
 function threat(callee: Callee, argumentCount: number, config: Config): string | undefined {
   if (callee.origin.kind === 'project') return undefined; // The rules read it: it obeys them too.
-  // The console is the same object whoever declares it (the DOM library, the types of Node), and does not throw.
+  // The console is the same object whoever declares it (the DOM library, the types of Node, a fixture).
   if (callee.name.startsWith('Console.') || callee.name.startsWith('console.')) return undefined;
   if (callee.origin.kind === 'package') {
     // An allowed package is trusted as the standard library of conforming code is.
@@ -20,10 +21,10 @@ function threat(callee: Callee, argumentCount: number, config: Config): string |
     const from = callee.origin.package === undefined ? 'a declaration file' : `"${callee.origin.package}"`;
     return `is declared in ${from}, whose types do not say whether it throws`;
   }
-  const always = THROWING[callee.name];
-  if (always !== undefined) return always;
-  const below = THROWING_BELOW[callee.name];
-  return below !== undefined && argumentCount < below[0] ? below[1] : undefined;
+  const effect = ledger[callee.name];
+  // Not in the ledger: nothing shows that it does not throw.
+  if (effect === undefined) return 'is not in the effects ledger: nothing shows that it does not throw';
+  return threatOf(effect, argumentCount);
 }
 
 export const noThrowingCall: Rule = {

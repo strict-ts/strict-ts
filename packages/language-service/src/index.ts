@@ -62,7 +62,7 @@ function init(modules: { readonly typescript: typeof ts }): ts.server.PluginModu
 
   const create = (info: ts.server.PluginCreateInfo): ts.LanguageService => {
     const service = info.languageService;
-    const rootDir = info.project.getCurrentDirectory().replaceAll('\\', '/');
+    const rootDir = info.project.getCurrentDirectory().replace(/\\/g, '/');
     const readFile: ReadFile = (path) => info.serverHost.readFile(path);
 
     const toEditor = (sourceFile: ts.SourceFile, d: Diagnostic, baselined: boolean): ts.Diagnostic => {

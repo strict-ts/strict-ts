@@ -9,7 +9,7 @@ const known = new Map<string, Option<string>>();
  * file's text, or undefined when there is none.
  */
 export function packageNameOf(readFile: (path: string) => string | undefined, fileName: string): Option<string> {
-  const directory = fileName.replaceAll('\\', '/').split('/').slice(0, -1).join('/');
+  const directory = fileName.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
   const cached = known.get(directory);
   if (cached !== undefined) return cached;
   const text = directory === '' ? undefined : readFile(`${directory}/package.json`);
