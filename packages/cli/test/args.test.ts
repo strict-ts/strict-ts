@@ -4,11 +4,11 @@ import { parseArgs } from '../src/index.js';
 const parsed = (...argv: readonly string[]) => parseArgs(argv).match({ ok: (command) => command, err: (error) => error });
 
 test('no argument checks the current directory as text', () => {
-  expect(parsed()).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'use', strictBaseline: false });
+  expect(parsed()).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'use', strictBaseline: false, cache: false, timing: false });
 });
 
 test('options take their value from the next argument or after =', () => {
-  expect(parsed('-p', 'app', '--format', 'json')).toEqual({ kind: 'check', project: 'app', format: 'json', output: undefined, baseline: 'use', strictBaseline: false });
+  expect(parsed('-p', 'app', '--format', 'json')).toEqual({ kind: 'check', project: 'app', format: 'json', output: undefined, baseline: 'use', strictBaseline: false, cache: false, timing: false });
   expect(parsed('--project=app/tsconfig.json', '--format=text')).toEqual({
     kind: 'check',
     project: 'app/tsconfig.json',
@@ -16,6 +16,8 @@ test('options take their value from the next argument or after =', () => {
     output: undefined,
     baseline: 'use',
     strictBaseline: false,
+    cache: false,
+    timing: false,
   });
 });
 
@@ -32,18 +34,18 @@ test('what is not understood is an error', () => {
 });
 
 test('--update-baseline is a flag, and refuses a format', () => {
-  expect(parsed('--update-baseline', '-p', 'app')).toEqual({ kind: 'check', project: 'app', format: 'text', output: undefined, baseline: 'update', strictBaseline: false });
+  expect(parsed('--update-baseline', '-p', 'app')).toEqual({ kind: 'check', project: 'app', format: 'text', output: undefined, baseline: 'update', strictBaseline: false, cache: false, timing: false });
   expect(parsed('--update-baseline', '--format', 'json')).toBe('--update-baseline cannot be combined with --format');
   expect(parsed('--update-baseline=yes')).toBe('unknown argument: --update-baseline=yes');
 });
 
 test('--no-baseline ignores the baseline, and cannot go with --update-baseline', () => {
-  expect(parsed('--no-baseline')).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'ignore', strictBaseline: false });
+  expect(parsed('--no-baseline')).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'ignore', strictBaseline: false, cache: false, timing: false });
   expect(parsed('--no-baseline', '--update-baseline')).toBe('--update-baseline cannot be combined with --no-baseline');
 });
 
 test('--strict-baseline needs a baseline to be strict about', () => {
-  expect(parsed('--strict-baseline')).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'use', strictBaseline: true });
+  expect(parsed('--strict-baseline')).toEqual({ kind: 'check', project: undefined, format: 'text', output: undefined, baseline: 'use', strictBaseline: true, cache: false, timing: false });
   expect(parsed('--strict-baseline', '--no-baseline')).toBe('--strict-baseline cannot be combined with --no-baseline');
   expect(parsed('--strict-baseline', '--update-baseline')).toBe('--strict-baseline cannot be combined with --update-baseline');
 });
@@ -56,7 +58,22 @@ test('--format sarif and --output', () => {
     output: 'out.sarif',
     baseline: 'use',
     strictBaseline: false,
+    cache: false,
+    timing: false,
   });
   expect(parsed('--output')).toBe('--output needs a value');
   expect(parsed('--update-baseline', '--output=x')).toBe('--update-baseline cannot be combined with --output');
+});
+
+test('--cache and --timing are flags', () => {
+  expect(parsed('--cache', '--timing')).toEqual({
+    kind: 'check',
+    project: undefined,
+    format: 'text',
+    output: undefined,
+    baseline: 'use',
+    strictBaseline: false,
+    cache: true,
+    timing: true,
+  });
 });

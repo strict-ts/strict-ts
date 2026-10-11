@@ -273,7 +273,28 @@ export function createTypeScript6Provider(
     return created;
   };
 
-  const reported = options.compilerDiagnostics === false ? [] : api.getPreEmitDiagnostics(program);
+  // Restricted to some files, the compiler is asked about those and about everything the rules do not read
+  // (dependencies, declaration files, the options): the same errors as a whole run, minus the files left out.
+  const partial = (only: (fileName: string) => boolean): readonly ts.Diagnostic[] => {
+    const compilerOptions = program.getCompilerOptions();
+    const declarations = compilerOptions.declaration === true || compilerOptions.composite === true;
+    const perFile = program
+      .getSourceFiles()
+      .filter((sourceFile) => !isChecked(sourceFile) || only(sourceFile.fileName))
+      .flatMap((sourceFile) => [
+        ...program.getSyntacticDiagnostics(sourceFile),
+        ...program.getSemanticDiagnostics(sourceFile),
+        ...(declarations ? program.getDeclarationDiagnostics(sourceFile) : []),
+      ]);
+    return api.sortAndDeduplicateDiagnostics([
+      ...program.getConfigFileParsingDiagnostics(),
+      ...program.getOptionsDiagnostics(),
+      ...program.getGlobalDiagnostics(),
+      ...perFile,
+    ]);
+  };
+  const reported =
+    options.compilerDiagnostics === false ? [] : options.only === undefined ? api.getPreEmitDiagnostics(program) : partial(options.only);
   const compilerDiagnostics = reported.map((diagnostic): Diagnostic => {
     const rule = `TS${diagnostic.code}`;
     const message = api.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
@@ -335,4 +356,19 @@ export function createTypeScript6Provider(
       return exported;
     },
   };
+}
+
+/** The project's own source files: what the rules read, by absolute path. For hosts that cache per file. */
+export function checkedFileNames(program: ts.Program, rootDir: string): readonly string[] {
+  const root = `${rootDir.replaceAll('\\', '/').replace(/\/+$/, '')}/`;
+  return program
+    .getSourceFiles()
+    .filter(
+      (sourceFile) =>
+        !sourceFile.isDeclarationFile &&
+        !program.isSourceFileFromExternalLibrary(sourceFile) &&
+        !sourceFile.fileName.includes('/node_modules/') &&
+        sourceFile.fileName.startsWith(root),
+    )
+    .map((sourceFile) => sourceFile.fileName);
 }

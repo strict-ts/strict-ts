@@ -16,6 +16,7 @@ what comes back.
 | `src/config.ts`, `src/config-schema.ts` | `strict-ts.json`: its validation, and its JSON schema, published as `strict-ts.schema.json` |
 | `src/baseline.ts` | The baseline: counting, comparing, stale entries |
 | `src/format.ts`, `src/sarif.ts` | The text, JSON and SARIF reports |
+| `src/cache.ts` | `--cache`: a key per file from its text and the text of everything it imports; a result is reused only when that key and the environment are unchanged |
 | `src/unsafe/` | The file system and the compiler: everything that may throw leaves there as a `Result` |
 
 `@strict-ts/cli/settings` and `@strict-ts/cli/baseline` are exported for the other adapters, so that the editor reads

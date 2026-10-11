@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { check, defaultConfig, isUnsafe, locator, type Node, type Rule, rules, type TypeProvider } from '../src/index.js';
-import { checkFiles, checkSafe, refusals } from './project.js';
+import { check, compareDiagnostics, defaultConfig, isUnsafe, locator, type Node, type Rule, rules, type TypeProvider } from '../src/index.js';
+import { checkFiles, checkSafe, fixture, refusals } from './project.js';
 
 describe('check', () => {
   test("reports the compiler's own errors: strict-ts replaces tsc --noEmit", () => {
@@ -94,6 +94,33 @@ describe('check', () => {
     };
     expect(check(provider, defaultConfig, [spy])).toEqual([]);
     expect(seen).toEqual(['file src/a.ts', 'null in binary']);
+  });
+});
+
+describe('checking some files only', () => {
+  const files = {
+    ...fixture('violations'),
+    'src/wrong.ts': 'export const n: number = "x";\nexport const m: string = 1;\n',
+  };
+  const compilerOptions = { noPropertyAccessFromIndexSignature: false };
+  const whole = checkFiles(files, { compilerOptions });
+
+  test('asked about every file, it gives exactly what a whole run gives', () => {
+    expect(checkFiles(files, { compilerOptions, only: Object.keys(files) })).toEqual(whole);
+  });
+
+  test('asked about one file, it gives that file\'s share, and what belongs to no checked file', () => {
+    const one = checkFiles(files, { compilerOptions, only: ['src/wrong.ts'] });
+    const share = whole.filter((d) => d.file === 'src/wrong.ts' || d.file === 'tsconfig.json');
+    expect(share.length).toBeGreaterThan(2);
+    expect(one).toEqual(share);
+  });
+
+  test('the shares of each file add up to the whole', () => {
+    const names = Object.keys(files);
+    const shares = names.flatMap((name) => checkFiles(files, { compilerOptions, only: [name] }).filter((d) => d.file === name));
+    const perFile = whole.filter((d) => names.includes(d.file));
+    expect(shares.toSorted(compareDiagnostics)).toEqual(perFile);
   });
 });
 

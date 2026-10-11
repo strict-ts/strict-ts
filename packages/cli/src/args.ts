@@ -16,6 +16,10 @@ export type Command =
       readonly baseline: BaselineMode;
       /** Fail when the baseline allows more than what is found, so that it can only shrink. */
       readonly strictBaseline: boolean;
+      /** Reuse the result of the files that did not change since the last run, and record this one. */
+      readonly cache: boolean;
+      /** Say on the error stream how many files were checked, and in how long. */
+      readonly timing: boolean;
     };
 
 export const usage = [
@@ -31,11 +35,13 @@ export const usage = [
   '      --update-baseline  Record the violations found in the baseline file, and exit with 0',
   '      --no-baseline      Ignore the baseline file: refuse every violation',
   '      --strict-baseline  Fail when the baseline allows more than what is found',
+  '      --cache            Check only the files that changed since the last run, or that import one that did',
+  '      --timing           Say how many files were checked, and in how long',
   '  -h, --help             Show this help',
 ].join('\n');
 
 /** The options that take no value. */
-const FLAGS = ['--update-baseline', '--no-baseline', '--strict-baseline'];
+const FLAGS = ['--update-baseline', '--no-baseline', '--strict-baseline', '--cache', '--timing'];
 
 const isFormat = (value: string) => value === 'text' || value === 'json' || value === 'sarif';
 
@@ -76,5 +82,14 @@ export function parseArgs(argv: readonly string[]): Result<Command, string> {
   const other = update ? '--update-baseline' : '--no-baseline';
   if (strictBaseline && (update || flags.has('--no-baseline'))) return err(`--strict-baseline cannot be combined with ${other}`);
   const baseline = update ? 'update' : flags.has('--no-baseline') ? 'ignore' : 'use';
-  return ok({ kind: 'check', project, format: format ?? 'text', output, baseline, strictBaseline });
+  return ok({
+    kind: 'check',
+    project,
+    format: format ?? 'text',
+    output,
+    baseline,
+    strictBaseline,
+    cache: flags.has('--cache'),
+    timing: flags.has('--timing'),
+  });
 }

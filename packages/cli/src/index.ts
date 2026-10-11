@@ -1,13 +1,15 @@
-import { check, type Diagnostic, rules } from '@strict-ts/core';
+import { check, compareDiagnostics, type Diagnostic, rules } from '@strict-ts/core';
 import { ok, Option } from '@strict-ts/std';
 import { parseArgs, usage } from './args.js';
 import { compare, countViolations, isRecordable, parseBaseline, serializeBaseline, toBaseline } from './baseline.js';
+import { type Cache, parseCache, stillValid } from './cache.js';
 import { CONFIG_FILE, readSettings } from './config.js';
 import { formatJson, formatText } from './format.js';
 import { formatSarif } from './sarif.js';
 import { loadProject, readJsonFile, writeTextFile } from './unsafe/project.js';
 import { VERSION } from './version.js';
 
+export { type Cache, type Facts, type FileFacts, fileKeys, parseCache, stillValid } from './cache.js';
 export { type BaselineMode, type Command, type Format, parseArgs, usage } from './args.js';
 export {
   type Baseline,
@@ -31,6 +33,9 @@ export interface Io {
   readonly err: (line: string) => void;
 }
 
+/** Where --cache keeps the results of a run, relative to the project root. */
+export const CACHE_FILE = 'node_modules/.cache/strict-ts/cache.json';
+
 /** The exit code of a project that could not be checked: it is not reported as safe. */
 const UNCHECKED = 2;
 
@@ -52,16 +57,37 @@ export function run(argv: readonly string[], io: Io): number {
     io.out(usage);
     return 0;
   }
-  const { project, format, output, baseline: mode, strictBaseline } = command.value;
+  const { project, format, output, baseline: mode, strictBaseline, cache: useCache, timing } = command.value;
 
+  const started = performance.now();
   const loaded = loadProject(io.cwd, project);
   if (!loaded.ok) return fail(loaded.error);
-  const { rootDir, provider } = loaded.value;
+  const { rootDir, files } = loaded.value;
   const settings = readJsonFile(rootDir, CONFIG_FILE).andThen(readSettings);
   if (!settings.ok) return fail(settings.error);
-  if (provider.files.length === 0) return fail(`no file to check under ${rootDir}`);
+  if (files.length === 0) return fail(`no file to check under ${rootDir}`);
 
-  const found = check(provider, settings.value.config);
+  // With --cache, a file whose text and imports did not change keeps the result of the last run.
+  const facts = useCache ? loaded.value.facts(JSON.stringify(settings.value.config)) : undefined;
+  const previous = facts === undefined ? undefined : parseCache(readJsonFile(rootDir, CACHE_FILE).unwrapOr(Option.none).unwrapOr(undefined));
+  const reused = facts === undefined ? new Map<string, readonly Diagnostic[]>() : stillValid(previous, facts);
+  const toCheck = new Set(files.filter((file) => !reused.has(file)));
+  const fresh = check(loaded.value.provider(useCache ? toCheck : undefined), settings.value.config);
+  const found = [...fresh, ...[...reused.values()].flat()].toSorted(compareDiagnostics);
+  if (facts !== undefined) {
+    const record: Cache = {
+      version: 1,
+      environment: facts.environment,
+      files: Object.fromEntries(files.map((file) => [file, { key: facts.keys[file] ?? '', diagnostics: found.filter((d) => d.file === file) }])),
+    };
+    // A cache that cannot be written costs the next run its speed, not its result.
+    void writeTextFile(rootDir, CACHE_FILE, JSON.stringify(record));
+  }
+  if (timing) {
+    const milliseconds = Math.round(performance.now() - started);
+    io.err(`strict-ts: ${toCheck.size} of ${files.length} files checked, ${reused.size} from the cache, ${milliseconds} ms`);
+  }
+
   if (mode === 'update') {
     const baseline = toBaseline(found);
     const written = writeTextFile(rootDir, settings.value.baseline, serializeBaseline(baseline));
