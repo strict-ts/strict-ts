@@ -144,6 +144,7 @@ is both, `project` is once for the whole project.
 | `freeze-fresh` | errors | all | `Object.freeze`, `seal` and `preventExtensions` are given a value where it is made (a literal, a `new`), so that no name still says it can be changed |
 | `use-once` | ownership | all | A value typed `Once<…>` has one owner: it is used through its members, given away exactly once (to a parameter or a return type that is `Once<…>`), and never lost. Giving it away in a loop, a `try`, a condition inside an expression or a closure is refused |
 | `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
+| `mut-from-readonly` | mutability | safe | What is given where `Mut<…>` is asked for (an argument, an initializer, a returned value) is the giver's to change: not a parameter that does not ask for mutation itself, not a value typed read-only |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |
 
@@ -395,7 +396,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 21 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 22 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -418,8 +419,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   unless the project writes `"assume": ["attached-buffers"]`.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- A value typed read-only can be given a mutable type: TypeScript lets `const m: Mut<{ a: number }> = frozen`
-  compile. A write through `m` then changes what someone holds as read-only, and throws if the object is frozen.
+- A value typed read-only can still reach a mutable type through a property of an object literal or the right side
+  of an assignment: `mut-from-readonly` looks at arguments, initializers and returned values.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.

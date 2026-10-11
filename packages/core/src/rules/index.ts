@@ -2,6 +2,7 @@ import type { Rule } from '../rule.js';
 import { exhaustiveSwitch } from './exhaustive-switch.js';
 import { freezeFresh } from './freeze-fresh.js';
 import { mustUse } from './must-use.js';
+import { mutFromReadonly } from './mut-from-readonly.js';
 import { noAmbient } from './no-ambient.js';
 import { noAny } from './no-any.js';
 import { noCast } from './no-cast.js';
@@ -44,4 +45,5 @@ export const rules: readonly Rule[] = [
   noThrowingOperator,
   useOnce,
   freezeFresh,
+  mutFromReadonly,
 ];

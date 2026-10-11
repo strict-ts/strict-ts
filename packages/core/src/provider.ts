@@ -30,6 +30,10 @@ export interface Type {
   /** What `await` gives for a promise; the type itself otherwise. */
   readonly awaited: Type;
   readonly property: (name: string) => Type | undefined;
+  /** The names of the properties that cannot be written: declared `readonly`, or made so by `Readonly<…>`. */
+  readonly readonlyProperties: readonly string[];
+  /** The names of every property. */
+  readonly propertyNames: readonly string[];
   /** The types of every property. */
   readonly properties: readonly Type[];
   /** The return type of each call signature; empty when the type is not callable. */
@@ -93,4 +97,9 @@ export interface TypeProvider {
    * function for a returned value, the declared type for an initializer. Absent where nothing is expected.
    */
   readonly expectedOf: (node: Node) => Type | undefined;
+  /**
+   * Whether the place of an expression is declared with `Mut<…>`: the parameter it is an argument for, the variable
+   * it initializes, the return type of the function it is returned from.
+   */
+  readonly asksForMutation: (node: Node) => boolean;
 }
