@@ -84,7 +84,8 @@
           "no-throwing-call",
           "no-throwing-operator",
           "use-once",
-          "freeze-fresh"
+          "freeze-fresh",
+          "mut-from-readonly"
         ]
       },
       "uniqueItems": true,

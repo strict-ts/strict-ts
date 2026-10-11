@@ -4,7 +4,7 @@ import { checkFiles as checkEverything, checkSafe as checkSafeEverything, checkU
 
 // Each block below is about one rule, and many of its examples call JSON.parse or fetch as plain code does. What
 // no-throwing-call says of those calls is left out here; its own block, at the end, reads everything.
-const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator' && d.rule !== 'use-once' && d.rule !== 'freeze-fresh');
+const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator' && d.rule !== 'use-once' && d.rule !== 'freeze-fresh' && d.rule !== 'mut-from-readonly');
 const checkFiles = (files: Readonly<Record<string, string>>, project?: Project) => quiet(checkEverything(files, project));
 const checkSafe = (text: string, project?: Project) => quiet(checkSafeEverything(text, project));
 const checkUnsafe = (text: string, project?: Project) => quiet(checkUnsafeEverything(text, project));
@@ -1518,6 +1518,62 @@ describe('freeze-fresh', () => {
         'export const d = Object.freeze(({ n: 1 }));',
         'export const freeze = (n: number): number => n;',
         'export const e = freeze(1);',
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('mut-from-readonly', () => {
+  const prelude = [
+    'import type { Mut } from "@strict-ts/std";',
+    'export interface Order { readonly id: string; readonly total: number }',
+    'export const reset = (order: Mut<{ id: string; total: number }>): void => { order.total = 0; };',
+    'export const sum = (order: Order): number => order.total;',
+  ];
+  const said = (...lines: readonly string[]) =>
+    checkSafeEverything([...prelude, ...lines, ''].join('\n'))
+      .filter((d) => d.rule === 'mut-from-readonly')
+      .map((d) => `${d.start.line - prelude.length} ${d.message}`);
+
+  test('refuses a parameter that does not ask for mutation, handed to a function that does', () => {
+    expect(
+      said(
+        'export const a = (order: { id: string; total: number }): void => reset(order);',
+        'export const b = (box: { readonly order: { id: string; total: number } }): void => reset(box.order);',
+      ),
+    ).toEqual([
+      '1 Parameter `order` is given where `Mut<…>` is asked for, and does not ask for mutation itself.',
+      '2 Parameter `box` is given where `Mut<…>` is asked for, and does not ask for mutation itself.',
+    ]);
+  });
+
+  test('refuses a value typed read-only where a mutable one is asked for', () => {
+    expect(
+      said(
+        'declare const held: Order;',
+        'export const a = (): void => reset(held);',
+        'export const b: Mut<{ id: string; total: number }> = held;',
+        'export const c = (): Mut<{ total: number }> => held;',
+        'declare const frozen: Readonly<{ id: string; total: number }>;',
+        'export const d = (): void => reset(frozen);',
+      ),
+    ).toEqual([
+      '2 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '3 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '4 A value typed read-only (`total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '6 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+    ]);
+  });
+
+  test('accepts what is the giver\'s to change, and what nobody asked to change', () => {
+    expect(
+      said(
+        'export const a = (order: Mut<{ id: string; total: number }>): void => reset(order);',
+        'export const b = (): void => reset({ id: "a", total: 1 });',
+        'export const c = (): void => { const mine: Mut<{ id: string; total: number }> = { id: "a", total: 1 }; reset(mine); };',
+        'export const d = (order: Order): number => sum(order);',
+        'export const e = (list: Mut<number[]>): void => { list.push(1); };',
+        'export const f = (): void => { const list: Mut<number[]> = []; e(list); };',
       ),
     ).toEqual([]);
   });

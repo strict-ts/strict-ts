@@ -1,6 +1,6 @@
 // Each block triggers one rule on purpose. A trailing `// expect: <rule>` names what the line must be refused for.
 import { readFileSync } from "node:fs"; // expect: no-external-import
-import { err, ok, type Result } from "@strict-ts/std";
+import { err, type Mut, ok, type Result } from "@strict-ts/std";
 
 type Status = "draft" | "sent" | "paid";
 
@@ -83,3 +83,8 @@ export function leak(): number {
 
 const shared = [1, 2];
 export const sealed = Object.freeze(shared); // expect: freeze-fresh
+
+const bump = (counter: Mut<{ n: number }>): void => {
+  counter.n += 1;
+};
+export const touch = (counter: { readonly n: number }): void => bump(counter); // expect: mut-from-readonly

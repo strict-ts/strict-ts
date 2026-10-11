@@ -77,6 +77,21 @@ export function createTypeScript6Provider(
     return [fromLibrary && name !== undefined && /^[A-Z]\w*$/.test(name) ? name : 'object'];
   };
 
+  const isMut = (written: ts.TypeNode | undefined): boolean =>
+    written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
+
+  /** Whether a property cannot be written: declared `readonly`, or made so by a mapped type (`Readonly<T>`). */
+  const isReadonlySymbol = (symbol: ts.Symbol): boolean => {
+    const declared = (symbol.getDeclarations() ?? []).some(
+      (declaration) => api.canHaveModifiers(declaration) && (api.getModifiers(declaration) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.ReadonlyKeyword),
+    );
+    if (declared) return true;
+    // A property a mapped type made carries its `readonly` in a flag the compiler keeps on the symbol, and gives no
+    // function to read. Read where it is; a test says what happens the day it moves.
+    const READONLY = 8;
+    return 'links' in symbol && typeof symbol.links === 'object' && symbol.links !== null && 'checkFlags' in symbol.links && typeof symbol.links.checkFlags === 'number' && (symbol.links.checkFlags & READONLY) !== 0;
+  };
+
   const wrapType = (type: ts.Type): Type => {
     const symbolName = type.getSymbol()?.getName();
     const isPromise = symbolName === 'Promise' || symbolName === 'PromiseLike';
@@ -112,6 +127,12 @@ export function createTypeScript6Provider(
       },
       get properties() {
         return type.getProperties().map((symbol) => wrapType(checker.getTypeOfSymbol(symbol)));
+      },
+      get propertyNames() {
+        return type.getProperties().map((symbol) => symbol.getName());
+      },
+      get readonlyProperties() {
+        return type.getProperties().filter(isReadonlySymbol).map((symbol) => symbol.getName());
       },
       get returns() {
         return type.getCallSignatures().map((signature) => wrapType(signature.getReturnType()));
@@ -402,6 +423,8 @@ export function createTypeScript6Provider(
     isLiteral: false,
     isBooleanLiteral: false,
     isOnce: false,
+    readonlyProperties: [],
+    propertyNames: [],
     isPlain: false,
     kinds: ['object'],
     isPromise: false,
@@ -435,6 +458,28 @@ export function createTypeScript6Provider(
       if (source === undefined || !api.isExpression(source)) return undefined;
       const expected = checker.getContextualType(source);
       return expected === undefined ? undefined : wrapType(expected);
+    },
+    asksForMutation: (node) => {
+      const source = origin.get(node);
+      if (source === undefined || !api.isExpression(source)) return false;
+      let place: ts.Node = source;
+      while (api.isParenthesizedExpression(place.parent)) place = place.parent;
+      const holder = place.parent;
+      if (api.isVariableDeclaration(holder)) return holder.initializer === place && isMut(holder.type);
+      if (api.isReturnStatement(holder) || (api.isArrowFunction(holder) && holder.body === place)) {
+        let owner: ts.Node | undefined = holder;
+        while (owner !== undefined && !api.isFunctionLike(owner)) owner = owner.parent;
+        return owner !== undefined && api.isFunctionLike(owner) && isMut(owner.type);
+      }
+      if (api.isCallExpression(holder) || api.isNewExpression(holder)) {
+        const index = (holder.arguments ?? []).findIndex((argument) => argument === place);
+        if (index === -1) return false;
+        const parameters = checker.getResolvedSignature(holder)?.getParameters() ?? [];
+        // Past the last one, an argument goes to the rest of them.
+        const declaration = (parameters[index] ?? parameters.at(-1))?.valueDeclaration;
+        return declaration !== undefined && api.isParameter(declaration) && isMut(declaration.type);
+      }
+      return false;
     },
     exportsOf: (file) => {
       const sourceFile = sources.get(file);

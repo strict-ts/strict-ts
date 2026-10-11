@@ -101,6 +101,7 @@ describe('one violation per rule', () => {
       'exhaustive-switch',
       'freeze-fresh',
       'must-use',
+      'mut-from-readonly',
       'no-ambient',
       'no-any',
       'no-cast',
