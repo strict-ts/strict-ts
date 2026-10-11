@@ -19,7 +19,7 @@ brings the other four without changing language: the code stays standard TypeScr
 | Package | Role | State |
 |---|---|---|
 | [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node | 11 rules behind `TypeProvider`, TypeScript 6 provider |
-| [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | text and JSON output, `strict-ts.json`, `--update-baseline` |
+| [`@strict-ts/cli`](packages/cli) | The CI gate: baseline, JSON and SARIF output, incremental cache | text, JSON and SARIF output, `strict-ts.json`, baseline |
 | [`@strict-ts/std`](packages/std) | `Result`, `Option`, schemas, `panic`, `readonly`-by-default types | `Result`, `Option`, schemas and `panic`; see [`examples/invoice`](examples/invoice) |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on the five scenarios; not published | builds to one page |
 | `@strict-ts/language-service` | Errors underlined in the editor | phase 1 |
@@ -44,7 +44,8 @@ node packages/cli/dist/main.js -p examples/invoice/strict     # exit code 0, not
 node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 9 refusals
 ```
 
-`-p` takes a `tsconfig.json` or its directory; `--format json` prints one JSON document. An optional `strict-ts.json`
+`-p` takes a `tsconfig.json` or its directory; `--format json` prints one JSON document, `--format sarif` a SARIF
+2.1.0 log for code-scanning views, and `--output <file>` writes the report to a file. An optional `strict-ts.json`
 beside `tsconfig.json` sets `unsafeDirs`, `allowedImports`, `rules` and `baseline`. Exit code 2 means the project
 could not be checked.
 
