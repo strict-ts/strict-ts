@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392 96" role="img" aria-label="strict-ts">
+  <title>strict-ts</title>
+  <!-- One mid-tone for "strict", readable on a light and on a dark page: the file cannot know which it is on. -->
+  <style>
+    .ink { fill: #5b6774; }
+    .oxide { fill: #b0441a; }
+    text { font: 800 64px "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif; letter-spacing: -1.5px; }
+  </style>
+  <rect width="96" height="96" rx="20" class="oxide"/>
+  <g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M33 23H21v50h12"/>
+    <path d="M63 23h12v50H63"/>
+    <path d="M35 50l9 10 17-23"/>
+  </g>
+  <text x="120" y="70"><tspan class="ink">strict</tspan><tspan class="oxide">-ts</tspan></text>
+</svg>

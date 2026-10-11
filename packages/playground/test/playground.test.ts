@@ -130,7 +130,9 @@ describe('the built page', () => {
   test('loads nothing but its own files', () => {
     const html = readFileSync(`${root}dist/index.html`, 'utf8');
     const loaded = [...html.matchAll(/<(?:script|link|img|iframe)\b[^>]*?\b(?:src|href)="([^"]*)"/g)].map((match) => match[1]);
-    expect(loaded).toEqual(['typescript.js']);
+    // The icon is the project's mark, inlined: a data URI is not a request.
+    expect(loaded.filter((address) => !address?.startsWith('data:'))).toEqual(['typescript.js']);
+    expect(loaded.some((address) => address?.startsWith('data:image/svg+xml,'))).toBe(true);
     const style = /<style>(.*?)<\/style>/s.exec(html)?.[1] ?? '';
     expect(style.length).toBeGreaterThan(1000);
     expect(style).not.toMatch(/@import|url\(/);
@@ -140,6 +142,8 @@ describe('the built page', () => {
     const html = readFileSync(`${root}dist/index.html`, 'utf8');
     expect(html).not.toContain('<!--DATA-->');
     expect(html).not.toContain('<!--APP-->');
+    expect(html).not.toContain('<!--MARK-->');
+    expect(html).not.toContain('<!--FAVICON-->');
     const embedded = /<script id="st-data" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
     expect(JSON.parse(embedded).scenarios).toHaveLength(5);
     expect(html).toContain('no-external-import');

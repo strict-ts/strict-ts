@@ -26,7 +26,11 @@ const script = bundle.outputFiles[0]?.text ?? '';
 
 // Inside a script element, only a closing tag or a comment opener can end the content early.
 const json = JSON.stringify(data).replaceAll('<', '\\u003c');
+// The project's mark, from the one file that holds it: inlined in the header and as the page's icon.
+const mark = readFileSync(`${root}../../assets/mark.svg`, 'utf8').trim();
 const html = readFileSync(`${root}src/index.html`, 'utf8')
+  .replace('<!--FAVICON-->', () => `data:image/svg+xml,${encodeURIComponent(mark)}`)
+  .replace('<!--MARK-->', () => mark)
   .replace('<!--DATA-->', () => json)
   .replace('<!--APP-->', () => script.replaceAll('</script', '<\\/script'));
 
