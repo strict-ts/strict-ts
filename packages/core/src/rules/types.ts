@@ -12,3 +12,10 @@ export const isOption = (type: Type): boolean => discriminatedOn(type, 'some');
 /** Whether a Result or an Option carries `any` in one of its properties. */
 export const carriesAny = (type: Type): boolean =>
   type.members.some((member) => member.properties.some((property) => property.isAny));
+
+/** Whether one member of the type is a Result or an Option: `r | undefined` still carries what must be used. */
+export const mayBeResult = (type: Type): boolean =>
+  type.members.some((member) => member.property('ok')?.isBooleanLiteral === true);
+export const mayBeOption = (type: Type): boolean =>
+  type.members.some((member) => member.property('some')?.isBooleanLiteral === true);
+export const mayBePromise = (type: Type): boolean => type.members.some((member) => member.isPromise);
