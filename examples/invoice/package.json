@@ -1,0 +1,11 @@
+{
+  "name": "@strict-ts/example-invoice",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The invoice challenge: classic TypeScript against its conforming version written with @strict-ts/std.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@strict-ts/std": "workspace:*"
+  }
+}
