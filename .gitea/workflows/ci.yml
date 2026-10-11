@@ -31,3 +31,6 @@ jobs:
       # What the rules refuse on a fixed set of projects must not move without a word.
       - name: Corpus
         run: pnpm corpus
+      # The same tests on instrumented code: what the probes see must not contradict the effects ledger.
+      - name: Probes
+        run: pnpm probe

@@ -33,6 +33,10 @@
       "path": "packages/oxlint-plugin"
     },
     {
+      "name": "packages/probe",
+      "path": "packages/probe"
+    },
+    {
       "name": "examples/invoice/classic",
       "path": "examples/invoice/classic"
     },

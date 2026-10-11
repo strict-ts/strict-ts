@@ -1,0 +1,31 @@
+{
+  "name": "@strict-ts/probe",
+  "version": "0.0.0",
+  "description": "Runs a project's tests with probes injected at compile time, and reports what contradicts what strict-ts took on trust.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/unsafe/vite.d.ts",
+      "default": "./dist/unsafe/vite.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "strict-ts-probe": "./dist/main.js"
+  },
+  "dependencies": {
+    "@strict-ts/cli": "workspace:*",
+    "@strict-ts/core": "workspace:*",
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2"
+  }
+}

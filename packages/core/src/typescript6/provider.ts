@@ -3,7 +3,7 @@
 import type ts from '@typescript/typescript6';
 import { type Diagnostic, diagnosticAt, locator, type Position } from '../diagnostic.js';
 import type { Mut } from '../mut.js';
-import type { ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
+import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
 import type { Node } from '../syntax.js';
 
 export interface TypeScript6Options {
@@ -79,6 +79,8 @@ export function createTypeScript6Provider(
     !program.isSourceFileFromExternalLibrary(sourceFile) &&
     !sourceFile.fileName.includes('/node_modules/') &&
     sourceFile.fileName.startsWith(root);
+
+  const readCallee = calleeReader(api, program, options.rootDir, options.packageNameOf);
 
   const isUnit = (node: ts.Node): boolean =>
     (node.kind >= api.SyntaxKind.FirstStatement && node.kind <= api.SyntaxKind.LastStatement) ||
@@ -340,29 +342,7 @@ export function createTypeScript6Provider(
     },
     calleeOf: (node) => {
       const source = origin.get(node);
-      if (source === undefined || !(api.isCallExpression(source) || api.isNewExpression(source))) return undefined;
-      const declaration = checker.getResolvedSignature(source)?.declaration;
-      if (declaration === undefined || api.isJSDocSignature(declaration)) return undefined;
-      const constructs = api.isConstructSignatureDeclaration(declaration) || api.isConstructorDeclaration(declaration);
-      const member = constructs ? 'new' : (declaration.name?.getText() ?? '');
-      // `var URL: { new (…): URL }` and `interface Date { toISOString(): string }` both give `Owner.member`.
-      const holder = api.isTypeLiteralNode(declaration.parent) ? declaration.parent.parent : declaration.parent;
-      // A function of a namespace (`Reflect.get`) is named by it too; one of a module declared by its path is not.
-      const named = api.isModuleBlock(holder) && api.isIdentifier(holder.parent.name) ? holder.parent : holder;
-      const owner =
-        api.isInterfaceDeclaration(named) || api.isClassDeclaration(named) || api.isVariableDeclaration(named) || api.isModuleDeclaration(named)
-          ? named.name?.getText()
-          : undefined;
-      const file = declaration.getSourceFile();
-      const fromPath = /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file.fileName)?.[1];
-      return {
-        name: owner === undefined ? member : `${owner}.${member}`,
-        origin: isChecked(file)
-          ? { kind: 'project' }
-          : program.isSourceFileDefaultLibrary(file)
-            ? { kind: 'library' }
-            : { kind: 'package', package: options.packageNameOf?.(file.fileName) ?? fromPath },
-      };
+      return source !== undefined && (api.isCallExpression(source) || api.isNewExpression(source)) ? readCallee(source) : undefined;
     },
     exportsOf: (file) => {
       const sourceFile = sources.get(file);
@@ -403,4 +383,42 @@ export function checkedFileNames(program: ts.Program, rootDir: string): readonly
         sourceFile.fileName.startsWith(root),
     )
     .map((sourceFile) => sourceFile.fileName);
+}
+
+/**
+ * Reads where the function a call or a `new` reaches is declared. For hosts that work on the compiler's own nodes
+ * (an instrumenter), with the same answer the rules get.
+ */
+export function calleeReader(
+  api: typeof ts,
+  program: ts.Program,
+  rootDir: string,
+  packageNameOf?: (fileName: string) => string | undefined,
+): (call: ts.CallExpression | ts.NewExpression) => Callee | undefined {
+  const checker = program.getTypeChecker();
+  const checked = new Set(checkedFileNames(program, rootDir));
+  return (call) => {
+    const declaration = checker.getResolvedSignature(call)?.declaration;
+    if (declaration === undefined || api.isJSDocSignature(declaration)) return undefined;
+    const constructs = api.isConstructSignatureDeclaration(declaration) || api.isConstructorDeclaration(declaration);
+    const member = constructs ? 'new' : (declaration.name?.getText() ?? '');
+    // `var URL: { new (…): URL }` and `interface Date { toISOString(): string }` both give `Owner.member`.
+    const holder = api.isTypeLiteralNode(declaration.parent) ? declaration.parent.parent : declaration.parent;
+    // A function of a namespace (`Reflect.get`) is named by it too; one of a module declared by its path is not.
+    const named = api.isModuleBlock(holder) && api.isIdentifier(holder.parent.name) ? holder.parent : holder;
+    const owner =
+      api.isInterfaceDeclaration(named) || api.isClassDeclaration(named) || api.isVariableDeclaration(named) || api.isModuleDeclaration(named)
+        ? named.name?.getText()
+        : undefined;
+    const file = declaration.getSourceFile();
+    const fromPath = /.*\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file.fileName)?.[1];
+    return {
+      name: owner === undefined ? member : `${owner}.${member}`,
+      origin: checked.has(file.fileName)
+        ? { kind: 'project' }
+        : program.isSourceFileDefaultLibrary(file)
+          ? { kind: 'library' }
+          : { kind: 'package', package: packageNameOf?.(file.fileName) ?? fromPath },
+    };
+  };
 }

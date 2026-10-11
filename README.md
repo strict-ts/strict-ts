@@ -234,6 +234,37 @@ What the baseline allows is shown as a warning, what goes beyond it as an error.
 TypeScript 6: the editor must use the workspace's TypeScript, not a native TypeScript 7 server. It is tested against
 the language service API, and has not been tried in an editor yet.
 
+## Checking what strict-ts took on trust: the probes
+
+The gate proves what it can and trusts the rest: that a function the effects ledger calls safe does not throw, that
+what an unsafe directory exports catches everything, that a cast with its `// SAFETY:` reason is true. `@strict-ts/probe`
+checks those at run time. It rewrites the code as it is compiled, puts a probe at each of those places, and the tests
+run on that code.
+
+```ts
+// vitest.config.ts
+import { strictTsProbe } from '@strict-ts/probe/vite';
+
+const probes = strictTsProbe();
+export default defineConfig({ plugins: probes.ok ? [probes.value] : [] });
+```
+
+```
+$ strict-ts-probe report
+The ledger says these do not throw, and they threw:
+  src/pricing.ts:8:61 `ReadonlyArray.join` threw TypeError: Cannot convert a Symbol value to a string
+An exception left an unsafe directory:
+  src/unsafe/api.ts:7:14 `parseUser` let through SyntaxError: Expected property name or '}' in JSON
+A cast was not true:
+  src/unsafe/api.ts:9:16 as User: .id: string expected, number found
+
+3 contradictions; 6 library functions ran 7 times without throwing
+```
+
+A value declared read-only where it is made is also frozen, so that changing it through any name throws in the test.
+It only sees what the tests run: it finds what is wrong, it does not prove that nothing is. `pnpm probe` runs it on
+this repo.
+
 ## The standard library
 
 `@strict-ts/std` is what conforming code is written with. It is a runtime library and does not depend on the checker.
@@ -264,6 +295,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
+| [`@strict-ts/probe`](packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page |
 | [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
 | `@strict-ts/flow` | Flow analysis: single use, mutations across `await` | not started |
@@ -284,7 +316,7 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 ## Working on it
 
 ```sh
-pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus
+pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus && pnpm probe
 ```
 
 `pnpm corpus` runs the gate on a fixed set of projects (the packages, the examples, the fixtures) and compares what
