@@ -40,3 +40,11 @@ test('no source uses a Node global', () => {
   const users = sources.filter(({ text }) => nodeGlobal.test(text.replace(comments, '')));
   expect(users.map(({ name }) => name)).toEqual([]);
 });
+
+test('the README of the repo documents every rule of the catalogue', async () => {
+  const { rules } = await import('../src/index.js');
+  const readme = readFileSync(new URL('../../../README.md', import.meta.url), 'utf8');
+  const documented = rules.map((rule) => rule.name).filter((name) => readme.includes(`| \`${name}\` |`));
+  expect(documented).toEqual(rules.map((rule) => rule.name));
+  expect(readme).toContain(`${rules.length} rules`);
+});

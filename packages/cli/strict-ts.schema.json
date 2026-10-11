@@ -47,7 +47,8 @@
           "strict-compiler-options",
           "no-type-predicate",
           "no-ambient",
-          "no-param-mutation"
+          "no-param-mutation",
+          "readonly-types"
         ]
       },
       "uniqueItems": true,

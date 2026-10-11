@@ -20,7 +20,7 @@ abstract class ResultMethods {
   unwrapOr<T, E, U>(this: Result<T, E>, fallback: U): T | U {
     return this.ok ? this.value : fallback;
   }
-  match<T, E, A, B>(this: Result<T, E>, arms: { ok: (value: T) => A; err: (error: E) => B }): A | B {
+  match<T, E, A, B>(this: Result<T, E>, arms: { readonly ok: (value: T) => A; readonly err: (error: E) => B }): A | B {
     return this.ok ? arms.ok(this.value) : arms.err(this.error);
   }
 }
@@ -111,6 +111,6 @@ export const map = <T, E, U>(r: Result<T, E>, f: (value: T) => U): Result<U, E> 
 export const mapErr = <T, E, F>(r: Result<T, E>, f: (error: E) => F): Result<T, F> => r.mapErr(f);
 export const andThen = <T, E, U, F>(r: Result<T, E>, f: (value: T) => Result<U, F>): Result<U, E | F> => r.andThen(f);
 export const unwrapOr = <T, E>(r: Result<T, E>, fallback: T): T => r.unwrapOr(fallback);
-export const match = <T, E, U>(r: Result<T, E>, arms: { ok: (value: T) => U; err: (error: E) => U }): U => r.match(arms);
+export const match = <T, E, U>(r: Result<T, E>, arms: { readonly ok: (value: T) => U; readonly err: (error: E) => U }): U => r.match(arms);
 export const attemptAsync = <T, E>(fn: () => Promise<T>, onError: (cause: unknown) => E): Promise<Result<T, E>> =>
   attempt(fn, onError);

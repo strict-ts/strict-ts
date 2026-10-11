@@ -2,6 +2,7 @@
 // to the rules. No rule logic lives here.
 import { check, type Diagnostic, requiredCompilerOptions, rules } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
+import type { Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 
 /** What a scenario is compiled against: the compiler's libraries, the standard library's sources, the ambient globals. */
@@ -152,9 +153,9 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
 
   const classify = (text: string): readonly Token[] => {
     const scanner = api.createScanner(api.ScriptTarget.Latest, false, api.LanguageVariant.Standard, text);
-    const tokens: Token[] = [];
+    const tokens: Mut<Token[]> = [];
     // The brace depth at which each open template literal resumes.
-    const templates: number[] = [];
+    const templates: Mut<number[]> = [];
     let depth = 0;
     let kind = scanner.scan();
     while (kind !== api.SyntaxKind.EndOfFileToken) {

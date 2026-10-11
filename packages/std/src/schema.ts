@@ -6,6 +6,7 @@
  *   type User = s.Infer<typeof User>;
  *   User.parse(json) // Result<User, SchemaError>
  */
+import type { Mut } from './mut.js';
 import { Err, Ok, type Result } from './result.js';
 
 export type SchemaError = { readonly path: string; readonly expected: string };
@@ -45,12 +46,12 @@ export const date: Schema<Date> = {
   },
 };
 
-export function array<T>(item: Schema<T>): Schema<T[]> {
+export function array<T>(item: Schema<T>): Schema<readonly T[]> {
   return {
     parse: (input) => {
       if (!Array.isArray(input)) return fail('array');
-      const out: T[] = [];
-      for (const [i, raw] of (input as unknown[]).entries()) {
+      const out: Mut<T[]> = [];
+      for (const [i, raw] of (input as readonly unknown[]).entries()) {
         const r = item.parse(raw);
         if (!r.ok) return new Err({ path: `[${i}]${r.error.path}`, expected: r.error.expected });
         out.push(r.value);
@@ -64,20 +65,20 @@ export function optional<T>(inner: Schema<T>): OptionalSchema<T> {
   return { optional: true, parse: (input) => (input === undefined ? new Ok(undefined) : inner.parse(input)) };
 }
 
-type Shape = Record<string, Schema<unknown>>;
+type Shape = Readonly<Record<string, Schema<unknown>>>;
 type Prettify<T> = { [K in keyof T]: T[K] } & {};
 type RequiredKeys<S extends Shape> = { [K in keyof S]: S[K] extends OptionalSchema<unknown> ? never : K }[keyof S];
 type OptionalKeys<S extends Shape> = Exclude<keyof S, RequiredKeys<S>>;
 export type ObjectOf<S extends Shape> = Prettify<
-  { [K in RequiredKeys<S>]: Infer<S[K]> } & { [K in OptionalKeys<S>]?: Exclude<Infer<S[K]>, undefined> }
+  { readonly [K in RequiredKeys<S>]: Infer<S[K]> } & { readonly [K in OptionalKeys<S>]?: Exclude<Infer<S[K]>, undefined> }
 >;
 
 export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
   return {
     parse: (input) => {
       if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
-      const record = input as Record<string, unknown>;
-      const out: Record<string, unknown> = {};
+      const record = input as Readonly<Record<string, unknown>>;
+      const out: Mut<Record<string, unknown>> = {};
       for (const [key, schema] of Object.entries(shape)) {
         const r = schema.parse(record[key]);
         if (!r.ok) return new Err({ path: `.${key}${r.error.path}`, expected: r.error.expected });

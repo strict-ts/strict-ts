@@ -1,26 +1,28 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
+import type { Mut } from '@strict-ts/std';
 import type { Data, Scenario } from './data.js';
 import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
 import { compiler, pageData, parseJson } from './unsafe/page.js';
 
-interface Workspace {
+/** What the visitor edits: the one piece of the page that is meant to change. */
+type Workspace = Mut<{
   files: Record<string, string>;
   active: string;
   flags: Record<string, boolean>;
   unsafeDirs: string;
   allowedImports: string;
-  disabled: string[];
-}
+  disabled: readonly string[];
+}>;
 
 type Tab = 'problems' | 'rules' | 'config';
 
-interface State {
+type State = Mut<{
   scenario: string;
   workspaces: Record<string, Workspace>;
   tab: Tab;
   filter: string | undefined;
-}
+}>;
 
 const DATA: Data = pageData().unwrapOr({ tsVersion: '', scenarios: [], env: { libs: {}, std: {}, ambient: '' } });
 const COMPILER = compiler().unwrapOr(undefined);
@@ -31,7 +33,7 @@ const STD_PREFIX = `${STD_NAME}/`;
 const $ = (id: string): HTMLElement => document.getElementById(id) ?? document.body;
 const esc = (text: string): string =>
   text.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
-const split = (list: string): string[] =>
+const split = (list: string): readonly string[] =>
   list
     .split(',')
     .map((item) => item.trim())
@@ -95,7 +97,7 @@ const isUnsafePath = (path: string): boolean =>
   !isStd(path) && split(workspace().unsafeDirs).some((dir) => path.startsWith(`${dir.replace(/^\.?\/+|\/+$/g, '')}/`));
 const diagnostics = (): readonly Diagnostic[] => outcome?.diagnostics ?? [];
 const diagnosticsOf = (path: string): readonly Diagnostic[] => diagnostics().filter((d) => d.file === path);
-const countsByRule = (): Map<string, number> => {
+const countsByRule = (): ReadonlyMap<string, number> => {
   const counts = new Map<string, number>();
   for (const d of diagnostics()) counts.set(d.rule, (counts.get(d.rule) ?? 0) + 1);
   return counts;
@@ -195,7 +197,7 @@ function renderFiles(): void {
 }
 
 // ── Rendering: editor ────────────────────────────────
-function lineStarts(text: string): number[] {
+function lineStarts(text: string): readonly number[] {
   const starts = [0];
   for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
   return starts;

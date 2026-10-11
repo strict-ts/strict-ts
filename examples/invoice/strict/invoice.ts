@@ -13,7 +13,7 @@ const Invoice = s.object({
 type Line = s.Infer<typeof Line>;
 export type Invoice = s.Infer<typeof Invoice>;
 
-export const createInvoice = (customer: string, lines: Line[]) =>
+export const createInvoice = (customer: string, lines: readonly Line[]) =>
   lines.length === 0 ? err("no-lines") : newId().map((id): Invoice => ({ id, customer, lines, status: "draft" }));
 
 export const total = (invoice: Invoice) => invoice.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
@@ -22,13 +22,13 @@ export const parseInvoice = (json: string) => parseJson(json).andThen(Invoice.pa
 
 export const firstLine = (invoice: Invoice) => Option.from(invoice.lines[0]);
 
-const labels = { draft: "Draft", sent: "Sent", paid: "Paid", cancelled: "Cancelled" } satisfies Record<Invoice["status"], string>;
+const labels = { draft: "Draft", sent: "Sent", paid: "Paid", cancelled: "Cancelled" } satisfies Readonly<Record<Invoice["status"], string>>;
 export const statusLabel = (status: Invoice["status"]) => labels[status];
 
 export async function sendReminder(invoice: Invoice): Promise<void> {
   console.log(`Reminder sent to ${invoice.customer} (${total(invoice)} €)`);
 }
 
-export async function remindUnpaid(invoices: Invoice[]): Promise<void> {
+export async function remindUnpaid(invoices: readonly Invoice[]): Promise<void> {
   for (const invoice of invoices) if (invoice.status === "sent") await sendReminder(invoice);
 }

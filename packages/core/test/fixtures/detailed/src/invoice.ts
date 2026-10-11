@@ -1,5 +1,5 @@
 // Detailed solution (v1 style): validation by hand, free functions, errors as objects.
-import { andThen, err, fromUndefined, map, mapErr, none, ok, some, type Option, type Result } from "@strict-ts/std";
+import { andThen, err, fromUndefined, map, mapErr, type Mut, none, ok, some, type Option, type Result } from "@strict-ts/std";
 import { newId, parseJson } from "./unsafe/system.js";
 
 type Status = "draft" | "sent" | "paid" | "cancelled";
@@ -49,7 +49,7 @@ function parseLine(raw: unknown): Result<Line, InvoiceError> {
 function parseLines(raw: unknown): Result<readonly Line[], InvoiceError> {
   if (!Array.isArray(raw)) return invalid("lines: array expected");
   const items: readonly unknown[] = raw;
-  const lines: Line[] = [];
+  const lines: Mut<Line[]> = [];
   for (const item of items) {
     const line = parseLine(item);
     if (!line.ok) return line;

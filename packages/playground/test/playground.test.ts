@@ -51,8 +51,8 @@ describe('the five scenarios, checked as the page checks them', () => {
     }
   });
 
-  test('the challenge is refused nine times, the scenario of violations by every rule', () => {
-    expect(playground.check(request('challenge')).diagnostics).toHaveLength(9);
+  test('the challenge is refused twenty times, the scenario of violations by every rule', () => {
+    expect(playground.check(request('challenge')).diagnostics).toHaveLength(20);
     const triggered = new Set(playground.check(request('violations')).diagnostics.map((d) => d.rule));
     expect([...triggered].toSorted()).toEqual(rules.map((rule) => rule.name).toSorted());
   });
@@ -72,7 +72,7 @@ describe('the settings of the page reach the rules', () => {
   test('a disabled rule reports nothing', () => {
     const enabledRules = rules.map((rule) => rule.name).filter((name) => name !== 'no-null');
     const found = playground.check(request('challenge', { enabledRules })).diagnostics;
-    expect(found).toHaveLength(7);
+    expect(found).toHaveLength(18);
     expect(found.some((d) => d.rule === 'no-null')).toBe(false);
   });
 
@@ -107,8 +107,8 @@ describe('the sources', () => {
 
   test('hold no rule: the rules come from an import of @strict-ts/core', () => {
     expect(src.toSorted()).toEqual(['app.ts', 'data.ts', 'engine.ts']);
-    expect(imports('engine.ts')).toEqual(['@strict-ts/core', '@strict-ts/core/typescript6', '@typescript/typescript6']);
-    expect(imports('app.ts')).toEqual(['@strict-ts/core', './data.js', './engine.js', './unsafe/page.js']);
+    expect(imports('engine.ts')).toEqual(['@strict-ts/core', '@strict-ts/core/typescript6', '@strict-ts/std', '@typescript/typescript6']);
+    expect(imports('app.ts')).toEqual(['@strict-ts/core', '@strict-ts/std', './data.js', './engine.js', './unsafe/page.js']);
     expect(playground.rules).toBe(rules);
     for (const name of src) {
       const text = readFileSync(`${root}src/${name}`, 'utf8');
