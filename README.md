@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="strict-ts" width="320"></p>
+
 # strict-ts
 
 Make TypeScript and JavaScript as safe as Rust. A program accepted by strict-ts must not be able to fail for a reason
