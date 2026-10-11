@@ -208,6 +208,27 @@ describe('must-use', () => {
     expect(checkSafe(code)).toEqual([]);
   });
 
+  test('refuses a value that is only sometimes a Promise, a Result or an Option', () => {
+    const code = body(
+      '  const maybe = [{ save }][1];',
+      '  maybe?.save();',
+      '  divide(1, 2).ok && save();',
+      '  divide(1, 2).ok ? divide(1, 0) : undefined;',
+      '  first([]).some || first([1]);',
+    );
+    expect(checkSafe(code).map((d) => `${d.start.line} ${d.message}`)).toEqual([
+      '7 Promise ignored (neither awaited nor handled).',
+      '8 Promise ignored (neither awaited nor handled).',
+      '9 Result ignored: its possible error is lost.',
+      '10 Option ignored.',
+    ]);
+  });
+
+  test('accepts an assignment: the value is kept', () => {
+    const code = body('  let half;', '  half = divide(1, 2);', '  let pending;', '  pending = save();', '  console.log(half.ok, await pending);');
+    expect(checkSafe(code)).toEqual([]);
+  });
+
   test('applies inside unsafe/ too', () => {
     const code = [
       'import { ok } from "@strict-ts/std";',
@@ -286,6 +307,18 @@ describe('no-ts-directive', () => {
     expect(refusals(found)).toEqual(['no-ts-directive@1', 'no-ts-directive@3']);
     expect(found.map((d) => d.message)).toEqual(['@ts-ignore is forbidden.', '@ts-expect-error is forbidden.']);
     expect(refusals(checkSafe('// @ts-nocheck\nexport const c: number = "x";\n'))).toEqual(['no-ts-directive@1']);
+  });
+
+  test('refuses the block-comment forms the compiler also reads', () => {
+    const hidden = (comment: string) => checkSafe(`${comment}\nexport const a: number = "x";\n`);
+    expect(refusals(hidden('/** @ts-ignore */'))).toEqual(['no-ts-directive@1']);
+    expect(refusals(hidden('/*\n * @ts-ignore */'))).toEqual(['no-ts-directive@2']);
+    expect(refusals(hidden('/* why\n   @ts-expect-error */'))).toEqual(['no-ts-directive@2']);
+    expect(refusals(hidden('/// @ts-ignore'))).toEqual(['no-ts-directive@1']);
+  });
+
+  test('accepts prose that names a directive', () => {
+    expect(checkSafe('// we never write @ts-ignore here\nexport const a = 1;\n')).toEqual([]);
   });
 
   test('is refused inside unsafe/ too', () => {

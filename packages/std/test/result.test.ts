@@ -100,6 +100,31 @@ describe('Result.gen', () => {
     await expect(run('3')).resolves.toEqual(err('odd'));
   });
 
+  test('leaving on an Err still runs the finally blocks', async () => {
+    const closed: string[] = [];
+    const sync = Result.gen(function* () {
+      try {
+        yield* parse('x');
+        return ok(1);
+      } finally {
+        closed.push('sync');
+      }
+    });
+    const later = Result.gen(async function* () {
+      try {
+        yield* parse('x');
+        return ok(1);
+      } finally {
+        await Promise.resolve();
+        closed.push('async');
+      }
+    });
+    expect(sync).toEqual(err('not-a-number'));
+    expect(closed).toEqual(['sync']);
+    await expect(later).resolves.toEqual(err('not-a-number'));
+    expect(closed).toEqual(['sync', 'async']);
+  });
+
   test('an Err resumed by hand throws', () => {
     const it = err('boom')[Symbol.iterator]();
     it.next();
