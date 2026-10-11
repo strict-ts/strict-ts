@@ -2,7 +2,8 @@
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
-import { type Config, isUnsafe } from '@strict-ts/core';
+import { check, type Config, isUnsafe } from '@strict-ts/core';
+import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
 import { attempt, err, type Mut, none, ok, type Option, type Result, some, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { blamedFixes } from '../blame.js';
@@ -16,7 +17,7 @@ export const FIXABLE = ['readonly-types', 'no-type-predicate'] as const;
 export interface Outcome {
   /** The fixes kept, with the file they are in (relative to the project) and their place there. */
   readonly applied: readonly Place[];
-  /** The fixes dropped because the project no longer compiled with them. */
+  /** The fixes dropped because the project no longer compiled with them, or was refused for something new. */
   readonly left: readonly Place[];
   /** The files rewritten, relative to the project. Empty in a dry run. */
   readonly written: readonly string[];
@@ -41,7 +42,7 @@ function readJson(path: string): Result<Option<unknown>, string> {
 
 /**
  * Finds the fixes of `rules` in the safe files of a project and keeps those under which the compiler reports no
- * more errors than before. Writes the files unless `dryRun`.
+ * more errors than before, and the gate refuses nothing it did not refuse. Writes the files unless `dryRun`.
  */
 export function fixProject(cwd: string, project: string | undefined, rules: readonly string[], dryRun: boolean): Result<Outcome, string> {
   const outcome = attempt((): Result<Outcome, string> => {
@@ -97,6 +98,14 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     const before = errorsBefore.length;
     const known = new Set(errorsBefore.map(said));
 
+    // What the gate refuses, by place and rule. A fix must add nothing to it: one that compiles can still let an
+    // `any` in (`Array.isArray` on a read-only array gives `any[]`).
+    const refusals = (program: ts.Program) => check(createTypeScript6Provider(ts, program, { rootDir, compilerDiagnostics: false }), config);
+    const named = (refusal: { readonly file: string; readonly start: { readonly line: number }; readonly rule: string }): string =>
+      `${refusal.file}:${refusal.start.line} ${refusal.rule}`;
+    const refusedBefore = new Map<string, number>();
+    for (const refusal of refusals(original)) refusedBefore.set(named(refusal), (refusedBefore.get(named(refusal)) ?? 0) + 1);
+
     const relative = (fileName: string): string => (fileName.startsWith(`${rootDir}/`) ? fileName.slice(rootDir.length + 1) : fileName);
     const sources = original
       .getSourceFiles()
@@ -121,11 +130,11 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         if (here.length > 0) changed.set(fileName, applyEdits(text, here));
       }
     };
-    const kept = keepUnblamed(found, (candidates): Trial => {
+    const kept = keepUnblamed(found, (candidates, thorough = false): Trial => {
       rewrite(candidates);
       const program = compile();
       const errors = ts.getPreEmitDiagnostics(program);
-      if (errors.length <= before) return { holds: true, errors: [] };
+      const compiles = errors.length <= before;
       const places = new Map<string, readonly Placed[]>();
       const placedIn = (fileName: string): readonly Placed[] => {
         const placed = places.get(fileName) ?? placesAfter(candidates.filter((fix) => fix.file === fileName));
@@ -134,11 +143,25 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
       };
       const checker = program.getTypeChecker();
       // A hint that cannot be computed is no hint: the search does without it.
-      const hint = (error: ts.Diagnostic): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
+      const hint = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
       // Fixes add no line: the line of an error names it from one compilation to the next.
       const where = (error: ts.Diagnostic): string =>
         `${error.file?.fileName ?? ''}:${error.file === undefined ? 0 : ts.getLineAndCharacterOfPosition(error.file, error.start ?? 0).line} ${error.code}`;
-      return { holds: false, errors: errors.filter((error) => !known.has(said(error))).map((error) => ({ where: where(error), fixes: hint(error) })) };
+      const fromCompiler = compiles ? [] : errors.filter((error) => !known.has(said(error))).map((error) => ({ where: where(error), fixes: hint(error) }));
+      // The gate is the slower check: it is asked when the project compiles, or when every check is wanted.
+      if (!compiles && !thorough) return { holds: false, errors: fromCompiler };
+      const seen = new Map<string, number>();
+      const fromGate = refusals(program).flatMap((refusal) => {
+        const name = named(refusal);
+        seen.set(name, (seen.get(name) ?? 0) + 1);
+        if ((seen.get(name) ?? 0) <= (refusedBefore.get(name) ?? 0)) return [];
+        const file = program.getSourceFile(`${rootDir}/${refusal.file}`);
+        const at = (position: { readonly line: number; readonly column: number }): number =>
+          file === undefined ? 0 : attempt(() => ts.getPositionOfLineAndCharacter(file, position.line - 1, position.column - 1), describe).unwrapOr(0);
+        const fixes = file === undefined ? [] : hint({ file, start: at(refusal.start), length: at(refusal.end) - at(refusal.start), code: 0, messageText: refusal.message });
+        return [{ where: name, fixes }];
+      });
+      return { holds: compiles && fromGate.length === 0, errors: [...fromCompiler, ...fromGate] };
     });
     rewrite(kept);
 

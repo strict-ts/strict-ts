@@ -13,13 +13,14 @@ strict-ts-fix --rule readonly-types
 | `readonly-types` | `readonly` in front of arrays, tuples and properties; `ReadonlyArray`, `ReadonlyMap`, `ReadonlySet`; `Readonly<…>` around a `Record` |
 | `no-type-predicate` | Removes a written `x is T` from a function, so that the compiler infers it |
 
-**A fix is kept only if the project still compiles.** The fixes are applied in memory and the project is compiled
-again; when the compiler reports more errors than before, the fixes that break the build are found and dropped. So a
-property that the code reassigns, or an array it pushes into, is left as it is and listed:
+**A fix is kept only if the project still compiles and is refused for nothing more.** The fixes are applied in
+memory; the project is compiled again, then checked again by the gate. When the compiler reports more errors than
+before, or the gate refuses something it did not, the fixes at fault are found and dropped. So a property that the
+code reassigns, or an array it pushes into, is left as it is and listed:
 
 ```
 readonly-types: 24 fixes applied, 2 left
-  src/mutated.ts:3:3 left as it is: the project does not compile with the fix
+  src/mutated.ts:3:3 left as it is: with the fix the project does not compile, or is refused for more
 ```
 
 What is left is a decision for a person: make the code stop changing it, or mark it `Mut<…>`.
@@ -39,8 +40,12 @@ a few dozen compilations.
 3. An error that points at no fix is asked to spell it: each fix has a number, and one compilation for each binary
    digit applies the fixes that have it.
 
-What the errors say is a hint and never a verdict: the fixes that are kept have been compiled together before
-anything is written, and where the hints fail, the search falls back on halving the set.
+The gate is asked as the compiler is, and its refusals are read the same way. A fix can compile and weaken typing:
+`Array.isArray(value)` on a `readonly T[]` gives `any[]`, so making that array read-only lets an `any` in. The gate
+refuses it, and the fix is left.
+
+What the errors say is a hint and never a verdict: the fixes that are kept have been compiled and checked together
+before anything is written, and where the hints fail, the search falls back on halving the set.
 
 Measured on the applications of the pilot (dry run, the gate's own machine):
 
@@ -50,12 +55,17 @@ Measured on the applications of the pilot (dry run, the gate's own machine):
 | traefik-ui | 4,806 | 329 | 1 min 57 s | 5 s |
 | DungeonCardRPG | 17,411 | 871 | 9 min 39 s | 6 s |
 
+These times are those of the search with the compiler alone. Asking the gate too adds one run of it for each
+compilation that holds: 21 s, 11 s and 13 s on the same three, measured while the machine was busy with other work.
+
 ## To know
 
 - The unsafe directories are not touched: the rules it fixes do not run there.
 - What sits under `Mut<…>` is left alone.
 - « Compiles » means no more compiler errors than before, counted over the project. Tests that live outside
   `tsconfig.json` are not compiled: run them after a fix.
+- « Refused for nothing more » means no line that the gate refuses for a rule more often than before, with the
+  rules and the configuration of the project's `strict-ts.json`.
 - A fix written inside a type that another fix removes (an object type in a predicate that goes) is counted as
   applied: what it was to fix is no longer there.
 - It does not add `Mut<…>`, and it has no fix for `no-throw`, `no-null` or casts: those change what the code does.

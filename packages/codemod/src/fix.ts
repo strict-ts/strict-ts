@@ -78,7 +78,11 @@ export interface Complaint {
   readonly fixes: readonly Fix[];
 }
 
-/** What one compilation says of a set of fixes: whether it holds, and its new errors. */
+/**
+ * What one trial says of a set of fixes: whether the project holds with them, and what is newly wrong when it does
+ * not. A trial may stop at the first check that fails; asked to be `thorough`, it runs them all, so that an error
+ * of a later check is seen even where an earlier one fails.
+ */
 export interface Trial {
   readonly holds: boolean;
   readonly errors: readonly Complaint[];
@@ -100,7 +104,7 @@ const HUNTS = 8;
  * What `tryWith` blames is only a hint. The result is compiled before it is returned, and wherever the hints fail,
  * `keepWhatHolds` decides.
  */
-export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix[]) => Trial): readonly Fix[] {
+export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix[], thorough?: boolean) => Trial): readonly Fix[] {
   const holds = (kept: readonly Fix[]): boolean => tryWith(kept).holds;
   const inOrder = (kept: Iterable<Fix>): readonly Fix[] => {
     const wanted = new Set(kept);
@@ -122,7 +126,7 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
   const hunt = (base: readonly Fix[], candidates: readonly Fix[], wheres: readonly string[]): readonly Fix[] => {
     const spelled: Mut<Map<string, number>> = new Map();
     for (let digit = 1; digit <= candidates.length; digit *= 2) {
-      const trial = tryWith(inOrder([...base, ...candidates.filter((_, index) => Math.floor((index + 1) / digit) % 2 === 1)]));
+      const trial = tryWith(inOrder([...base, ...candidates.filter((_, index) => Math.floor((index + 1) / digit) % 2 === 1)]), true);
       const present = new Set(trial.errors.map((error) => error.where));
       for (const where of wheres) if (present.has(where)) spelled.set(where, (spelled.get(where) ?? 0) + digit);
     }

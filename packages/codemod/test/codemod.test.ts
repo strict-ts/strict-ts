@@ -50,10 +50,10 @@ describe('strict-ts-fix', () => {
       code: 0,
       out: [
         'readonly-types: 24 fixes applied, 2 left',
-        '  src/mutated.ts:3:3 left as it is: the project does not compile with the fix',
-        '  src/mutated.ts:12:15 left as it is: the project does not compile with the fix',
+        '  src/mutated.ts:3:3 left as it is: with the fix the project does not compile, or is refused for more',
+        '  src/mutated.ts:12:15 left as it is: with the fix the project does not compile, or is refused for more',
         'no-type-predicate: 1 fix applied, 1 left',
-        '  src/guards.ts:7:34 left as it is: the project does not compile with the fix',
+        '  src/guards.ts:7:34 left as it is: with the fix the project does not compile, or is refused for more',
         '3 files written',
       ],
       err: [],
@@ -141,7 +141,7 @@ describe('strict-ts-fix', () => {
     const directory = project();
     expect(fix(directory, '--rule', 'no-type-predicate').out).toEqual([
       'no-type-predicate: 1 fix applied, 1 left',
-      '  src/guards.ts:7:34 left as it is: the project does not compile with the fix',
+      '  src/guards.ts:7:34 left as it is: with the fix the project does not compile, or is refused for more',
       '1 file written',
     ]);
     expect(read(directory, 'src/cart.ts')).toBe(readFileSync(join(fixture, 'src/cart.ts'), 'utf8'));
@@ -159,27 +159,30 @@ describe('the fix at fault is not where the error is', () => {
   test('each fix that fails is found, and no other is dropped', () => {
     const directory = project('flows');
     expect(fix(directory).out).toEqual([
-      'readonly-types: 12 fixes applied, 9 left',
+      'readonly-types: 12 fixes applied, 10 left',
       // `loadout[slot] = id` writes to both names of the key, and not to `label`.
-      '  src/flows.ts:5:3 left as it is: the project does not compile with the fix',
-      '  src/flows.ts:6:3 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:5:3 left as it is: with the fix the project does not compile, or is refused for more',
+      '  src/flows.ts:6:3 left as it is: with the fix the project does not compile, or is refused for more',
       // The alias whose map is filled elsewhere: the map stays, the lists in it are fixed.
-      '  src/flows.ts:15:21 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:15:21 left as it is: with the fix the project does not compile, or is refused for more',
       // What `names` returns is sorted in place by a caller that wrote no type.
-      '  src/flows.ts:21:26 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:21:26 left as it is: with the fix the project does not compile, or is refused for more',
       // `[] as number[]`, pushed into through the object that holds it.
-      '  src/flows.ts:31:37 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:31:37 left as it is: with the fix the project does not compile, or is refused for more',
       // The member behind `Data['rows']`.
-      '  src/flows.ts:37:28 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:37:28 left as it is: with the fix the project does not compile, or is refused for more',
       // `target` is pushed into, and `made` only fails because it is given to it.
-      '  src/flows.ts:45:30 left as it is: the project does not compile with the fix',
-      '  src/flows.ts:49:15 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:45:30 left as it is: with the fix the project does not compile, or is refused for more',
+      '  src/flows.ts:49:15 left as it is: with the fix the project does not compile, or is refused for more',
       // `tally.counts[one.slot] += 1` writes to the record, whatever the key is read from.
-      '  src/flows.ts:58:31 left as it is: the project does not compile with the fix',
+      '  src/flows.ts:58:31 left as it is: with the fix the project does not compile, or is refused for more',
+      // It compiles read-only, and `Array.isArray` then gives `any[]`: the gate would refuse an `any` it did not.
+      '  src/flows.ts:64:41 left as it is: with the fix the project does not compile, or is refused for more',
       'no-type-predicate: 1 fix applied, 0 left',
       '1 file written',
     ]);
     const fixed = read(directory, 'src/flows.ts');
+    expect(fixed).toContain('export function firstOf(value: string | string[]): string {');
     expect(fixed).toContain('readonly label: string;');
     expect(fixed).toContain('export type Store = Map<string, readonly number[]>;');
     expect(fixed).toContain('export function sorted(): readonly string[] {');
@@ -187,9 +190,9 @@ describe('the fix at fault is not where the error is', () => {
     // The predicate is gone, and with it the object type that a fix was to be written in.
     expect(fixed).toContain('values.filter((value) => typeof value === "object");');
     expect(fixed).toContain('export function count(tally: Tally, seen: readonly { readonly slot: Slot }[]): void {');
-    // A second run finds nothing more to do, and the same nine places left.
+    // A second run finds nothing more to do, and the same ten places left.
     const again = fix(directory).out;
-    expect(again[0]).toBe('readonly-types: 0 fixes applied, 9 left');
+    expect(again[0]).toBe('readonly-types: 0 fixes applied, 10 left');
     expect(again.slice(-2)).toEqual(['no-type-predicate: 0 fixes applied, 0 left', '0 files written']);
   });
 });
