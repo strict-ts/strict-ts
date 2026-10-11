@@ -34,7 +34,7 @@
     "no-any": 2,
     "no-cast": 9,
     "no-throw": 1,
-    "no-throwing-call": 3,
+    "no-throwing-call": 4,
     "readonly-types": 30
   },
   "packages/std": {

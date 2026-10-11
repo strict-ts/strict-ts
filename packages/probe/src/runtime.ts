@@ -23,10 +23,22 @@ export function install(file: string): unknown {
     error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : String(error).slice(0, 300);
 
   const sites: unknown[] = [];
+  // How many times each site ran since the last write. Written at the end of the turn of the event loop that ran
+  // them, and not when the process exits: a test runner stops its workers without letting them say goodbye.
   const counts = new Map<number, number>();
-  root.process?.on?.('exit', () => {
+  let waiting = false;
+  const flush = (): void => {
+    waiting = false;
     for (const [index, count] of counts) write({ type: 'ran', site: sites[index], count });
-  });
+    counts.clear();
+  };
+  const ran = (index: number): void => {
+    counts.set(index, (counts.get(index) ?? 0) + 1);
+    if (waiting) return;
+    waiting = true;
+    setTimeout(flush, 0);
+  };
+  root.process?.on?.('exit', flush);
 
   const mismatch = (value: unknown, shape: { k: string; v?: unknown; of?: unknown; props?: Record<string, { shape: unknown; optional: boolean }> }, path: string): string[] | undefined => {
     const found = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
@@ -84,7 +96,7 @@ export function install(file: string): unknown {
       write({ type: 'threw', site: sites[index], error: describe(error) });
       throw error;
     }
-    counts.set(index, (counts.get(index) ?? 0) + 1);
+    ran(index);
     if (typeof result === 'object' && result !== null && typeof (result as { then?: unknown }).then === 'function') {
       (result as Promise<unknown>).then(undefined, (error: unknown) => write({ type: 'threw', site: sites[index], error: describe(error) }));
     }
