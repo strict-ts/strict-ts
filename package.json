@@ -13,7 +13,8 @@
     "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs",
     "typecheck": "tsc -b",
     "lint": "oxlint --deny-warnings packages",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "node packages/cli/dist/main.js --strict-baseline -p packages/core && node packages/cli/dist/main.js --strict-baseline -p packages/std && node packages/cli/dist/main.js --strict-baseline -p packages/cli && node packages/cli/dist/main.js --strict-baseline -p packages/playground && node packages/cli/dist/main.js --strict-baseline -p examples/invoice/strict"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

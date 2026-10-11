@@ -25,3 +25,6 @@ jobs:
         run: pnpm build
       - name: Test
         run: pnpm test
+      # strict-ts on its own sources, as a blocking check: only what the baselines record is tolerated.
+      - name: strict-ts
+        run: pnpm check

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "files": {
+    "src/app.ts": {
+      "no-any": 1
+    }
+  }
+}

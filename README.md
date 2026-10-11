@@ -34,8 +34,11 @@ Nothing is published on npm yet.
 ```sh
 corepack enable        # once: gives pnpm
 pnpm install
-pnpm lint && pnpm build && pnpm test
+pnpm lint && pnpm build && pnpm test && pnpm check
 ```
+
+`pnpm check` runs strict-ts on its own packages, as the CI does: `core` and `cli` pass with nothing recorded, `std`
+and `playground` with a baseline (`strict-ts-baseline.json`) that can only shrink.
 
 To run the gate on a project, here the two versions of the invoice challenge:
 

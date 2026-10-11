@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "files": {
+    "src/panic.ts": {
+      "no-throw": 2
+    },
+    "src/result.ts": {
+      "no-throw": 1
+    },
+    "src/schema.ts": {
+      "no-cast": 5
+    }
+  }
+}
