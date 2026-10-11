@@ -852,6 +852,16 @@ describe('constrained schemas of the standard library', () => {
     expect(refusals(wrongName)).toEqual(['TS2345@9']);
   });
 
+  test('checks add up: a value with more of them is accepted where fewer are asked, not the reverse', () => {
+    const found = withBody(
+      'const Positive = s.positive();',
+      'const half = (n: s.Infer<typeof Positive>): number => n / 2;',
+      'export const ok = (raw: unknown) => Quantity.parse(raw).map(half);',
+      'export const stacked: Quantity extends never ? "collapsed" : "kept" = "kept";',
+    );
+    expect(found).toEqual([]);
+  });
+
   test('forging one outside unsafe/ needs a cast, which is refused', () => {
     expect(refusals(withBody('export const quote = price(2 as Quantity, "c1" as CustomerId);'))).toEqual(['no-cast@7', 'no-cast@7']);
   });
