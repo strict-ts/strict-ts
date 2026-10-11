@@ -191,6 +191,19 @@ moves inside a file:
 }
 ```
 
+To shrink the record without doing it by hand, `strict-ts-fix` applies the fixes that are mechanical:
+
+```sh
+node packages/codemod/dist/main.js -p . --dry-run    # says what it would change
+node packages/codemod/dist/main.js -p .              # writes it
+```
+
+It adds `readonly` to arrays and properties, writes `ReadonlyMap`, `ReadonlySet` and `Readonly<Record<…>>`, and removes
+a written type predicate where the compiler infers it. Each fix is kept only if the project still compiles: what the
+code really changes is left as it is, and listed.
+
+About the baseline itself:
+
 - A file and rule that hold more violations than recorded are refused whole, each with « n allowed by the baseline ».
 - A fixed violation leaves a stale entry: a warning, or a failure with `--strict-baseline`, so the record only shrinks.
 - The compiler's own errors are never recorded.
@@ -236,7 +249,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tested outside an editor |
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on five scenarios; not published | builds to one page |
-| `@strict-ts/codemod` | Automatic fixes and migration of existing code | not started |
+| [`@strict-ts/codemod`](packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles |
 | `@strict-ts/flow` | Flow analysis: single use, mutations across `await` | not started |
 
 ## Known limits

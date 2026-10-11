@@ -1,0 +1,27 @@
+{
+  "name": "@strict-ts/codemod",
+  "version": "0.0.0",
+  "description": "Automatic fixes for what strict-ts refuses: each one is kept only if the project still compiles.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "strict-ts-fix": "./dist/main.js"
+  },
+  "dependencies": {
+    "@strict-ts/cli": "workspace:*",
+    "@strict-ts/core": "workspace:*",
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2"
+  }
+}
