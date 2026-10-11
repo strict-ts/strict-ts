@@ -210,6 +210,24 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
 
+  packages/language-service:
+    devDependencies:
+      '@strict-ts/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@strict-ts/core':
+        specifier: workspace:*
+        version: link:../core
+      '@strict-ts/std':
+        specifier: workspace:*
+        version: link:../std
+      '@typescript/typescript6':
+        specifier: ^6.0.2
+        version: 6.0.2
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+
   packages/playground:
     devDependencies:
       '@strict-ts/core':

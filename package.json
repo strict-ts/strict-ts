@@ -10,11 +10,11 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs",
+    "build": "tsc -b && tsc -p packages/playground && node packages/playground/scripts/build.mjs && tsc -p packages/language-service && node packages/language-service/scripts/build.mjs",
     "typecheck": "tsc -b",
     "lint": "oxlint --deny-warnings packages",
     "test": "vitest run",
-    "check": "node packages/cli/dist/main.js --strict-baseline -p packages/core && node packages/cli/dist/main.js --strict-baseline -p packages/std && node packages/cli/dist/main.js --strict-baseline -p packages/cli && node packages/cli/dist/main.js --strict-baseline -p packages/playground && node packages/cli/dist/main.js --strict-baseline -p examples/invoice/strict"
+    "check": "node packages/cli/dist/main.js --strict-baseline -p packages/core && node packages/cli/dist/main.js --strict-baseline -p packages/std && node packages/cli/dist/main.js --strict-baseline -p packages/cli && node packages/cli/dist/main.js --strict-baseline -p packages/playground && node packages/cli/dist/main.js --strict-baseline -p packages/language-service && node packages/cli/dist/main.js --strict-baseline -p examples/invoice/strict"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

@@ -8,6 +8,16 @@ import type { Node } from '../syntax.js';
 export interface TypeScript6Options {
   /** The project root, absolute. Only files under it are checked, and diagnostics show paths relative to it. */
   readonly rootDir: string;
+  /**
+   * Restricts the files to check, by absolute path: an editor asks about one file at a time. The files left out
+   * are still compiled, so the types of the others are right.
+   */
+  readonly only?: (fileName: string) => boolean;
+  /**
+   * `false` leaves the compiler's own errors out, for a host that already shows them (an editor). The gate must
+   * keep them: it is what replaces `tsc --noEmit`.
+   */
+  readonly compilerDiagnostics?: boolean;
 }
 
 export function createTypeScript6Provider(
@@ -149,7 +159,8 @@ export function createTypeScript6Provider(
         !sourceFile.isDeclarationFile &&
         !program.isSourceFileFromExternalLibrary(sourceFile) &&
         !sourceFile.fileName.includes('/node_modules/') &&
-        sourceFile.fileName.startsWith(root),
+        sourceFile.fileName.startsWith(root) &&
+        (options.only?.(sourceFile.fileName) ?? true),
     )
     .map((sourceFile): SourceFile => {
       const file = { name: displayName(sourceFile.fileName), text: sourceFile.text, root: convert(sourceFile, sourceFile) };
@@ -166,7 +177,8 @@ export function createTypeScript6Provider(
     return created;
   };
 
-  const compilerDiagnostics = api.getPreEmitDiagnostics(program).map((diagnostic): Diagnostic => {
+  const reported = options.compilerDiagnostics === false ? [] : api.getPreEmitDiagnostics(program);
+  const compilerDiagnostics = reported.map((diagnostic): Diagnostic => {
     const rule = `TS${diagnostic.code}`;
     const message = api.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
     if (diagnostic.file === undefined || diagnostic.start === undefined) {
