@@ -1,14 +1,10 @@
 import type { Config } from '../config.js';
 import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
-import type { Node } from '../syntax.js';
 import { threatOf } from '../effects/ledger.js';
 import { ledger } from '../effects/index.js';
+import { isCaught, isTrusted } from './caught.js';
 
-const inside = (node: Node, outer: Node): boolean => outer.start <= node.start && node.end <= outer.end;
-
-const isTrusted = (name: string | undefined, config: Config): boolean =>
-  name !== undefined && config.allowedImports.some((allowed) => name === allowed || name.startsWith(`${allowed}/`));
 
 /** What makes a call a possible exception, or undefined when nothing is known against it. */
 function threat(callee: Callee, argumentCount: number, plain: () => boolean, config: Config): string | undefined {
@@ -45,16 +41,7 @@ export const noThrowingCall: Rule = {
     };
     const why = threat(callee, node.kind === 'call' ? node.arguments.length : node.argumentCount, plain, config);
     if (why === undefined) return;
-    // Caught where it is made: in the block of a `try` that has a `catch`, or in what is handed to `attempt`.
-    const caught = ancestors.some((ancestor) => {
-      if (ancestor.kind === 'try') return ancestor.hasCatch && inside(node, ancestor.block);
-      if (ancestor.kind !== 'call' || !ancestor.arguments.some((argument) => inside(node, argument))) return false;
-      const outer = calleeOf(ancestor);
-      if (outer?.name !== 'attempt') return false;
-      // `attempt` of the standard library, or the standard library's own when it is the project being checked.
-      return outer.origin.kind === 'project' || (outer.origin.kind === 'package' && isTrusted(outer.origin.package, config));
-    });
-    if (caught) return;
+    if (isCaught(node, ancestors, calleeOf, config)) return;
     const shown = callee.name === '' ? 'This call' : `\`${callee.name.replace(/\.$/, '').replace(/Constructor\b/, '')}\``;
     report(node, `${shown} ${why}.`, 'Call it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');
   },

@@ -57,7 +57,8 @@
     "no-null": 73,
     "no-param-mutation": 10,
     "no-throw": 17,
-    "no-throwing-call": 23,
+    "no-throwing-call": 22,
+    "no-throwing-operator": 3,
     "no-type-predicate": 8,
     "readonly-types": 583
   }

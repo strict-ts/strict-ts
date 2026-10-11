@@ -4,7 +4,7 @@ import { checkFiles as checkEverything, checkSafe as checkSafeEverything, checkU
 
 // Each block below is about one rule, and many of its examples call JSON.parse or fetch as plain code does. What
 // no-throwing-call says of those calls is left out here; its own block, at the end, reads everything.
-const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call');
+const quiet = (found: ReturnType<typeof checkEverything>) => found.filter((d) => d.rule !== 'no-throwing-call' && d.rule !== 'no-throwing-operator');
 const checkFiles = (files: Readonly<Record<string, string>>, project?: Project) => quiet(checkEverything(files, project));
 const checkSafe = (text: string, project?: Project) => quiet(checkSafeEverything(text, project));
 const checkUnsafe = (text: string, project?: Project) => quiet(checkUnsafeEverything(text, project));
@@ -1163,5 +1163,131 @@ describe('no-throwing-call', () => {
     expect(said(checkSafeEverything(code))).toEqual([]);
     const config = { unsafeDirs: ['src/unsafe'], allowedImports: [] };
     expect(said(checkSafeEverything(code, { config }))).toEqual(['2 `ok` is declared in "@strict-ts/std", whose types do not say whether it throws.']);
+  });
+});
+
+describe('no-throwing-operator', () => {
+  const said = (found: ReturnType<typeof checkEverything>) =>
+    found.filter((d) => d.rule === 'no-throwing-operator').map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+  const safe = (...lines: readonly string[]) => said(checkSafeEverything([...lines, ''].join('\n')));
+
+  test('refuses the three bigint operators that throw, and their assignments', () => {
+    expect(
+      safe(
+        'export const a = (x: bigint, y: bigint): bigint => x / y;',
+        'export const b = (x: bigint, y: bigint): bigint => x % y;',
+        'export const c = (x: bigint, y: bigint): bigint => x ** y;',
+        'export const d = (x: bigint, y: bigint): bigint => { let z = x; z /= y; return z; };',
+      ),
+    ).toEqual(['1 `/` throws a RangeError.', '2 `%` throws a RangeError.', '3 `**` throws a RangeError.', '4 `/` throws a RangeError.']);
+  });
+
+  test('accepts them on numbers, and on a literal that cannot fail', () => {
+    expect(
+      safe(
+        'export const a = (x: number, y: number): number => x / y + (x % y) + x ** y;',
+        'export const b = (x: bigint): bigint => x / 2n + (x % -3n) + x ** 2n;',
+        'export const c = (x: bigint, y: bigint): bigint => x * y + x - y;',
+      ),
+    ).toEqual([]);
+    expect(safe('export const a = (x: bigint): bigint => x / 0n;', 'export const b = (x: bigint): bigint => 2n ** -1n;')).toEqual([
+      '1 `/` throws a RangeError.',
+      '2 `**` throws a RangeError.',
+    ]);
+  });
+
+  test('refuses the conversion of a value that may not convert', () => {
+    expect(
+      safe(
+        'export const a = (value: unknown): string => `got ${value}`;',
+        'export const b = (value: { readonly a: number }): string => "got " + value;',
+        'export const c = <T>(value: T): string => `${value}`;',
+        'export const d = (value: object): number => +value;',
+        'export const e = (x: { readonly a: number }, y: { readonly a: number }): boolean => x < y;',
+        'export const f = (value: unknown): boolean => value == "a";',
+        'export const g = (values: readonly unknown[]): string => `${values}`;',
+      ),
+    ).toEqual([
+      '1 A template throws a TypeError.',
+      '2 `+` throws a TypeError.',
+      '3 A template throws a TypeError.',
+      '4 `+` throws a TypeError.',
+      '5 `<` throws a TypeError.',
+      '6 `==` throws a TypeError.',
+      '7 A template throws a TypeError.',
+    ]);
+  });
+
+  test('accepts the conversion of plain values, branded ones, and the classes seen to convert', () => {
+    expect(
+      safe(
+        'type Id = string & { readonly __brand: "id" };',
+        'export const a = (id: Id, count: number, flag: boolean | undefined): string => `${id}: ${count} ${flag}`;',
+        'export const b = <K extends string>(key: K): string => `key ${key}`;',
+        'export const c = (from: Date, to: Date): boolean => from < to;',
+        'export const d = (when: Date, names: readonly string[]): string => `${when} ${names}` + when;',
+        'export const e = (error: Error, pattern: RegExp): string => `${error} ${pattern}`;',
+        'export const f = (value: unknown): boolean => value === "a" || value == undefined;',
+        'export const g = <T extends object>(holder: T, name: keyof T & string): string => `${name}`;',
+        'export const h = (x: number, y: number): boolean => x < y && -x > ~y;',
+      ),
+    ).toEqual([]);
+  });
+
+  test('a class of the project named as one of the library is an object like any other', () => {
+    expect(safe('class Date { readonly at = 1; }', 'export const a = (when: Date): string => `${when}`;', 'export const made = new Date();')).toEqual([
+      '2 A template throws a TypeError.',
+    ]);
+  });
+
+  test('what a tag receives is not converted, and the tag is a call', () => {
+    const found = checkSafeEverything('export const a = (value: unknown): string => String.raw`got ${value}`;\n');
+    expect(said(found)).toEqual([]);
+    expect(found.filter((d) => d.rule === 'no-throwing-call').map((d) => d.message.replace(/, as seen with .*$/, '.'))).toHaveLength(1);
+  });
+
+  test('refuses an array length that is not written as one', () => {
+    expect(
+      safe(
+        'import type { Mut } from "@strict-ts/std";',
+        'export const a = (list: Mut<number[]>, size: number): void => { list.length = size; };',
+        'export const b = (list: Mut<number[]>): void => { list.length = 0; };',
+        'export const c = (list: Mut<number[]>): void => { list.length = -1; };',
+        'export const d = (box: Mut<{ length: number }>, size: number): void => { box.length = size; };',
+      ),
+    ).toEqual([
+      '2 Setting the length of an array throws a RangeError on a number that is not a length.',
+      '4 Setting the length of an array throws a RangeError on a number that is not a length.',
+    ]);
+  });
+
+  test('refuses a read that runs code and can throw', () => {
+    expect(
+      safe(
+        'export const a = (view: DataView): number => view.byteLength;',
+        'export const b = (run: () => void): unknown => run.caller;',
+        'export const c = (bytes: Uint8Array, pattern: RegExp): string => `${bytes.byteLength} ${pattern.flags}`;',
+        'export const d = (holder: { readonly caller: string }): string => holder.caller;',
+      ),
+    ).toEqual(['1 Reading `DataView.byteLength` throws a TypeError by the specification (sec-get-dataview.prototype.bytelength).', '2 Reading `caller` on a function throws a TypeError.']);
+  });
+
+  test('accepts what is caught where it is written', () => {
+    expect(
+      safe(
+        'export const a = (x: bigint, y: bigint): bigint => { try { return x / y; } catch { return 0n; } };',
+        'export const b = (x: bigint, y: bigint): bigint => { try { return x; } finally { void (x / y); } };',
+      ),
+    ).toEqual(['2 `/` throws a RangeError.']);
+  });
+
+  test('says how to fix each', () => {
+    const helps = checkSafeEverything('export const a = (x: bigint, y: bigint, v: unknown): string => `${x / y} ${v}`;\n')
+      .filter((d) => d.rule === 'no-throwing-operator')
+      .map((d) => d.help);
+    expect(helps).toEqual([
+      'Use `quotient`, `remainder` or `power` from @strict-ts/std, which give an Option, or write the divisor as a literal.',
+      'Convert the value yourself first: `textOf(value)` from @strict-ts/std gives its text and never throws.',
+    ]);
   });
 });

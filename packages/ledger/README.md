@@ -40,6 +40,14 @@ reader. `scripts/spec-facts.mjs` fetches the specification (ECMAScript 2023) and
 
 A function that was not run gets an entry only when the specification gives it a real way to throw.
 
+## Operators and accessors
+
+A call is not the only thing that throws. `scripts/operators.mjs` runs every operator of the language, and the
+template, on every pair of 14 kinds of operand; each combination that threw is then written as code and given to the
+compiler, and those it accepts are kept: 97 of 943 (`1n / 0n`, `` `${value}` `` on an object without a prototype).
+The reader of the specification also reads its 32 accessors: two can throw on the object they are read from, both on
+`DataView`. The rule `no-throwing-operator` reads both tables.
+
 ## Where it stands
 
 385 generated entries: 269 `total`, each with its clause of the specification and 600 runs that never threw; 116

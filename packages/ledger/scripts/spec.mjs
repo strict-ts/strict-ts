@@ -39,7 +39,8 @@ export function clauses(html) {
  */
 export function facts(html) {
   return clauses(html)
-    .filter((clause) => clause.algorithms.length > 0 && clause.header.includes('('))
+    // A function has its parameters in its header; an accessor (`get RegExp.prototype.flags`) has none.
+    .filter((clause) => clause.algorithms.length > 0 && (clause.header.includes('(') || /^[gs]et /.test(clause.header)))
     .map((clause) => {
       const steps = clause.algorithms.flatMap((alg) => alg.split('\n').map((line) => line.trim()).filter((line) => line !== ''));
       const throws = steps.flatMap((step) => [...step.matchAll(/throw an? \*(\w+)\* exception/g)].map((thrown) => ({ kind: thrown[1], step: step.replace(/^\d+\.\s*/, '') })));
@@ -51,7 +52,7 @@ export function facts(html) {
       }
       return {
         id: clause.id,
-        name: clause.header.slice(0, clause.header.indexOf('(')).trim(),
+        name: (clause.header.includes('(') ? clause.header.slice(0, clause.header.indexOf('(')) : clause.header).trim(),
         operation: /type="[^"]*abstract operation/.test(clause.attributes) || /type="[^"]*(?:host-defined|implementation-defined)/.test(clause.attributes),
         throws,
         calls: [...calls].toSorted(),
@@ -94,6 +95,11 @@ const TYPE_GUARD = [
   /is not a Symbol/, /IsPromise\([^)]*\) is \*false\*/, /_status_ is \*false\*/,
   /is not a constructor/, /\bis \*true\*, throw a \*TypeError\*.*IsRegExp|_isRegExp_ is \*true\*/,
 ];
+/**
+ * For an accessor only: it is found on the object it is read from, so it never runs on a receiver of another
+ * class. Its checks of the receiver cannot fail.
+ */
+const RECEIVER_GUARD = [/^Otherwise, throw a \*TypeError\*/, /IsSharedArrayBuffer\(_O_\)/];
 /** A step that throws on a value that cannot be converted. */
 const CONVERSION_GUARD = [/is a Symbol/, /is an? (?:BigInt|Symbol), throw a \*TypeError\*/];
 /** A step that throws past a size no machine holds. */
@@ -111,7 +117,9 @@ export function analyse(all) {
     if (path.includes(clause.name)) return { real: [], converts: false };
     const real = [];
     let converts = false;
+    const accessor = /^[gs]et /.test(clause.name);
     for (const thrown of clause.throws) {
+      if (accessor && RECEIVER_GUARD.some((pattern) => pattern.test(thrown.step))) continue;
       if (TYPE_GUARD.some((pattern) => pattern.test(thrown.step)) || SIZE_LIMIT.some((pattern) => pattern.test(thrown.step))) continue;
       if (CONVERSION_GUARD.some((pattern) => pattern.test(thrown.step))) converts = true;
       else real.push(`${thrown.kind}: ${thrown.step.replace(/<[^>]+>/g, '').slice(0, 110)}`);
@@ -133,7 +141,11 @@ export function analyse(all) {
       }
       const inner = visit(callee, [...path, clause.name]);
       converts ||= inner.converts;
-      for (const reason of inner.real) real.push(reason.startsWith('via ') ? reason : `via ${called}: ${reason}`);
+      for (const reason of inner.real) {
+        // The operation an accessor hands its receiver to checks it in its place.
+        if (accessor && RECEIVER_GUARD.some((pattern) => pattern.test(reason.replace(/^(?:via \w+: )?\w+: /, '')))) continue;
+        real.push(reason.startsWith('via ') ? reason : `via ${called}: ${reason}`);
+      }
     }
     const result = { real: [...new Set(real)].slice(0, 4), converts };
     known.set(clause.name, result);
@@ -162,4 +174,17 @@ function namesOf(specName) {
   if (fixed !== null) return [constructors.includes(fixed[1]) ? `${fixed[1]}Constructor.${fixed[2]}` : `${fixed[1]}.${fixed[2]}`];
   if (/^\w+$/.test(specName)) return constructors.includes(specName) ? [`${specName}Constructor.`, `${specName}Constructor.new`] : [specName];
   return [];
+}
+
+/**
+ * The accessors that can throw when read: `{ 'DataView.byteLength': 'TypeError: If IsDetachedBuffer(…) …' }`, by the
+ * class and the name of the property.
+ */
+export function throwingGetters(verdicts) {
+  const found = {};
+  for (const [name, verdict] of verdicts) {
+    const getter = /^get (\w+)\.prototype\.(\w+)$/.exec(name);
+    if (getter !== null && verdict.real.length > 0) found[`${getter[1]}.${getter[2]}`] = { why: verdict.real[0], spec: verdict.id };
+  }
+  return found;
 }
