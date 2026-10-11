@@ -18,6 +18,9 @@ function threat(callee: Callee, argumentCount: number, plain: () => boolean, con
     const from = callee.origin.package === undefined ? 'a declaration file' : `"${callee.origin.package}"`;
     return `is declared in ${from}, whose types do not say whether it throws`;
   }
+  // A function value whose type the library writes without a name (`resolve` in `new Promise((resolve) => …)`): the
+  // type says nothing of what it does, and a value typed so in the project is accepted the same way.
+  if (callee.name === '') return undefined;
   const effect = ledger[callee.name];
   // Not in the ledger: nothing shows that it does not throw.
   if (effect === undefined) return 'is not in the effects ledger: nothing shows that it does not throw';

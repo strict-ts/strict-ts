@@ -1217,6 +1217,25 @@ describe('no-throwing-call and the packages a project allows', () => {
   });
 });
 
+describe('no-throwing-call on a function value', () => {
+  test('a callback the library hands over is called freely: resolving a promise does not throw', () => {
+    const found = checkSafeEverything(
+      [
+        'export const wait = (ms: number): Promise<void> => new Promise<void>((resolve) => { resolve(); void ms; });',
+        'export const later = (): Promise<number> => new Promise<number>((resolve, reject) => { if (Math.random() > 2) reject(new Error("no")); resolve(1); });',
+        'export const each = (list: readonly number[], run: (n: number) => void): void => list.forEach((n) => run(n));',
+        '',
+      ].join('\n'),
+    );
+    expect(found.filter((d) => d.rule === 'no-throwing-call').map((d) => `${d.start.line} ${d.message}`)).toEqual([]);
+  });
+
+  test('a function of the library reached through a value keeps its name, and its verdict', () => {
+    const found = checkSafeEverything('const parse = JSON.parse;\nexport const a = (text: string): unknown => parse(text);\n');
+    expect(found.filter((d) => d.rule === 'no-throwing-call').map((d) => d.message.replace(/, as seen with .*$/, '.'))).toEqual(['`JSON.parse` throws a SyntaxError.']);
+  });
+});
+
 describe('no-throwing-call on arguments written in the call', () => {
   const said = (lines: readonly string[], assume?: readonly 'generated-receivers'[]) =>
     checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], ...(assume === undefined ? {} : { assume }) } })
