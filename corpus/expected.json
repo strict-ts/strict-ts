@@ -1,0 +1,52 @@
+{
+  "examples/invoice/classic": {
+    "exhaustive-switch": 1,
+    "must-use": 1,
+    "no-any": 1,
+    "no-cast": 1,
+    "no-external-import": 1,
+    "no-non-null": 1,
+    "no-null": 2,
+    "no-throw": 1,
+    "readonly-types": 11
+  },
+  "examples/invoice/strict": {},
+  "fixtures/codemod-app": {
+    "no-param-mutation": 1,
+    "no-type-predicate": 2,
+    "readonly-types": 26
+  },
+  "fixtures/legacy": {
+    "no-any": 1,
+    "no-cast": 1,
+    "no-non-null": 1,
+    "no-throw": 1
+  },
+  "packages/cli": {},
+  "packages/codemod": {},
+  "packages/core": {},
+  "packages/language-service": {},
+  "packages/playground": {},
+  "packages/std": {
+    "no-cast": 5,
+    "no-throw": 3,
+    "no-type-predicate": 4
+  },
+  "packages/wrap": {},
+  "zod@3.23.8": {
+    "TS18048": 2,
+    "TS2322": 1,
+    "TS2375": 15,
+    "TS2379": 60,
+    "TS2538": 9,
+    "TS4114": 2,
+    "no-any": 503,
+    "no-cast": 106,
+    "no-non-null": 4,
+    "no-null": 73,
+    "no-param-mutation": 10,
+    "no-throw": 17,
+    "no-type-predicate": 8,
+    "readonly-types": 583
+  }
+}

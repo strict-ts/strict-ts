@@ -269,8 +269,13 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 ## Working on it
 
 ```sh
-pnpm lint && pnpm build && pnpm test && pnpm check
+pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus
 ```
+
+`pnpm corpus` runs the gate on a fixed set of projects (the packages, the examples, the fixtures) and compares what
+each rule refuses with `corpus/expected.json`; any difference fails, so a rule cannot start refusing more or less
+without a word. `pnpm corpus --external` adds open source projects cloned at a pinned commit, and `--update` records
+a change that is meant.
 
 `pnpm check` runs strict-ts on its own packages, as the CI does. All pass with nothing recorded, except `std`, whose
 baseline can only shrink. Build before testing: the adapters' tests load the built packages.

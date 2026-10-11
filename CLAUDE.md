@@ -6,8 +6,8 @@
   This repo holds code, pull requests and CI only: no backlog, roadmap or spec files here. Commits say `Refs STS-n`,
   or `Closes STS-n` when the task is done.
 - Everything is written in English: code, comments, commits, Plane.
-- Before a push: `pnpm lint && pnpm build && pnpm test && pnpm check` (pnpm comes from `corepack enable`; without it,
-  `corepack pnpm …`). One task = one branch = one pull request into `main`.
+- Before a push: `pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus` (pnpm comes from
+  `corepack enable`; without it, `corepack pnpm …`). One task = one branch = one pull request into `main`.
 
 ## Architecture rules
 
