@@ -1,9 +1,20 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/std" },
-    { "path": "packages/cli" },
-    { "path": "examples/invoice" }
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/std"
+    },
+    {
+      "path": "packages/cli"
+    },
+    {
+      "path": "packages/wrap"
+    },
+    {
+      "path": "examples/invoice"
+    }
   ]
 }

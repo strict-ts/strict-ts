@@ -1,0 +1,10 @@
+{
+  "$schema": "../cli/strict-ts.schema.json",
+  "unsafeDirs": [
+    "src/unsafe"
+  ],
+  "allowedImports": [
+    "@strict-ts/std",
+    "@typescript/typescript6"
+  ]
+}

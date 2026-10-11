@@ -1,0 +1,28 @@
+{
+  "name": "@strict-ts/wrap",
+  "version": "0.0.0",
+  "description": "Generates the unsafe/ wrappers of a dependency from its declaration files: every function returns a Result.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "strict-ts-wrap": "./dist/main.js"
+  },
+  "dependencies": {
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2"
+  },
+  "devDependencies": {
+    "@strict-ts/cli": "workspace:*"
+  }
+}

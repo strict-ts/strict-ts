@@ -1,0 +1,3 @@
+{
+  "unsafeDirs": ["src/unsafe", "vendor"]
+}

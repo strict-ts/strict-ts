@@ -24,7 +24,7 @@ brings the other four without changing language: the code stays standard TypeScr
 | [`@strict-ts/playground`](packages/playground) | strict-ts in the browser, on the five scenarios; not published | builds to one page |
 | [`@strict-ts/language-service`](packages/language-service) | Errors underlined in the editor | TypeScript language service plugin, tested outside an editor |
 | `@strict-ts/codemod` | Automatic fixes and migration of existing code | phase 1 |
-| `@strict-ts/wrap` | Generates the `unsafe/` wrappers from `.d.ts` files | phase 1 |
+| [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrappers from `.d.ts` files | functions and constants; classes and objects left out |
 | `@strict-ts/flow` | Flow analysis: single use, mutations across `await` | phase 3 |
 
 Nothing is published on npm yet.
@@ -66,6 +66,15 @@ TypeScript (the plugin API exists up to TypeScript 6):
 ```json
 { "compilerOptions": { "plugins": [{ "name": "@strict-ts/language-service" }] } }
 ```
+
+To wrap a dependency instead of writing its `unsafe/` file by hand:
+
+```sh
+node packages/wrap/dist/main.js node:path -p packages/cli -o src/unsafe/path.ts
+```
+
+Every function of the module then returns a `Result`; a result of type `any` becomes `unknown`, one that may be null
+or undefined an `Option`. Classes and objects with methods are listed in the file's header as not wrapped.
 
 Node ≥ 22.13. The work (backlog, milestones, sprints) and the docs and specs are in Plane, project
 [STS](https://plane.adserver.fr/alex/projects/2c1f2990-e14d-4f3d-9186-ebbe292b8c8f/issues/); this repo holds the code,
