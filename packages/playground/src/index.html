@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>strict-ts Playground</title>
+<link rel="icon" href="<!--FAVICON-->">
 <style>
 /* Layout: a compiler's workbench: explorer | editor | rustc-style diagnostics. */
 :root {
@@ -60,6 +61,8 @@ code, .mono { font-family: var(--f-mono); }
 /* Header */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; min-width: 0; }
+.brand .mark { align-self: center; display: flex; }
+.brand .mark svg { width: 28px; height: 28px; }
 .brand h1 { margin: 0; font: 800 26px/1 var(--f-display); letter-spacing: -.02em; }
 .brand h1 span { color: var(--oxide); }
 .brand p { margin: 0; color: var(--muted); font-size: 13px; }
@@ -213,6 +216,7 @@ select { padding-right: 28px; }
   <header>
     <div class="top">
       <div class="brand">
+        <span class="mark" aria-hidden="true"><!--MARK--></span>
         <h1>strict<span>-ts</span></h1>
         <p>TypeScript checked like Rust</p>
       </div>
