@@ -1817,6 +1817,40 @@ describe('no-stale-narrowing', () => {
   });
 });
 
+describe('no-reject', () => {
+  const only = (lines: readonly string[]) => refusals(checkSafe([...lines, ''].join('\n'))).filter((refusal) => refusal.startsWith('no-reject'));
+
+  test('refuses the function that makes a promise fail, taken by the callback of its constructor', () => {
+    const lines = [
+      'export const a = new Promise<number>((_resolve, reject) => { reject(new Error("no")); });',
+      'export const b = new Promise<number>((resolve, _reject) => { resolve(1); });',
+      'export const c = new Promise<number>(function (resolve, fail) { resolve(1); void fail; });',
+    ];
+    expect(only(lines)).toEqual(['no-reject@1', 'no-reject@2', 'no-reject@3']);
+  });
+
+  test('accepts a promise that can only be resolved', () => {
+    expect(only(['export const wait = (ms: number): Promise<void> => new Promise<void>((resolve) => { setTimeout(resolve, ms); });'])).toEqual([]);
+  });
+
+  test('refuses a member named then, of an object and of a class, and accepts a type that names one', () => {
+    const lines = [
+      'export const a = { then: (ok: (value: number) => void): void => { ok(1); } };',
+      'export class Later {',
+      '  then(ok: (value: number) => void): void {',
+      '    ok(1);',
+      '  }',
+      '}',
+      'export class Stored {',
+      '  readonly then = (ok: (value: number) => void): void => { ok(1); };',
+      '}',
+      'export type Thenable = { readonly then: (ok: (value: number) => void) => void };',
+      'export const isThenable = (value: object): boolean => "then" in value;',
+    ];
+    expect(only(lines)).toEqual(['no-reject@1', 'no-reject@3', 'no-reject@8']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

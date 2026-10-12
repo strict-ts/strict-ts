@@ -65,9 +65,9 @@ export type Node = NodeBase &
     /**
      * A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns).
      * `isOverload` for a signature with no body that an implementation follows: not an abstract method, and not a
-     * declaration of what is defined elsewhere.
+     * declaration of what is defined elsewhere. `name` for a function or a method declared with one.
      */
-    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean }
+    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean; readonly name: string | undefined }
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }
@@ -113,7 +113,14 @@ export type Node = NodeBase &
      * A property of an interface, of a type literal or of a class, an index signature, or a constructor parameter
      * that declares a property. `asksForMutation` when its type is written `Mut<…>`.
      */
-    | { readonly kind: 'property'; readonly name: string; readonly isReadonly: boolean; readonly asksForMutation: boolean }
+    | {
+        readonly kind: 'property';
+        readonly name: string;
+        readonly isReadonly: boolean;
+        readonly asksForMutation: boolean;
+        /** Of a class: it holds a value. Not of an interface or a type, which only say what a value has. */
+        readonly holdsValue: boolean;
+      }
     /** An enum. `isNumeric` unless every member is given a text written as a literal. */
     | { readonly kind: 'enum'; readonly isNumeric: boolean }
     /** A member of an interface or of a type literal written with the method syntax: `name(x: T): R`. */

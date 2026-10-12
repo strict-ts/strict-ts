@@ -119,6 +119,7 @@ describe('one violation per rule', () => {
       'no-open-read',
       'no-overload',
       'no-param-mutation',
+      'no-reject',
       'no-resize',
       'no-stale-narrowing',
       'no-throw',
