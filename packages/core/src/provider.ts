@@ -55,6 +55,8 @@ export interface Type {
    * it says it writes into.
    */
   readonly mutableParameters: readonly number[];
+  /** For a function: whether the return type written for its first signature says `Mut<…>` somewhere. */
+  readonly mutableReturn: boolean;
   /** For a function whose first signature says `this: Mut<…>`: the type it asks its receiver to have. */
   readonly mutableReceiver: Type | undefined;
 }

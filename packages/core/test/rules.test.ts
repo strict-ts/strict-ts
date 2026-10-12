@@ -849,8 +849,41 @@ describe('no-param-mutation', () => {
     ]);
   });
 
-  test('known limit: what a function gives back is not followed to what it was given', () => {
-    const code = 'const same = <T>(value: T): T => value;\nexport function fill(list: number[]): void {\n  const alias = same(list);\n  alias.push(1);\n}\n';
+  test('what a function of the project gives back is written only if its return type says so', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'type State = { count: number; readonly tags: string[] };',
+      'const held: State = { count: 0, tags: [] };',
+      'const same = <T>(value: T): T => value;',
+      'const current = (): State => held;',
+      'const open = (): Mut<State> => held;',
+      'const later = async (): Promise<Mut<State>> => held;',
+      'export async function a(given: State): Promise<void> {',
+      '  const alias = same(given);',
+      '  alias.count += 1;',
+      '  const now = current();',
+      '  now.tags.push("x");',
+      '  for (const tag of current().tags) tag.trim();',
+      '  open().count += 1;',
+      '  const mine = open();',
+      '  mine.count += 1;',
+      '  (await later()).count += 1;',
+      '  const made = await later();',
+      '  made.tags.pop();',
+      '  const list = Array.of(1, 2);',
+      '  list.push(3);',
+      '  const stated: Mut<State> = { ...current(), tags: [] };',
+      '  stated.count = 2;',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '10 `alias` is mutated, and `same` that gave it does not say it may be: its return type has no `Mut<…>`.',
+      '12 `now` is mutated by `push`, and `current` that gave it does not say it may be: its return type has no `Mut<…>`.',
+    ]);
+  });
+
+  test('known limit: a write straight into what a call gave, with no name for it, is not seen', () => {
+    const code = 'type State = { count: number };\nconst held: State = { count: 0 };\nconst current = (): State => held;\nexport function bump(): void {\n  current().count += 1;\n}\n';
     expect(checkSafe(code, alone)).toEqual([]);
   });
 });

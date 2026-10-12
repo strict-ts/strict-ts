@@ -308,6 +308,12 @@ export function createTypeScript6Provider(
         const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
         return written.flatMap((parameter, index) => (isMut(parameter.type) ? [index] : []));
       },
+      get mutableReturn() {
+        const written = type.getCallSignatures()[0]?.getDeclaration()?.type;
+        // `Mut<Order>`, and `Promise<Mut<Order>>` or `Result<Mut<Order>, E>` as well: the word is there.
+        const says = (inner: ts.Node): boolean => (api.isTypeNode(inner) && isMut(inner)) || (api.forEachChild(inner, says) ?? false);
+        return written !== undefined && says(written);
+      },
       get mutableReceiver() {
         const self = type.getCallSignatures()[0]?.getDeclaration()?.parameters.find(isThis);
         return self?.type !== undefined && isMut(self.type) ? wrapType(checker.getTypeFromTypeNode(self.type)) : undefined;
@@ -412,6 +418,9 @@ export function createTypeScript6Provider(
             return sourcesOf(first, under('copy'));
           }
         }
+        // What any other call gives back is the callee's to say.
+        // A part of it is the callee's too. A new container of what it gave is not followed.
+        return as === 'copy' ? [] : [{ place: part(expression), as: 'result' }];
       }
       return [];
     };
@@ -444,6 +453,8 @@ export function createTypeScript6Provider(
         holder = holder.parent;
       }
       if (!api.isVariableDeclaration(holder)) return [];
+      // A variable declared `Mut<…>` says it may be written: what it is given is checked where it is given.
+      if (isMut(holder.type)) return [];
       const loop = holder.parent.parent;
       const first = api.isForOfStatement(loop) ? sourcesOf(loop.expression, 'part') : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as);
       return [...first, ...laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same'))];
@@ -852,6 +863,7 @@ export function createTypeScript6Provider(
     properties: [],
     returns: [],
     mutableParameters: [],
+    mutableReturn: false,
     mutableReceiver: undefined,
   };
 

@@ -16,7 +16,7 @@ export class Transaction {
 }
 
 /** The one way to get a transaction: it comes with its duty. */
-export const begin = (): Once<Transaction> => new Transaction();
+export const begin = (): Once<Mut<Transaction>> => new Transaction();
 
 /** Takes the transaction for good. Nobody can use it after. */
 export const commit = (tx: Once<Transaction>): readonly string[] => end(tx).written();

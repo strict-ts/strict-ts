@@ -65,11 +65,17 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m23-through-a-method-that-reads.ts')).toEqual(['no-param-mutation']);
   });
 
-  test('one is accepted: a local with no written type, seen read-only by someone else', () => {
+  test('what a function of the project gives back is written only if its return type says `Mut<…>`', () => {
+    expect(refusedBy('m24-given-back-by-a-function.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m25-handed-out-by-a-function.ts')).toEqual(['no-param-mutation']);
+  });
+
+  test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
-    // The Plane page « Review · guarantee 4, explicit mutability » has the task that is to close it.
+    // Whoever made a value may change it; that another holds it as read-only at the same time is aliasing, which
+    // is guarantee 5. The Plane page « Review · guarantee 4, explicit mutability » says why the line is there.
     expect(accepted).toEqual(['m12-inferred-and-viewed.ts']);
   });
 });
