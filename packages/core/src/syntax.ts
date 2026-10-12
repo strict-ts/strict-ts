@@ -55,6 +55,11 @@ export type Node = NodeBase &
         /** Read here with a type narrower than the one it is declared with: a test before it said more. */
         readonly isNarrowed: boolean;
         /**
+         * The place the name is given to takes the whole of the type it is declared with (a parameter typed with
+         * it, a constant declared with it): nothing there relies on what a test said.
+         */
+        readonly takesDeclared: boolean;
+        /**
          * For a name declared with a written type that is a list, a map or a set: whether what it holds may be
          * written into. `Mut<Line[]>` says the list may be written, and not the lines: `readonly` here. A type that
          * says `Mut<…>` inside (`Mut<Mut<Line>[]>`, `readonly Mut<Line>[]`) says they may: `writable`. `unknown`
@@ -126,6 +131,8 @@ export type Node = NodeBase &
         readonly method: string | undefined;
         /** Read here with a type narrower than the one the property is declared with. */
         readonly isNarrowed: boolean;
+        /** The place the property is given to takes the whole of the type it is declared with. */
+        readonly takesDeclared: boolean;
         /** The property is computed each time it is read (`get name()`). */
         readonly isGetter: boolean;
         /**

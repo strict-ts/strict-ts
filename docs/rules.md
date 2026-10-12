@@ -18,7 +18,7 @@ is both, `project` is once for the whole project.
 | `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
 | `no-early-read` | errors | safe | A value is not read before its line: no function is used at the top of a file above a variable it reads, and files do not import each other in a circle |
 | `no-reject` | errors | safe | A promise is not made to fail: the callback of `new Promise` does not take the function that rejects it, and no object has a `then` of its own |
-| `no-stale-narrowing` | typing | safe | What a test narrowed is not relied on after a call or an `await` that could change it (a `let` another function writes, a property that can be written), nor on a getter |
+| `no-stale-narrowing` | typing | safe | What a test narrowed is not relied on after something else could change it: a call or an `await` before the read of a variable another function writes or of a property that can be written, and any read of a getter. A read that is itself a test (a comparison, a value read for its truth), or that is given where the whole declared type is taken, relies on nothing and is accepted. Not run in test files |
 | `no-class-lookalike` | typing | safe | Where a class is asked for, the value is made by that class, not an object of its shape |
 | `no-loose-spread` | typing | safe | A spread does not write a property its type does not name: over one written before it, or into one the result may have |
 | `no-in-narrowing` | typing | safe | `in` does not choose between the members of a union: a tag does |
