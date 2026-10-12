@@ -155,3 +155,5 @@ export const failing = (): Promise<number> => new Promise<number>((_resolve, rej
 const readLate = (): number => lateValue;
 export const tooEarly = readLate(); // expect: no-early-read
 const lateValue = 1;
+
+export const kept = (topic: string | undefined = "keep"): string => topic; // expect: no-default-on-undefined

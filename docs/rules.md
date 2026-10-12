@@ -14,6 +14,7 @@ is both, `project` is once for the whole project.
 | `no-overload` | typing | safe | No overload signature: nothing checks that the implementation keeps each promise, and one can be a cast |
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
+| `no-default-on-undefined` | typing | safe | No default on a parameter, or on a name taken out by a pattern, whose type lets `undefined` be given on purpose: the default would run and what the caller gave would be lost. `name?: T` is not such a place, and a default of `undefined` hides nothing |
 | `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
 | `no-early-read` | errors | safe | A value is not read before its line: no function is used at the top of a file above a variable it reads, and files do not import each other in a circle |
 | `no-reject` | errors | safe | A promise is not made to fail: the callback of `new Promise` does not take the function that rejects it, and no object has a `then` of its own |

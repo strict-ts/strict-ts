@@ -92,6 +92,7 @@
           "no-overload",
           "no-method-signature",
           "no-numeric-enum",
+          "no-default-on-undefined",
           "no-unset-capture",
           "no-early-this",
           "no-unbound-method",

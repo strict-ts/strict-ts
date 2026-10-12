@@ -2,7 +2,7 @@
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](../packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 39 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](../packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 40 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](../packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](../packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](../packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
