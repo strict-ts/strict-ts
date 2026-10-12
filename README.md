@@ -1,14 +1,35 @@
 <p align="center"><img src="assets/logo.svg" alt="strict-ts" width="320"></p>
 
-# strict-ts
-
 [![CI](https://git.cf.adserver.fr/Alex/strict-ts/actions/workflows/ci.yml/badge.svg?branch=main)](https://git.cf.adserver.fr/Alex/strict-ts/actions)
 
-[strict-ts](docs/getting-started.md) makes TypeScript and JavaScript as safe as Rust. A program it accepts must not be
-able to fail for a reason its types do not announce. It is a checker, not a language: the code stays standard
-TypeScript that `tsc` compiles as is. `strict-ts` runs in place of `tsc --noEmit`, reports the compiler's errors, and
-adds its own [rules](docs/rules.md). Try it in the [playground](packages/playground), which `pnpm build` writes to
-one page that needs no server.
+# strict-ts
+
+[Getting started](docs/getting-started.md) |
+[Rules](docs/rules.md) |
+[Configure](docs/configuration.md) |
+[Adopt on existing code](docs/adopting.md) |
+[Known limits](docs/known-limits.md) |
+[Contribute](CONTRIBUTING.md)
+
+strict-ts makes TypeScript and JavaScript as safe as Rust: a program it accepts must not be able to fail for a reason
+its types do not announce.
+
+- It is a checker, not a language. The code stays standard TypeScript that `tsc` compiles as is.
+- `strict-ts` runs in place of `tsc --noEmit`: it reports the compiler's errors and adds its own rules.
+- Unchecked code lives in one place, the unsafe directories, and says why it holds.
+- An analysis that is not sure refuses the code. It never declares it safe.
+
+## Table of contents
+
+1. [The five guarantees](#the-five-guarantees)
+2. [Installation and usage](#installation-and-usage)
+3. [Configuration](#configuration)
+4. [Documentation](#documentation)
+5. [Frequently asked questions](#frequently-asked-questions)
+6. [Versions](#versions)
+7. [Contribute](#contribute)
+8. [Roadmap](#roadmap)
+9. [License](#license)
 
 ## The five guarantees
 
@@ -26,7 +47,9 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 « Prototype » means the rules exist and are tested, and known ways around them remain (see
 [Known limits](docs/known-limits.md)). No guarantee is « Acquired » by strict-ts yet.
 
-## Installing
+## Installation and usage
+
+Prerequisites: [Node.js](https://nodejs.org/) 22.13 or later, and a project with a `tsconfig.json`.
 
 Nothing is released yet. Each commit of `main` that passes the CI is published as a pilot version on the npm registry
 of the Gitea:
@@ -35,10 +58,40 @@ of the Gitea:
 echo "@strict-ts:registry=https://git.cf.adserver.fr/api/packages/Alex/npm/" >> .npmrc
 npm install -D @strict-ts/cli@pilot
 npm install @strict-ts/std@pilot
+```
+
+Then run it where `tsc --noEmit` ran:
+
+```sh
 npx strict-ts -p .
 ```
 
-Or from this repo, see [Getting started](docs/getting-started.md).
+It prints one line per refusal, and a `help:` line below:
+
+```
+invoice.ts:31:10 no-cast `as` cast forbidden.
+  help: Use a type guard, `satisfies`, or validate the data in unsafe/.
+```
+
+The exit code is 0 when nothing is refused, 1 when something is, 2 when the project could not be checked. The options
+and the JSON and SARIF outputs are in [The command line](docs/cli.md). To run it from this repo instead, see
+[Getting started](docs/getting-started.md).
+
+## Configuration
+
+An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional:
+
+```json
+{
+  "unsafeDirs": ["src/unsafe"],
+  "allowedImports": ["@strict-ts/std"],
+  "pureDirs": ["src/domain"]
+}
+```
+
+`unsafeDirs` are the only directories where a cast, `any`, `throw` or an external import may live;
+`allowedImports` are the packages safe code may import; `pureDirs` hold code that must be pure. Every key is described
+in [Configuration](docs/configuration.md).
 
 ## Documentation
 
@@ -52,6 +105,44 @@ Or from this repo, see [Getting started](docs/getting-started.md).
 - [The probes](docs/probes.md): checking at run time what the gate took on trust
 - [Packages](docs/packages.md)
 - [Known limits](docs/known-limits.md)
+
+## Frequently asked questions
+
+### Is it a new language, or a new compiler?
+
+No. A program strict-ts accepts is TypeScript that `tsc` compiles as is, and the JavaScript that comes out is the
+same. What conforming code is written with, `Result`, `Option`, schemas, is an ordinary library,
+[`@strict-ts/std`](docs/standard-library.md).
+
+### Can I use it on code that was not written for it?
+
+Yes: record today's refusals in a [baseline](docs/adopting.md), and the gate only fails on what is new. A fixer
+applies the fixes that are mechanical.
+
+### How do I silence a rule on one line?
+
+You cannot, by design. What cannot conform goes to an [unsafe directory](docs/unsafe-directories.md) with a
+`// SAFETY:` reason, or to the baseline.
+
+### Does it replace my linter?
+
+No. It replaces `tsc --noEmit` in the CI. Three of its rules also exist as an
+[Oxlint plugin](packages/oxlint-plugin), for a quick first answer.
+
+### Which versions of TypeScript does it support?
+
+It checks with the TypeScript 6 API, which it brings itself. The [editor plugin](docs/editor.md) needs an editor that
+runs TypeScript 6 or earlier.
+
+### Is my program proven safe once it passes?
+
+No guarantee is « Acquired » yet. The ways around the rules that are known are listed in
+[Known limits](docs/known-limits.md).
+
+## Versions
+
+A pilot version is named after its commit, `0.0.0-pilot.<time>.g<commit>`, under the tag `pilot`: it is not a release,
+and a rule may start refusing more from one to the next. Semantic versioning is followed strictly from 1.0.
 
 ## Contribute
 
