@@ -1,5 +1,10 @@
 import type { Rule } from '../rule.js';
 
+const TYPED_ARRAYS: readonly string[] = [
+  'Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array',
+  'Float16Array', 'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array',
+];
+
 export const noKeyedWrite: Rule = {
   name: 'no-keyed-write',
   guarantee: 'typing',
@@ -26,8 +31,9 @@ export const noKeyedWrite: Rule = {
     }
     if (node.kind !== 'binary' || node.operator !== '=' || node.left.kind !== 'element-access') return;
     const holder = typeOf(node.left.object);
-    // An array is written by position and a table by any name: their values all have one type.
-    if (holder.isArray || holder.isIndexed || holder.isAny) return;
+    // An array is written by position and a table by any name: their values all have one type. So is a typed
+    // array, where a write past the end is ignored and leaves no hole.
+    if (holder.isArray || holder.isIndexed || holder.isAny || holder.kinds.every((kind) => TYPED_ARRAYS.includes(kind))) return;
     const key = typeOf(node.left.index);
     if (key.members.every((member) => member.isLiteral)) return;
     report(

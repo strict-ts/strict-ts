@@ -1974,6 +1974,16 @@ describe('the rules on a value that holds more than its type names', () => {
     expect(only('no-loose-spread', lines)).toEqual(['no-loose-spread@6', 'no-loose-spread@7']);
   });
 
+  test('no-keyed-write accepts a write by position into a typed array', () => {
+    const lines = [
+      'export const fill = (bytes: Mut<Uint8Array>, cells: Mut<Float32Array>, at: number): void => {',
+      '  bytes[at] = 1;',
+      '  cells[at + 1] = 0.5;',
+      '};',
+    ];
+    expect(only('no-keyed-write', lines)).toEqual([]);
+  });
+
   test('no-keyed-write refuses a computed key that is not one name in an object that is not a table', () => {
     const lines = [
       'type Sizes = { readonly width?: number; readonly label?: string };',
