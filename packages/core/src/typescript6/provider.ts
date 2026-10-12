@@ -725,7 +725,8 @@ export function createTypeScript6Provider(
       const source = origin.get(node);
       if (source === undefined || !api.isExpression(source) || isNameOfMember(source)) return false;
       const expected = checker.getContextualType(source);
-      return expected !== undefined && !checker.isTypeAssignableTo(expected, checker.getTypeAtLocation(source));
+      // Without the `undefined` of an optional place: nothing is written through it, and the value given is not it.
+      return expected !== undefined && !checker.isTypeAssignableTo(checker.getNonNullableType(expected), checker.getTypeAtLocation(source));
     },
     valuesOf: (node) => {
       const source = origin.get(node);
