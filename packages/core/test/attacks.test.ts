@@ -8,13 +8,21 @@ import { checkFiles, fixture } from './project.js';
 const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
 const attacks = fixture('attacks');
 // Of the file itself: with the DOM, the environment of the tests declares `console` a second time.
-const refusedBy = (name: string): readonly string[] =>
-  [...new Set(checkFiles({ 'src/a.ts': attacks[name] ?? '' }, page).flatMap((d) => (d.file === 'src/a.ts' ? [d.rule] : [])))].toSorted();
+// Each attack is checked once, whatever the number of tests that ask about it.
+const checked = new Map<string, readonly string[]>();
+const refusedBy = (name: string): readonly string[] => {
+  const known = checked.get(name);
+  if (known !== undefined) return known;
+  const rules = [...new Set(checkFiles({ 'src/a.ts': attacks[name] ?? '' }, page).flatMap((d) => (d.file === 'src/a.ts' ? [d.rule] : [])))].toSorted();
+  checked.set(name, rules);
+  return rules;
+};
 
 describe('the attacks on safe typing', () => {
   test('each one compiles: what refuses it, if anything, is a rule and not the compiler', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
-  });
+    // Every file is compiled here, one program each: long on a busy machine.
+  }, 180_000);
 
   test('each one is refused, by the rule that was written for it', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
@@ -42,6 +50,8 @@ describe('the attacks on safe typing', () => {
     // Two ways the rules had said they left open.
     expect(refusedBy('c05-callback-in-constructor.ts')).toEqual(['no-early-this']);
     expect(refusedBy('c06-narrowed-before-a-loop.ts')).toEqual(['no-stale-narrowing']);
+    // Found while an application of the pilot was made to conform.
+    expect(refusedBy('c07-computed-key.ts')).toEqual(['no-keyed-write']);
     // A value that holds more than its type names: read whole, narrowed by `in`, spread, taken for a class.
     expect(refusedBy('a02-object-values.ts')).toEqual(['no-open-read']);
     expect(refusedBy('a03-in-narrowing.ts')).toEqual(['no-in-narrowing']);

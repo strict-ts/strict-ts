@@ -64,6 +64,9 @@ User.parse(input); // Result<User, { path: string; expected: string }>
 `s.optional(inner)`, `s.object(shape)`, `s.record(value)` (an object used as a table: any names, values of one kind).
 Unknown keys of an object are dropped.
 
+`s.loose(shape)` checks the keys it names and keeps every other key as it is, in the order they came in: for a
+document a program edits in part and must give back whole, like the configuration of another tool.
+
 `s.union(a, b, …)` is a choice between shapes: each is tried in the order written, and the first that reads the
 value wins, so a shape that holds another comes before it. `s.nullish(inner)` is a value that may be missing: a
 `null` or an `undefined` is read as `undefined`, and in an object the key stays, where `s.optional` leaves it out.

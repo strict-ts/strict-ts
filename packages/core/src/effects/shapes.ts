@@ -3,7 +3,7 @@
 // hand from the DOM standard, and packages/ledger runs them in a browser before the ledger may name them.
 
 /** The name of a shape, as the ledger writes it. */
-export type Shape = 'token' | 'selector' | 'element-name' | 'attribute-name' | 'colour' | 'unit' | 'flag' | 'text';
+export type Shape = 'token' | 'selector' | 'element-name' | 'attribute-name' | 'header-name' | 'colour' | 'unit' | 'flag' | 'text';
 
 const IDENT = '-?[A-Za-z_][A-Za-z0-9_-]*';
 const QUOTED = `"[^"\\\\\\n]*"|'[^'\\\\\\n]*'`;
@@ -31,6 +31,8 @@ const shapes: Readonly<Record<Shape, (value: unknown) => boolean>> = {
    * a page can make the browser refuse a text there.
    */
   'attribute-name': (value) => typeof value === 'string' && /^(?:role|(?:aria|data)-[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/.test(value),
+  /** The name of an HTTP header: ASCII letters and digits, in parts joined by hyphens (`content-type`, `ETag`). */
+  'header-name': (value) => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/.test(value),
   /** `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, and `rgb(…)` or `rgba(…)` with numbers and commas. */
   colour: (value) => typeof value === 'string' && COLOUR.test(value),
   /** A number from 0 to 1. */

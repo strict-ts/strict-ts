@@ -14,5 +14,7 @@ export const domWritten: Readonly<Record<string, Written>> = {
   'ParentNode.querySelectorAll': { shapes: ['selector'], clause: 'DOM standard, querySelectorAll(selectors): throws when selectors does not parse', runs: 3000 },
   'Element.closest': { shapes: ['selector'], clause: 'DOM standard, closest(selectors): throws when selectors does not parse', runs: 5400 },
   'Element.matches': { shapes: ['selector'], clause: 'DOM standard, matches(selectors): throws when selectors does not parse', runs: 5400 },
+  'Headers.get': { shapes: ['header-name'], clause: 'Fetch standard, get(name): throws when name is not a header name', runs: 3000 },
+  'Headers.has': { shapes: ['header-name'], clause: 'Fetch standard, has(name): throws when name is not a header name', runs: 3000 },
   'CanvasGradient.addColorStop': { shapes: ['unit', 'colour'], clause: 'HTML standard, addColorStop(offset, color): throws when offset is outside 0 to 1 or color does not parse', runs: 1800 },
 };

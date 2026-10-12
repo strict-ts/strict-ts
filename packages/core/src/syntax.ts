@@ -48,6 +48,11 @@ export type Node = NodeBase &
         readonly declaredAt: number | undefined;
         /** Read here with a type narrower than the one it is declared with: a test before it said more. */
         readonly isNarrowed: boolean;
+        /**
+         * For a constant made of the rest of an object (`const { a, b: c, ...rest } = value`), the names the pattern
+         * took out: the constant holds none of them, whatever its type says. Empty for anything else.
+         */
+        readonly leftOut: readonly string[];
       }
     | { readonly kind: 'string-literal'; readonly text: string }
     /** An object or an array written in place: `{ … }`, `[ … ]`. Nobody else holds it yet. */
@@ -168,5 +173,7 @@ export type NodeKind = Node['kind'];
  */
 export interface LiteralEntry {
   readonly name: string | undefined;
+  /** The key of a property written `[key]: value`, when it is computed and not a name written in place. */
+  readonly key: Node | undefined;
   readonly spread: Node | undefined;
 }

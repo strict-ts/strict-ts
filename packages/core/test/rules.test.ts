@@ -1747,6 +1747,35 @@ describe('the rules on a value that holds more than its type names', () => {
     expect(only('no-loose-spread', lines)).toEqual(['no-loose-spread@6', 'no-loose-spread@7']);
   });
 
+  test('no-keyed-write refuses a computed key that is not one name in an object that is not a table', () => {
+    const lines = [
+      'type Sizes = { readonly width?: number; readonly label?: string };',
+      'const one = "width" as const;',
+      'export const a = (key: "width" | "label", value: number | string): Sizes => ({ [key]: value });',
+      'export const b = (key: string, value: number): Readonly<Record<string, number>> => ({ [key]: value });',
+      'export const c: Sizes = { [one]: 1 };',
+      'export const d = (key: string) => ({ [key]: 1 });',
+      'export const e = { [Symbol.iterator]: () => [1][Symbol.iterator]() };',
+    ];
+    expect(only('no-keyed-write', lines)).toEqual(['no-keyed-write@3', 'no-keyed-write@6']);
+  });
+
+  test('no-loose-spread accepts the rest of a pattern for the names the pattern took out, when it is a constant', () => {
+    const lines = [
+      'type Router = { readonly rule?: string; readonly service?: string; readonly [key: string]: unknown };',
+      'export const a = (base: Router, rule: string): Router => {',
+      '  const { rule: _rule, "service": _service, ...rest } = base;',
+      '  return { ...rest, ...(rule === "" ? {} : { rule }) };',
+      '};',
+      'export const b = (base: Router, other: Router): Router => {',
+      '  let { rule: _rule, service: _service, ...rest } = base;',
+      '  rest = other;',
+      '  return { ...rest };',
+      '};',
+    ];
+    expect(only('no-loose-spread', lines)).toEqual(['no-loose-spread@9']);
+  });
+
   test('no-loose-spread accepts what names everything it copies: a value of the same type, an object written in place, a choice of two', () => {
     const lines = [
       'type Options = { readonly name: string; readonly retries?: number };',
