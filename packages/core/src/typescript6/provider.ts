@@ -406,6 +406,7 @@ export function createTypeScript6Provider(
         const waitsForValue = node.initializer === undefined && api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && !isDeclared;
         return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue };
       }
+      if (node.kind === api.SyntaxKind.ThisKeyword) return { ...base, kind: 'this' };
       if (api.isMethodSignature(node)) return { ...base, kind: 'method-signature' };
       if (api.isEnumDeclaration(node)) {
         const isText = (member: ts.EnumMember): boolean => member.initializer !== undefined && api.isStringLiteralLike(member.initializer);
@@ -419,7 +420,7 @@ export function createTypeScript6Provider(
         const isDeclared =
           api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
         const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
-        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload };
+        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node) };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

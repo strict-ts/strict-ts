@@ -22,6 +22,7 @@ export type Node = NodeBase &
     | { readonly kind: 'any-keyword' }
     | { readonly kind: 'null-keyword' }
     | { readonly kind: 'import-keyword' }
+    | { readonly kind: 'this' }
     /**
      * `declaredOutside`: the name refers to a value declared outside the checked files (a declaration file, a
      * dependency), so nothing checked where its type comes from.
@@ -62,7 +63,7 @@ export type Node = NodeBase &
      * `isOverload` for a signature with no body that an implementation follows: not an abstract method, and not a
      * declaration of what is defined elsewhere.
      */
-    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean }
+    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean }
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }

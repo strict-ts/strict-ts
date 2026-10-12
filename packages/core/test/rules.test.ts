@@ -1492,6 +1492,63 @@ describe('no-unset-capture', () => {
   });
 });
 
+describe('no-early-this', () => {
+  const only = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-early-this'));
+
+  test('refuses a method called in a constructor, and `this` handed over there', () => {
+    const code = [
+      'const register = (meter: Meter): number => meter.size;',
+      'export class Meter {',
+      '  readonly label: string;',
+      '  readonly size: number;',
+      '  constructor() {',
+      '    this.label = this.render();',
+      '    register(this);',
+      '    this.size = 1;',
+      '  }',
+      '  render(): string {',
+      '    return String(this.size);',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    const found = checkSafe(code).filter((d) => d.rule === 'no-early-this');
+    expect(found.map((d) => `${d.start.line} ${d.message}`)).toEqual([
+      '6 Method called while the object is being made: it can read a property that has no value yet.',
+      '7 `this` handed over while the object is being made: whoever gets it can read a property that has no value yet.',
+    ]);
+  });
+
+  test('refuses the same in the value a property is declared with', () => {
+    const code = ['export class Meter {', '  readonly label = this.render();', '  readonly size = 1;', '  render(): string {', '    return String(this.size);', '  }', '}', ''].join('\n');
+    expect(only(code)).toEqual(['no-early-this@2']);
+  });
+
+  test('accepts properties read and written, and a function that will run later', () => {
+    const code = [
+      'export class Meter {',
+      '  readonly size: number;',
+      '  readonly double: number;',
+      '  readonly later: () => string;',
+      '  readonly show = (): string => this.render();',
+      '  constructor(size: number) {',
+      '    this.size = size;',
+      '    this.double = this.size * 2;',
+      '    this.later = () => this.render();',
+      '  }',
+      '  render(): string {',
+      '    return String(this.double);',
+      '  }',
+      '  twice(): string {',
+      '    return this.render() + this.render();',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

@@ -105,6 +105,7 @@ describe('one violation per rule', () => {
       'no-ambient',
       'no-any',
       'no-cast',
+      'no-early-this',
       'no-external-import',
       'no-method-signature',
       'no-non-null',

@@ -16,7 +16,7 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('seven are refused', () => {
+  test('eight are refused', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
@@ -27,9 +27,10 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('a04-method-bivariance.ts')).toEqual(['no-method-signature']);
     expect(refusedBy('a07-number-to-enum.ts')).toEqual(['no-numeric-enum']);
     expect(refusedBy('a06-closure-before-assignment.ts')).toEqual(['no-unset-capture']);
+    expect(refusedBy('a05-constructor-order.ts')).toEqual(['no-early-this']);
   });
 
-  test('sixteen are accepted: the holes of guarantee 2, to close one by one', () => {
+  test('fifteen are accepted: the holes of guarantee 2, to close one by one', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
@@ -37,7 +38,6 @@ describe('the attacks on safe typing', () => {
     expect(accepted).toEqual([
       'a02-object-values.ts',
       'a03-in-narrowing.ts',
-      'a05-constructor-order.ts',
       'a08-narrowing-outlives-a-call.ts',
       'a09-array-covariance.ts',
       'a10-tuple-pop.ts',
