@@ -2602,6 +2602,72 @@ describe('mut-from-readonly', () => {
     ]);
   });
 
+  test('wherever it is given: a property or an element of what is written in place, an assignment, a choice, a call', () => {
+    expect(
+      said(
+        'declare const held: Order;',
+        'type Open = { id: string; total: number };',
+        'export const a: { readonly inner: Mut<Open> } = { inner: held };',
+        'export const b: readonly Mut<Open>[] = [held];',
+        'let c: Mut<Open> = { id: "x", total: 1 };',
+        'c = held;',
+        'let d = { id: "x", total: 1 };',
+        'd = held;',
+        'export const e: Mut<Open> = c.total > d.total ? held : c;',
+        'const same = <T>(value: T): T => value;',
+        'export const f: Mut<Open> = same(held);',
+        'export const g: { readonly inner: Order } = { inner: held };',
+        'let [h, i] = [1, 2];',
+        'declare const pair: readonly [number, number];',
+        '[h, i] = pair;',
+        'export const j = h + i;',
+      ),
+    ).toEqual([
+      '3 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '4 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '6 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '8 A value typed read-only (`id`, `total`) is assigned to a place that can be written: a write there would change what its holder was told cannot change.',
+      '9 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+      '11 A value typed read-only (`id`, `total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.',
+    ]);
+  });
+
+  test('looks below the first level of what is given', () => {
+    expect(
+      said(
+        'declare const box: { readonly order: Order };',
+        'export const a: Mut<{ order: { id: string; total: number } }> = box;',
+      ),
+    ).toEqual(['2 A value typed read-only (`order`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.']);
+    expect(
+      said(
+        'declare const box: { order: Order };',
+        'export const a: Mut<{ order: { id: string; total: number } }> = box;',
+      ),
+    ).toEqual(['2 A value typed read-only (`order.id`, `order.total`) is given where `Mut<…>` is asked for: a write there would change what its holder was told cannot change.']);
+  });
+
+  test('refuses a function that writes its parameter where one that does not is asked for, and a method that writes its receiver', () => {
+    expect(
+      said(
+        'declare const held: Order;',
+        'const through = (run: (order: Order) => void): void => run(held);',
+        'through(reset);',
+        'through(sum);',
+        'const each = (run: (order: Mut<{ id: string; total: number }>) => void): void => run({ id: "x", total: 1 });',
+        'each(reset);',
+        'function clear(this: Mut<{ total: number }>): void { this.total = 0; }',
+        'const frozen: { readonly total: number; readonly clear: typeof clear } = { total: 1, clear };',
+        'frozen.clear();',
+        'const open: Mut<{ total: number; clear: typeof clear }> = { total: 1, clear };',
+        'open.clear();',
+      ),
+    ).toEqual([
+      '3 A function whose parameter 1 asks for `Mut<…>` is given where one that does not is asked for: it will be called with what its caller was told cannot change.',
+      '9 A value typed read-only (`total`) is given to a method that asks for `this: Mut<…>`: a write there would change what its holder was told cannot change.',
+    ]);
+  });
+
   test('refuses a value typed read-only where a mutable one is asked for', () => {
     expect(
       said(

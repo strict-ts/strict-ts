@@ -46,7 +46,20 @@ describe('the attacks on explicit mutability', () => {
     }
   });
 
-  test('eight are accepted: the holes of guarantee 4, by family', () => {
+  test('a value typed read-only does not reach a type that can be written', () => {
+    for (const name of [
+      'm09-mut-through-a-property.ts',
+      'm10-mut-through-an-assignment.ts',
+      'm11-mut-through-an-element.ts',
+      'm14-callback-parameter.ts',
+      'm15-returned-as-mut.ts',
+      'm16-this-parameter.ts',
+    ]) {
+      expect(refusedBy(name), name).toEqual(['mut-from-readonly']);
+    }
+  });
+
+  test('two are accepted: the holes of guarantee 4', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
@@ -54,16 +67,8 @@ describe('the attacks on explicit mutability', () => {
     expect(accepted).toEqual([
       // A parameter changed by its own method.
       'm04-mutating-method.ts',
-      // A value typed read-only that reaches a type that can be written.
-      'm09-mut-through-a-property.ts',
-      'm10-mut-through-an-assignment.ts',
-      'm11-mut-through-an-element.ts',
       // A local with no written type, seen read-only by someone else.
       'm12-inferred-and-viewed.ts',
-      // A value typed read-only that reaches a type that can be written, again: through a function.
-      'm14-callback-parameter.ts',
-      'm15-returned-as-mut.ts',
-      'm16-this-parameter.ts',
     ]);
   });
 });

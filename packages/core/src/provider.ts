@@ -50,6 +50,13 @@ export interface Type {
   readonly properties: readonly Type[];
   /** The return type of each call signature; empty when the type is not callable. */
   readonly returns: readonly Type[];
+  /**
+   * For a function: the positions of the parameters whose type is written `Mut<…>`, in its first signature. Those
+   * it says it writes into.
+   */
+  readonly mutableParameters: readonly number[];
+  /** For a function whose first signature says `this: Mut<…>`: the type it asks its receiver to have. */
+  readonly mutableReceiver: Type | undefined;
 }
 
 export interface SourceFile {
