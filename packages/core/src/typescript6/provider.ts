@@ -407,6 +407,11 @@ export function createTypeScript6Provider(
           get isGetter() {
             return ((checker.getSymbolAtLocation(node.name)?.flags ?? 0) & api.SymbolFlags.GetAccessor) !== 0;
           },
+          get getterIn() {
+            const getter = (checker.getSymbolAtLocation(node.name)?.declarations ?? []).find((declaration) => api.isGetAccessor(declaration));
+            const fileName = getter?.getSourceFile().fileName;
+            return fileName !== undefined && fileName.startsWith(root) && !fileName.includes('/node_modules/') ? fileName.slice(root.length) : undefined;
+          },
           get method() {
             const declarations = checker.getSymbolAtLocation(node.name)?.declarations ?? [];
             const written = declarations.find((declaration) => api.isMethodDeclaration(declaration) || api.isMethodSignature(declaration));
@@ -786,8 +791,22 @@ export function calleeReader(
     // Only a module found in a dependency says which package it is: a path of the project names none.
     return module !== undefined && api.isSourceFile(module) && module.fileName.includes('/node_modules/') ? packageOf(module.fileName) : undefined;
   };
+  const rootOf = `${rootDir.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
   return (call) => {
     const declaration = checker.getResolvedSignature(call)?.declaration;
+    if (declaration === undefined && api.isNewExpression(call)) {
+      // A class with no constructor written: there is no signature to find, and the class itself says where it is.
+      const named = checker.getSymbolAtLocation(call.expression);
+      const built = (named !== undefined && (named.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(named) : named)?.valueDeclaration;
+      if (built === undefined || !api.isClassLike(built)) return undefined;
+      const file = built.getSourceFile();
+      const inProject = checked.has(file.fileName);
+      return {
+        name: `${built.name?.text ?? ''}.new`,
+        origin: inProject ? { kind: 'project' } : program.isSourceFileDefaultLibrary(file) ? { kind: 'library' } : { kind: 'package', package: packageOf(file.fileName) },
+        ...(inProject && file.fileName.startsWith(rootOf) ? { declaredIn: file.fileName.slice(rootOf.length) } : {}),
+      };
+    }
     if (declaration === undefined || api.isJSDocSignature(declaration)) return undefined;
     const constructs = api.isConstructSignatureDeclaration(declaration) || api.isConstructorDeclaration(declaration);
     const member = constructs ? 'new' : (declaration.name?.getText() ?? '');
@@ -810,6 +829,7 @@ export function calleeReader(
       name: owner === undefined ? member : `${owner}.${member}`,
       origin,
       ...(through === undefined ? {} : { importedFrom: through }),
+      ...(origin.kind === 'project' && file.fileName.startsWith(rootOf) ? { declaredIn: file.fileName.slice(rootOf.length) } : {}),
     };
   };
 }

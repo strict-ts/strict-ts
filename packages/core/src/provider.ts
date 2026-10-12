@@ -83,6 +83,11 @@ export interface Callee {
    * allowed for what it exports, wherever it keeps it.
    */
   readonly importedFrom?: string;
+  /**
+   * For a function of the project: the file its signature is written in, as diagnostics show it. A rule tells from
+   * it whether the function lives in an unsafe directory.
+   */
+  readonly declaredIn?: string;
 }
 
 /**

@@ -69,11 +69,15 @@ export function run(argv: readonly string[], io: Io): number {
   if (files.length === 0) return fail(`no file to check under ${rootDir}`);
 
   // With --cache, a file whose text and imports did not change keeps the result of the last run.
-  const facts = useCache ? loaded.value.facts(json(settings.value.config)) : undefined;
+  const known = useCache ? loaded.value.facts(json(settings.value.config)) : undefined;
+  if (known !== undefined && !known.ok) return fail(known.error);
+  const facts = known?.value;
   const previous = facts === undefined ? undefined : parseCache(readJsonFile(rootDir, CACHE_FILE).unwrapOr(Option.none).unwrapOr(undefined));
   const reused = facts === undefined ? new Map<string, readonly Diagnostic[]>() : stillValid(previous, facts);
   const toCheck = new Set(files.filter((file) => !reused.has(file)));
-  const fresh = check(loaded.value.provider(useCache ? toCheck : undefined), settings.value.config);
+  const provider = loaded.value.provider(useCache ? toCheck : undefined);
+  if (!provider.ok) return fail(provider.error);
+  const fresh = check(provider.value, settings.value.config);
   const found = [...fresh, ...[...reused.values()].flat()].toSorted(compareDiagnostics);
   if (facts !== undefined) {
     const kept: Cache = {

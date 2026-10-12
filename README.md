@@ -446,11 +446,11 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
   `packages/core/test/attacks.test.ts` records which ones are refused. This is a list of known ways, not a proof
   that there is no other.
-- **An error can still escape its type in seven known ways.** Of 27 ways for safe code to throw or to reject with
-  no `throw` written, the rules refuse 20. What passes: a constant read before the line that declares it, in
-  one file or across two that import each other; an object, a class or a getter that an unsafe directory hands
-  over, which safe code then calls; and a function that calls itself without end. Each is a file of
-  `packages/core/test/fixtures/escapes`, and `packages/core/test/escapes.test.ts` records which ones are refused.
+- **An error can still escape its type in two known ways.** Of 27 ways for safe code to throw or to reject with no
+  `throw` written, the rules refuse 24. What passes: a constant read before the line that declares it, in one file
+  or across two that import each other. A third is outside the guarantee: a function that calls itself without
+  end, as a stack overflow is outside Rust's. Each is a file of `packages/core/test/fixtures/escapes`, and
+  `packages/core/test/escapes.test.ts` records which ones are refused.
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused

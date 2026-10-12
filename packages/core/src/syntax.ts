@@ -91,6 +91,8 @@ export type Node = NodeBase &
         readonly isNarrowed: boolean;
         /** The property is computed each time it is read (`get name()`). */
         readonly isGetter: boolean;
+        /** For a getter written in the project: the file it is written in, as diagnostics show it. */
+        readonly getterIn: string | undefined;
       }
     /** `object[…]`. */
     | { readonly kind: 'element-access'; readonly object: Node; readonly index: Node }

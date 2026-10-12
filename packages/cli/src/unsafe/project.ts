@@ -16,9 +16,9 @@ export interface Project {
   /** The names of the files the rules read, relative to the root. */
   readonly files: readonly string[];
   /** The program as the rules read it; `only` restricts it to some of those files. */
-  readonly provider: (only?: ReadonlySet<string>) => TypeProvider;
+  readonly provider: (only?: ReadonlySet<string>) => Result<TypeProvider, string>;
   /** What decides the result of a run, for the cache. `settings` is what the run was configured with. */
-  readonly facts: (settings: string) => Facts;
+  readonly facts: (settings: string) => Result<Facts, string>;
 }
 
 const describe = textOf;
@@ -91,9 +91,10 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
       provider: (only) => {
         const names = (fileName: string): string | undefined => packageNameOf((path) => ts.sys.readFile(path), fileName).unwrapOr(undefined);
         const asked = only === undefined ? {} : { only: (fileName: string) => only.has(relative(fileName)) };
-        return createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, unreadSources, ...asked });
+        // Reading the program is the compiler's code: what it throws leaves here as a value.
+        return attempt(() => createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, unreadSources, ...asked }), describe);
       },
-      facts,
+      facts: (settings) => attempt(() => facts(settings), describe),
     });
   }, describe);
   return loaded.andThen((result) => result);

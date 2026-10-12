@@ -1851,6 +1851,50 @@ describe('no-reject', () => {
   });
 });
 
+describe('no-throwing-call and what an unsafe directory hands over', () => {
+  const unsafe = [
+    'import { ok, type Result } from "@strict-ts/std";',
+    '// SAFETY: what each of these does is the point of the test.',
+    'export const read = (): Result<string, string> => ok("x");',
+    'export const later = async (): Promise<Result<string, string>> => ok("x");',
+    'export const raw = (): Result<string, string> => ok("x");',
+    'export const api = { read: (): string => "x", safe: (): Result<string, string> => ok("x") };',
+    'export class Reader {',
+    '  read(): Result<string, string> {',
+    '    return ok("x");',
+    '  }',
+    '  bare(): string {',
+    '    return "x";',
+    '  }',
+    '}',
+    'export const make = (): Result<Reader, string> => ok(new Reader());',
+    'export const lazy = { get value(): string { return "x"; } };',
+    '',
+  ].join('\n');
+  const said = (lines: readonly string[]) =>
+    checkEverything({ 'src/unsafe/io.ts': unsafe, 'src/a.ts': ['import { api, lazy, later, make, read, Reader } from "./unsafe/io.js";', ...lines, ''].join('\n') })
+      .filter((d) => d.rule === 'no-throwing-call' && d.file === 'src/a.ts')
+      .map((d) => `${d.start.line} ${d.message}`);
+
+  test('accepts a function, a method and an async function that return a Result', () => {
+    expect(said(['export const a = read();', 'export const b = api.safe();', 'export const c = await later();', 'export const d = make().map((reader) => reader.read());'])).toEqual([]);
+  });
+
+  test('refuses a method that returns a bare value, a constructor, and a getter', () => {
+    expect(said(['export const a = api.read();', 'export const b = new Reader();', 'export const c = make().map((reader) => reader.bare());', 'export const d = lazy.value;'])).toEqual([
+      '2 This function is written in an unsafe directory and does not return a Result or an Option: it may throw.',
+      '3 `Reader.new` builds a class written in an unsafe directory: its constructor may throw, and has no type to say so.',
+      '4 `Reader.bare` is written in an unsafe directory and does not return a Result or an Option: it may throw.',
+      '5 The getter `value` is written in an unsafe directory: reading it runs code that may throw.',
+    ]);
+  });
+
+  test('inside an unsafe directory, and under attempt, nothing is said', () => {
+    const inside = checkEverything({ 'src/unsafe/io.ts': unsafe, 'src/unsafe/other.ts': 'import { api } from "./io.js";\n// SAFETY: a test.\nexport const text = (): string => api.read();\n' });
+    expect(inside.filter((d) => d.rule === 'no-throwing-call')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
