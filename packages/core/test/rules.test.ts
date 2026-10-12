@@ -1586,6 +1586,75 @@ describe('no-unbound-method', () => {
   });
 });
 
+describe('the rules on mutable collections', () => {
+  const only = (rule: string, lines: readonly string[]) =>
+    refusals(checkSafe(['import type { Mut } from "@strict-ts/std";', ...lines, ''].join('\n'))).filter((refusal) => refusal.startsWith(rule));
+
+  test('mut-exact refuses a value given where Mut of a wider type is asked, and accepts the same type or a fresh value', () => {
+    const lines = [
+      'const names: Mut<string[]> = ["a"];',
+      'const wider: Mut<(string | number)[]> = names;',
+      'const same: Mut<string[]> = names;',
+      'const fresh: Mut<(string | number)[]> = ["a"];',
+      'const add = (into: Mut<(string | number)[]>): void => { into.push(1); };',
+      'add(names);',
+      'add(fresh);',
+      'export const all = [wider, same];',
+    ];
+    expect(only('mut-exact', lines)).toEqual(['mut-exact@3', 'mut-exact@7']);
+  });
+
+  test('mut-exact says nothing where no mutation is asked: read-only, a wider type is sound', () => {
+    expect(only('mut-exact', ['const names: readonly string[] = ["a"];', 'export const wider: readonly (string | number)[] = names;'])).toEqual([]);
+  });
+
+  test('no-resize refuses a length that is assigned, a write by position, and a tuple that is resized', () => {
+    const lines = [
+      'const values: Mut<number[]> = [1];',
+      'values.length = 3;',
+      'values[5] = 1;',
+      '[values[0], values[1]] = [2, 3];',
+      'const pair: Mut<[number, number]> = [1, 2];',
+      'pair.pop();',
+      'pair.push(3);',
+      'export const kept = [values, pair];',
+    ];
+    expect(only('no-resize', lines)).toEqual(['no-resize@3', 'no-resize@4', 'no-resize@5', 'no-resize@5', 'no-resize@7', 'no-resize@8']);
+  });
+
+  test('no-resize accepts what leaves no hole: push and splice on an array, a position of a tuple, a table, a typed array', () => {
+    const lines = [
+      'const values: Mut<number[]> = [1];',
+      'values.push(2);',
+      'values.splice(0, 1, 3);',
+      'const pair: Mut<[number, number]> = [1, 2];',
+      'pair[0] = 5;',
+      'const table: Mut<Record<string, number>> = {};',
+      'table["a"] = 1;',
+      'const bytes = new Uint8Array(4);',
+      'bytes[0] = 1;',
+      'export const kept = [values, pair, table, bytes];',
+    ];
+    expect(only('no-resize', lines)).toEqual([]);
+  });
+
+  test('no-keyed-write refuses a write through a key that stands for several names, and accepts one name, a table, an array', () => {
+    const lines = [
+      'type Row = { readonly id: number; readonly label: string };',
+      'export const put = <K extends keyof Row>(row: Mut<Row>, key: K, value: Row[K]): void => {',
+      '  row[key] = value;',
+      '};',
+      'export const rename = (row: Mut<Row>): void => {',
+      '  row["label"] = "b";',
+      '};',
+      'export const note = (table: Mut<Record<string, number>>, key: string): void => {',
+      '  table[key] = 1;',
+      '};',
+    ];
+    expect(only('no-keyed-write', lines)).toEqual(['no-keyed-write@4']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

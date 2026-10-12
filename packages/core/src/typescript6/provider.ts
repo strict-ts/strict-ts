@@ -376,7 +376,9 @@ export function createTypeScript6Provider(
           },
         };
       }
-      if (api.isElementAccessExpression(node)) return { ...base, kind: 'element-access', object: part(unwrapped(node.expression)) };
+      if (api.isElementAccessExpression(node)) {
+        return { ...base, kind: 'element-access', object: part(unwrapped(node.expression)), index: part(unwrapped(node.argumentExpression)) };
+      }
       if (api.isPrefixUnaryExpression(node) || api.isPostfixUnaryExpression(node)) {
         const updates = node.operator === api.SyntaxKind.PlusPlusToken || node.operator === api.SyntaxKind.MinusMinusToken;
         if (updates) return { ...base, kind: 'update', operand: part(unwrapped(node.operand)) };
@@ -626,6 +628,12 @@ export function createTypeScript6Provider(
       if (source === undefined || !api.isExpression(source)) return undefined;
       const expected = checker.getContextualType(source);
       return expected === undefined ? undefined : wrapType(expected);
+    },
+    isWidened: (node) => {
+      const source = origin.get(node);
+      if (source === undefined || !api.isExpression(source)) return false;
+      const expected = checker.getContextualType(source);
+      return expected !== undefined && !checker.isTypeAssignableTo(expected, checker.getTypeAtLocation(source));
     },
     valuesOf: (node) => {
       const source = origin.get(node);

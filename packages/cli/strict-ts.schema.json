@@ -93,7 +93,10 @@
           "no-numeric-enum",
           "no-unset-capture",
           "no-early-this",
-          "no-unbound-method"
+          "no-unbound-method",
+          "mut-exact",
+          "no-resize",
+          "no-keyed-write"
         ]
       },
       "uniqueItems": true,

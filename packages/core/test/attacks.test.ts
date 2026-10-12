@@ -16,7 +16,7 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('nine are refused', () => {
+  test('fourteen are refused', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
@@ -29,9 +29,15 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('a06-closure-before-assignment.ts')).toEqual(['no-unset-capture']);
     expect(refusedBy('a05-constructor-order.ts')).toEqual(['no-early-this']);
     expect(refusedBy('a20-method-without-its-object.ts')).toEqual(['no-unbound-method']);
+    // Mutable collections: seen under a wider type, resized, written through a key that is several names.
+    expect(refusedBy('a09-array-covariance.ts')).toEqual(['mut-exact']);
+    expect(refusedBy('a10-tuple-pop.ts')).toEqual(['no-resize']);
+    expect(refusedBy('a40-array-length.ts')).toEqual(['no-resize']);
+    expect(refusedBy('c01-index-write-hole.ts')).toEqual(['no-resize']);
+    expect(refusedBy('b09-keyed-write.ts')).toEqual(['no-keyed-write']);
   });
 
-  test('thirteen are accepted: the holes of guarantee 2, to close one by one', () => {
+  test('nine are accepted: the holes of guarantee 2, to close one by one', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
@@ -40,13 +46,9 @@ describe('the attacks on safe typing', () => {
       'a02-object-values.ts',
       'a03-in-narrowing.ts',
       'a08-narrowing-outlives-a-call.ts',
-      'a09-array-covariance.ts',
-      'a10-tuple-pop.ts',
       'a16-spread-overwrite.ts',
       'a21-read-before-declaration.ts',
-      'a40-array-length.ts',
       'b01-spread-optional.ts',
-      'b09-keyed-write.ts',
       'b14-narrowed-let.ts',
       'b21-getter-narrowing.ts',
       'b31-instanceof.ts',

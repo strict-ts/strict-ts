@@ -93,6 +93,7 @@ describe('check', () => {
       exportsOf: () => [],
       calleeOf: () => undefined,
       isOwnModule: () => false,
+      isWidened: () => false,
       isUnreadSource: () => false,
       unreadSources: [],
     };
@@ -129,23 +130,26 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the twenty-nine rules, each with a guarantee and a description', () => {
+  test('holds the thirty-two rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'freeze-fresh',
       'must-use',
+      'mut-exact',
       'mut-from-readonly',
       'no-ambient',
       'no-any',
       'no-cast',
       'no-early-this',
       'no-external-import',
+      'no-keyed-write',
       'no-method-signature',
       'no-non-null',
       'no-null',
       'no-numeric-enum',
       'no-overload',
       'no-param-mutation',
+      'no-resize',
       'no-throw',
       'no-throwing-call',
       'no-throwing-operator',
