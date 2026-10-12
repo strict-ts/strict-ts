@@ -28,12 +28,13 @@ export interface Finding {
 const where = (site: Site): string => `${site.file}:${site.line}:${site.column}`;
 
 export function summarise(events: readonly Event[], ledger: Ledger): Report {
-  const groups = new Map<string, { readonly bucket: keyof Omit<Report, 'quiet'>; readonly finding: Mut<{ site: Site; detail: string; count: number }> }>();
+  // What was seen, and how many times: the count is kept apart, so that nothing that holds a site is written.
+  const groups = new Map<string, { readonly bucket: keyof Omit<Report, 'quiet'>; readonly site: Site; readonly detail: string }>();
+  const counts = new Map<string, number>();
   const note = (bucket: keyof Omit<Report, 'quiet'>, site: Site, detail: string): void => {
     const key = `${bucket} ${where(site)} ${detail}`;
-    const known = groups.get(key);
-    if (known === undefined) groups.set(key, { bucket, finding: { site, detail, count: 1 } });
-    else known.finding.count += 1;
+    if (!groups.has(key)) groups.set(key, { bucket, site, detail });
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   };
   const quiet: Mut<Record<string, number>> = {};
 
@@ -51,9 +52,9 @@ export function summarise(events: readonly Event[], ledger: Ledger): Report {
   }
 
   const of = (bucket: keyof Omit<Report, 'quiet'>): readonly Finding[] =>
-    [...groups.values()]
-      .filter((group) => group.bucket === bucket)
-      .map((group) => group.finding)
+    [...groups.entries()]
+      .filter(([, group]) => group.bucket === bucket)
+      .map(([key, group]): Finding => ({ site: group.site, detail: group.detail, count: counts.get(key) ?? 1 }))
       .toSorted((a, b) => (a.site.file === b.site.file ? a.site.line - b.site.line || a.site.column - b.site.column : a.site.file < b.site.file ? -1 : 1));
   return {
     contradictions: of('contradictions'),

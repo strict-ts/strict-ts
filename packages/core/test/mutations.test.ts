@@ -119,6 +119,13 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m53-through-a-proxy.ts')).toContain('no-param-mutation');
   }, 180_000);
 
+  test('the fifth round: the short form of a property, a function under a quieter type, a pattern, `Object.assign`', () => {
+    expect(refusedBy('m54-short-form.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m55-function-under-a-quieter-type.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m56-pattern-assignment-of-names.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m57-put-in-by-assign.ts')).toContain('no-param-mutation');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

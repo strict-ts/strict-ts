@@ -69,7 +69,8 @@ try {
   const saved = parseJson(localStorage.getItem(STORE) ?? 'null').unwrapOr(undefined);
   if (typeof saved === 'object' && saved !== null && 'scenario' in saved && 'workspaces' in saved) {
     const known = typeof saved.scenario === 'string' && scenarioById(saved.scenario) !== undefined;
-    if (known) Object.assign(state, saved, { filter: undefined });
+    // A copy: what was read is not the page's to change, and what it keeps of it has to be.
+    if (known) Object.assign(state, structuredClone(saved), { filter: undefined });
   }
 } catch {
   // A storage that is blocked or holds something else: the page starts from the scenarios.

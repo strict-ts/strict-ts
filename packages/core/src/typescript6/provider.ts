@@ -487,7 +487,12 @@ export function createTypeScript6Provider(
       get mutableParameters() {
         const declaration = type.getCallSignatures()[0]?.getDeclaration();
         const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
-        return written.flatMap((parameter, index) => (isMut(parameter.type) ? [index] : []));
+        // `Mut<Cart>`, a name the project gives to one, `Mut<Cart> | undefined`, `readonly Mut<Cart>[]`.
+        return written.flatMap((parameter, index) => (mentionsMut(parameter.type) ? [index] : []));
+      },
+      get isWrittenInProject() {
+        const declaration = type.getCallSignatures()[0]?.getDeclaration();
+        return declaration !== undefined && isChecked(declaration.getSourceFile());
       },
       get defaultedParameters() {
         const written = (type.getCallSignatures()[0]?.getDeclaration()?.parameters ?? []).filter((parameter) => !isThis(parameter));
@@ -679,6 +684,8 @@ export function createTypeScript6Provider(
       });
     };
     const assignedTo = new Map<ts.Symbol, readonly ts.Expression[]>();
+    /** What a pattern on the left of an assignment took the variable out of. */
+    const takenFrom = new Map<ts.Symbol, readonly ts.Expression[]>();
     /** What is assigned to a variable after its declaration, in the function that declares it. */
     const laterValues = (symbol: ts.Symbol, declaration: ts.Node): readonly ts.Expression[] => {
       const known = assignedTo.get(symbol);
@@ -686,13 +693,18 @@ export function createTypeScript6Provider(
       let scope: ts.Node = declaration;
       while (!api.isSourceFile(scope) && !api.isFunctionLike(scope)) scope = scope.parent;
       const found: Mut<ts.Expression[]> = [];
-      const isIt = (name: ts.Node): boolean => api.isIdentifier(name) && checker.getSymbolAtLocation(name) === symbol;
+      const taken: Mut<ts.Expression[]> = [];
+      const isIt = (name: ts.Node): boolean => api.isIdentifier(name) && (api.isShorthandPropertyAssignment(name.parent) ? checker.getShorthandAssignmentValueSymbol(name.parent) : checker.getSymbolAtLocation(name)) === symbol;
+      const names = (pattern: ts.Node): boolean => isIt(pattern) || (api.forEachChild(pattern, names) ?? false);
       const look = (inner: ts.Node): void => {
         if (api.isBinaryExpression(inner) && inner.operatorToken.kind === api.SyntaxKind.EqualsToken && isIt(inner.left)) found.push(inner.right);
+        // `[a, b] = pair`, `({ a } = holder)`: the name is given one of the things the right side holds.
+        if (api.isBinaryExpression(inner) && inner.operatorToken.kind === api.SyntaxKind.EqualsToken && (api.isArrayLiteralExpression(inner.left) || api.isObjectLiteralExpression(inner.left)) && names(inner.left)) taken.push(inner.right);
         api.forEachChild(inner, look);
       };
       look(scope);
       assignedTo.set(symbol, found);
+      takenFrom.set(symbol, taken);
       return found;
     };
     const keptIn = new Map<ts.Symbol, readonly ts.Expression[]>();
@@ -711,6 +723,11 @@ export function createTypeScript6Provider(
           const declaration = checker.getResolvedSignature(inner)?.getDeclaration();
           const own = declaration !== undefined && isChecked(declaration.getSourceFile()) ? declaration.parameters.filter((parameter) => !isThis(parameter)) : undefined;
           found.push(...inner.arguments.flatMap((argument, index) => (own !== undefined && !mentionsMut(own[Math.min(index, own.length - 1)]?.type) ? [] : [api.isSpreadElement(argument) ? argument.expression : argument])));
+        }
+        // `Object.assign(holder, a, b)` puts in the holder what `a` and `b` hold.
+        if (api.isCallExpression(inner) && api.isPropertyAccessExpression(inner.expression) && api.isIdentifier(inner.expression.expression) && inner.expression.expression.text === 'Object' && inner.expression.name.text === 'assign') {
+          const [target, ...sources] = inner.arguments;
+          if (target !== undefined && isIt(target)) found.push(...sources.filter((source) => !api.isSpreadElement(source)));
         }
         if (api.isBinaryExpression(inner) && inner.operatorToken.kind === api.SyntaxKind.EqualsToken && (api.isPropertyAccessExpression(inner.left) || api.isElementAccessExpression(inner.left)) && isIt(inner.left.expression)) {
           found.push(inner.right);
@@ -738,7 +755,8 @@ export function createTypeScript6Provider(
       if (isMut(holder.type)) return [];
       const loop = holder.parent.parent;
       const first = api.isForOfStatement(loop) ? sourcesOf(loop.expression, 'element') : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as);
-      return [...first, ...laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same')), ...storedIn(symbol, holder).flatMap((value) => sourcesOf(value, 'copy'))];
+      const later = laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same'));
+      return [...first, ...later, ...(takenFrom.get(symbol) ?? []).flatMap((value) => sourcesOf(value, 'element')), ...storedIn(symbol, holder).flatMap((value) => sourcesOf(value, 'copy'))];
     };
 
     /** What the return type of the function a call runs says of what the collection it gives holds. */
@@ -811,7 +829,8 @@ export function createTypeScript6Provider(
           kind: 'identifier',
           text: node.text,
           get fromModule() {
-            const named = checker.getSymbolAtLocation(node);
+            const short = node.parent;
+            const named = api.isShorthandPropertyAssignment(short) ? checker.getShorthandAssignmentValueSymbol(short) : checker.getSymbolAtLocation(node);
             const symbol = named !== undefined && (named.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(named) : named;
             const declaration = symbol?.valueDeclaration;
             if (declaration === undefined || !api.isVariableDeclaration(declaration) || !isChecked(declaration.getSourceFile()) || declaration.getSourceFile() === node.getSourceFile()) return undefined;
@@ -819,7 +838,9 @@ export function createTypeScript6Provider(
           },
           // Asked of few identifiers, and it needs the checker: computed on demand.
           get parameter() {
-            const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+            // In `{ cart }`, the name stands for the variable.
+            const short = node.parent;
+            const declaration = (api.isShorthandPropertyAssignment(short) ? checker.getShorthandAssignmentValueSymbol(short) : checker.getSymbolAtLocation(node))?.valueDeclaration;
             let owner: ts.Node | undefined = declaration;
             while (owner !== undefined && (api.isBindingElement(owner) || api.isObjectBindingPattern(owner) || api.isArrayBindingPattern(owner))) {
               owner = owner.parent;
@@ -1213,6 +1234,7 @@ export function createTypeScript6Provider(
     element: undefined,
     returns: [],
     mutableParameters: [],
+    isWrittenInProject: false,
     defaultedParameters: [],
     undefinedParameters: [],
     isImplemented: false,

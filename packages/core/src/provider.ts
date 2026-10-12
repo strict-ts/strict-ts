@@ -58,6 +58,11 @@ export interface Type {
    */
   readonly mutableParameters: readonly number[];
   /**
+   * For a function type: whether it is written in the project (a function, or a type of function such as
+   * `(cart: Cart) => void`). One of the library says nothing of `Mut<…>` either way.
+   */
+  readonly isWrittenInProject: boolean;
+  /**
    * For a function: the positions of the parameters of its first signature that are declared with a default, and
    * of those that may be given `undefined` on purpose (their type says so, and they are not merely optional).
    */
