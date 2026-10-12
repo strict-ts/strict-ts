@@ -30,7 +30,7 @@ describe('the gate on the examples', () => {
   });
 
   test('the classic cart is refused for what it changes', () => {
-    expect(refused('cart/classic')).toEqual({ code: 1, count: 11, rules: ['no-param-mutation', 'readonly-types'] });
+    expect(refused('cart/classic')).toEqual({ code: 1, count: 12, rules: ['no-param-mutation', 'readonly-types'] });
   });
 
   test('the classic transfer says nothing of its transaction, so only its throws and its types are refused', () => {

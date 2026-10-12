@@ -727,8 +727,86 @@ describe('no-param-mutation', () => {
     expect(checkUnsafe(code)).toEqual([]);
   });
 
-  test('known limit: a mutation through another name is not seen', () => {
-    const code = 'export function fill(list: number[]): void {\n  const alias = list;\n  alias.push(1);\n}\n';
+  const refusedAt = (lines: readonly string[]) => checkSafe([...lines, ''].join('\n'), alone).map((d) => `${d.start.line} ${d.message}`);
+
+  test('follows another name for the parameter, or for a part of it', () => {
+    const lines = [
+      'type Cart = { readonly lines: Line[]; readonly note: string };',
+      'type Line = { quantity: number };',
+      'export function a(cart: Cart): void {',
+      '  const alias = cart;',
+      '  alias.lines.push({ quantity: 1 });',
+      '  for (const line of cart.lines) line.quantity *= 2;',
+      '  const { lines } = cart;',
+      '  lines.pop();',
+      '  const found = cart.lines.find((line) => line.quantity > 0) ?? cart.lines[0];',
+      '  if (found !== undefined) found.quantity = 0;',
+      '  let work: Line = { quantity: 0 };',
+      '  work.quantity = 1;',
+      '  work = cart.lines[0] ?? work;',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '5 Parameter `cart` is mutated by `push`, through `alias`.',
+      '6 Parameter `cart` is mutated, through `line`.',
+      '8 Parameter `cart` is mutated by `pop`, through `lines`.',
+      '10 Parameter `cart` is mutated, through `found`.',
+      '12 Parameter `cart` is mutated, through `work`.',
+    ]);
+  });
+
+  test('a new container of what a parameter holds may be written; what it holds may not', () => {
+    const lines = [
+      'type Line = { quantity: number };',
+      'export function a(given: Line[]): Line[] {',
+      '  const sorted = given.slice();',
+      '  sorted.sort((left, right) => left.quantity - right.quantity);',
+      '  const more = [...given];',
+      '  more.push({ quantity: 1 });',
+      '  const first = more[0];',
+      '  if (first !== undefined) first.quantity = 9;',
+      '  for (const line of given.filter((one) => one.quantity > 0)) line.quantity = 0;',
+      '  const { ...rest } = { list: given };',
+      '  rest.list = [];',
+      '  return sorted;',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual(['8 Parameter `given` is mutated, through `first`.', '9 Parameter `given` is mutated, through `line`.']);
+  });
+
+  test('refuses a write by a pattern, by the target of a loop and by a function of the platform', () => {
+    const lines = [
+      'type State = { count: number; when: Date; name: string };',
+      'export function a(state: State): string {',
+      '  [state.count] = [5];',
+      '  for (state.count of [1, 2]);',
+      '  Reflect.set(state, "count", 7);',
+      '  state.when.setTime(0);',
+      '  return state.name.replace("a", "b");',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '3 Parameter `state` is mutated.',
+      '4 Parameter `state` is mutated.',
+      '5 Parameter `state` is mutated by `Reflect.set`.',
+      '6 Parameter `state` is mutated by `setTime`.',
+    ]);
+  });
+
+  test('a parameter that asks for mutation is changed through any name', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'export function a(cart: Mut<{ lines: number[] }>): void {',
+      '  const { lines } = cart;',
+      '  lines.push(1);',
+      '  for (const line of [cart]) line.lines.pop();',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([]);
+  });
+
+  test('known limit: what a function gives back is not followed to what it was given', () => {
+    const code = 'const same = <T>(value: T): T => value;\nexport function fill(list: number[]): void {\n  const alias = same(list);\n  alias.push(1);\n}\n';
     expect(checkSafe(code, alone)).toEqual([]);
   });
 });

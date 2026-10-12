@@ -26,8 +26,9 @@ export type Node = NodeBase &
     /**
      * A statement that runs its body again: `for`, `for … of`, `for … in`, `while`, `do`. `once` is the part that
      * runs a single time, before the first turn: what a `for … of` goes through, what a `for` starts with.
+     * `target` is what each turn writes, when it is a place and not a declared variable (`for (a.b of list)`).
      */
-    | { readonly kind: 'loop'; readonly once: Node | undefined }
+    | { readonly kind: 'loop'; readonly once: Node | undefined; readonly target: Node | undefined }
     /**
      * `declaredOutside`: the name refers to a value declared outside the checked files (a declaration file, a
      * dependency), so nothing checked where its type comes from.
@@ -48,6 +49,12 @@ export type Node = NodeBase &
         readonly declaredAt: number | undefined;
         /** Read here with a type narrower than the one it is declared with: a test before it said more. */
         readonly isNarrowed: boolean;
+        /**
+         * What a local name may stand for, when it was made from other places: `const a = b.c`, a piece taken out
+         * by a pattern, the variable of a `for … of`, a variable assigned to later. Empty for a parameter, and for
+         * a local made of something new. Computed on demand.
+         */
+        readonly aliasOf: readonly Alias[];
         /**
          * For a constant made of the rest of an object (`const { a, b: c, ...rest } = value`), the names the pattern
          * took out: the constant holds none of them, whatever its type says. Empty for anything else.
@@ -171,6 +178,18 @@ export type NodeKind = Node['kind'];
  * One member of an object written in place, in the order written: a property with its name (absent when the name is
  * computed), or a spread with what is spread. An array written in place has none.
  */
+/** One of the places a local name may stand for. */
+export interface Alias {
+  readonly place: Node;
+  /**
+   * `same`: the name is the place itself. `part`: it is something the place holds (an element, a property taken
+   * out by a pattern, what `find` gave). `copy`: it is a new container that holds what the place holds
+   * (`slice()`, `[...place]`, the rest of a pattern): writing the container is not writing the place, writing
+   * into what it holds is.
+   */
+  readonly as: 'same' | 'part' | 'copy';
+}
+
 export interface LiteralEntry {
   readonly name: string | undefined;
   /** The key of a property written `[key]: value`, when it is computed and not a name written in place. */
