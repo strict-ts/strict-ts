@@ -374,7 +374,8 @@ describe('strict-ts-fix --rule no-param-mutation', () => {
 
   test('writes `Mut<…>` on the methods, the parameters and the return types, up the calls, and says what it could not', () => {
     const directory = project('says');
-    expect(refused(directory)).toEqual({ 'src/counter.ts no-param-mutation': 3, 'src/use.ts no-param-mutation': 1 });
+    // What use.ts does to the counter is not refused yet: nothing says that `add` writes it. It is, at the second look.
+    expect(refused(directory)).toEqual({ 'src/counter.ts no-param-mutation': 3 });
     expect(fix(directory, '--rule', 'no-param-mutation')).toEqual({
       code: 0,
       out: [

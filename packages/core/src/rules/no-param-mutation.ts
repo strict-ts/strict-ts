@@ -200,6 +200,9 @@ export const noParamMutation: Rule = {
       refuse(node, first, ` by \`${object.text}.${name}\``);
       return;
     }
+    // A method written in the project says itself whether it writes its object: its name is not asked. One that
+    // is only declared (in an interface) says nothing of what stands behind it.
+    if (typeOf(node.callee).isImplemented) return;
     if (!MUTATORS.has(name) && !SETTER.test(name)) return;
     // A text or a number has no method that changes it.
     if (typeOf(object).kinds.every((kind) => PRIMITIVES.includes(kind))) return;
