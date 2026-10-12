@@ -20,8 +20,12 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- A value typed read-only can still reach a mutable type through a property of an object literal or the right side
-  of an assignment: `mut-from-readonly` looks at arguments, initializers and returned values.
+- **Explicit mutability holds for the plain cases only.** Of 20 known ways to change a value its type says is
+  read-only, or to change what a function receives without its parameter saying `Mut`, the rules refuse 2. A
+  parameter is changed through another name for it, through the variable of a loop, by its own method, by
+  `Object.assign`; a value typed read-only reaches a type that can be written through a property of an object
+  written in place, an element of an array, the right side of an assignment, the result of a call. Each is a file
+  of `packages/core/test/fixtures/mutations`.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.
