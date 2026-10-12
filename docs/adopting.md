@@ -48,6 +48,34 @@ nothing above says:
 - **A route reads its body with `bodyJson(request)`** and a schema; `request.json()` gives `any`.
 - **`null` becomes `undefined`** in states, props and what a component returns: React takes both.
 
+## Explicit mutability, in practice
+
+What the rules of mutability ask for, as it came up on an 11,000-line game written with classes (2 % more lines,
+about 390 that carry `Mut<…>`, most of them written by the fixer):
+
+- **What you make and hand out says `Mut<…>` in the return type.** `const fresh = (): Cart => ({ total: 1 })`
+  hands out something to read. Kept in a field typed `Mut<Cart>`, it is refused: write `(): Mut<Cart>`.
+- **A list says `Mut` twice.** `Mut<Cart[]>` is a list you may push into; `readonly Mut<Cart>[]` is a list of carts
+  you may change; `Mut<Mut<Cart>[]>` is both. For a map, it is the values that say it.
+- **A copy is one level.** `[...carts]` is yours to sort. The carts in it are still whose they were.
+- **A method that hands out a part of its object to be changed says `this: Mut<…>`**, and so does everything that
+  calls it. If the same method is called by code that only reads, that code now asks for `Mut` too, and its
+  signature says nothing any more. On the game, `entities.living()` did that to every renderer. The way out is
+  Rust's: two methods, one that gives a read-only view and one that says `this: Mut<…>`. The fixer does not write
+  that for you; it says `Mut` all the way up.
+- **A helper over a family of types takes a generic.** `addClass(element: Mut<Element>, …)` refuses a
+  `HTMLDivElement`, because a write through the wider type could break the narrower one. Write
+  `addClass<E extends Element>(element: Mut<E>, …)`.
+- **A helper that stops the program is not unsafe code.** What leaves `src/unsafe/` returns a `Result`. A call of
+  the page that can only fail on a bug of yours goes in checked code, in a `try` whose `catch` calls `panic`.
+- **What a module exports is its own to change.** To let an importer change it, declare it `Mut<…>`.
+- **A function type you write says something by saying nothing.** `(cart: Cart) => void` is a function that does
+  not change the cart: one that asks for `Mut<Cart>` is not given there.
+
+Refused though it is right, and how to write it instead: `list.reduce(…)` into an accumulator that is then written
+(the library might have handed back an element; use a loop), and a count kept in an object next to a value you were
+given (keep the count apart).
+
 ## The baseline
 
 ```sh

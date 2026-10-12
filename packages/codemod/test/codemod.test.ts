@@ -365,6 +365,25 @@ describe('the pieces', () => {
   });
 });
 
+describe('strict-ts-fix --rule no-param-mutation, for what is handed out', () => {
+  test('`this: Mut` where a part of the object is handed out, `Mut` in the return type of what is kept, and inside the list a method gives back', () => {
+    const directory = project('hands');
+    expect(refused(directory)).toEqual({ 'src/shop.ts mut-from-readonly': 1, 'src/use.ts mut-from-readonly': 1, 'src/use.ts no-param-mutation': 1 });
+    expect(fix(directory, '--rule', 'no-param-mutation')).toEqual({ code: 0, out: ['no-param-mutation: 5 fixes applied, 0 left', '2 files written'], err: [] });
+    const shop = read(directory, 'src/shop.ts');
+    // A part of the object given back as something to change.
+    expect(shop).toContain('first(this: Mut<Shop>): Mut<Cart> | undefined {');
+    // The list said `Mut`, what it holds did not; and once it does, the method hands out parts of its object.
+    expect(shop).toContain('all(this: Mut<Shop>): Mut<readonly Mut<Cart>[]> {');
+    // A method that only reads is left as it is.
+    expect(shop).toContain('total(): number {');
+    const use = read(directory, 'src/use.ts');
+    expect(use).toContain('const fresh = (): Mut<Cart> => ({ total: 1 });');
+    expect(use).toContain('export function wipe(shop: Mut<Shop>): number {');
+    expect(refused(directory)).toEqual({});
+  });
+});
+
 describe('strict-ts-fix --rule no-param-mutation', () => {
   test('is not run unless it is named', () => {
     const directory = project('says');
