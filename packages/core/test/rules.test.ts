@@ -1638,6 +1638,31 @@ describe('the rules on mutable collections', () => {
     expect(only('no-resize', lines)).toEqual([]);
   });
 
+  test('mut-exact refuses a property that can be written, asked for with a wider type, and accepts one that is read-only there', () => {
+    const lines = [
+      'class Cell<T> {',
+      '  constructor(public value: Mut<T>) {}',
+      '}',
+      'interface Shown<T> { readonly value: T }',
+      'const text = new Cell<string>("a");',
+      'export const wider: Cell<string | number> = text;',
+      'export const shown: Shown<string | number> = text;',
+      'export const same: Cell<string> = text;',
+    ];
+    expect(only('mut-exact', lines)).toEqual(['mut-exact@7']);
+  });
+
+  test('no-resize refuses an element that is deleted and an array made from a length alone', () => {
+    const lines = [
+      'const values: Mut<number[]> = [1, 2];',
+      'delete values[0];',
+      'export const a: readonly number[] = Array.from<number>({ length: 2 });',
+      'export const b: readonly number[] = Array.from({ length: 2 }, (_, index) => index);',
+      'export const c: readonly string[] = Array.from("ab");',
+    ];
+    expect(only('no-resize', lines)).toEqual(['no-resize@3', 'no-resize@4']);
+  });
+
   test('no-keyed-write refuses a write through a key that stands for several names, and accepts one name, a table, an array', () => {
     const lines = [
       'type Row = { readonly id: number; readonly label: string };',
@@ -1892,6 +1917,47 @@ describe('no-throwing-call and what an unsafe directory hands over', () => {
   test('inside an unsafe directory, and under attempt, nothing is said', () => {
     const inside = checkEverything({ 'src/unsafe/io.ts': unsafe, 'src/unsafe/other.ts': 'import { api } from "./io.js";\n// SAFETY: a test.\nexport const text = (): string => api.read();\n' });
     expect(inside.filter((d) => d.rule === 'no-throwing-call')).toEqual([]);
+  });
+});
+
+describe('no-early-read', () => {
+  const only = (lines: readonly string[]) => checkSafe([...lines, ''].join('\n')).filter((d) => d.rule === 'no-early-read').map((d) => `${d.start.line} ${d.message.split(':')[0]}`);
+
+  test('refuses a function used above a variable it reads, directly or through another', () => {
+    const lines = [
+      'const read = (): number => later;',
+      'function through(): number {',
+      '  return read() + 1;',
+      '}',
+      'export const a = read();',
+      'export const b = through();',
+      'export const c = [1].map(read);',
+      'const later = 1;',
+      'export const d = read();',
+    ];
+    expect(only(lines)).toEqual([
+      '5 `read` is used here, and reads `later`, which is declared further down',
+      '6 `through` is used here, and reads `later`, which is declared further down',
+      '7 `read` is used here, and reads `later`, which is declared further down',
+    ]);
+  });
+
+  test('accepts a function that is only declared above what it reads, and one used inside another function', () => {
+    const lines = ['const read = (): number => later;', 'export const soon = (): number => read();', 'const later = 1;', 'export const now = read();'];
+    expect(only(lines)).toEqual([]);
+  });
+
+  test('refuses the files that import each other in a circle, and accepts an import of types', () => {
+    const cycle = (kind: string) =>
+      checkFiles({
+        'src/a.ts': `import ${kind}{ b } from "./b.js";\nexport const a = 1;\nexport type A = typeof b;\n`,
+        'src/b.ts': 'import { a } from "./a.js";\nexport const b = a + 1;\n',
+        'src/c.ts': 'import { b } from "./b.js";\nexport const c = b;\n',
+      })
+        .filter((d) => d.rule === 'no-early-read')
+        .map((d) => d.file);
+    expect(cycle('')).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(cycle('type ')).toEqual([]);
   });
 });
 

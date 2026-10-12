@@ -15,6 +15,7 @@ is both, `project` is once for the whole project.
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
 | `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
+| `no-early-read` | errors | safe | A value is not read before its line: no function is used at the top of a file above a variable it reads, and files do not import each other in a circle |
 | `no-reject` | errors | safe | A promise is not made to fail: the callback of `new Promise` does not take the function that rejects it, and no object has a `then` of its own |
 | `no-stale-narrowing` | typing | safe | What a test narrowed is not relied on after a call or an `await` that could change it (a `let` another function writes, a property that can be written), nor on a getter |
 | `no-class-lookalike` | typing | safe | Where a class is asked for, the value is made by that class, not an object of its shape |

@@ -2,18 +2,12 @@
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- **The unsound corners of TypeScript are closed as far as they are known.** strict-ts closes the doors a
-  programmer opens on purpose (`any`, a cast, `!`, `declare`, a written predicate) and what the compiler lets
-  through by design: of 23 known ways to make a value differ from its type without any of those, it refuses 22.
-  The last is a constant read through a function before the line that declares it, which throws. Each attack is a
-  file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
-  `packages/core/test/attacks.test.ts` records which ones are refused. This is a list of known ways, not a proof
-  that there is no other.
-- **An error can still escape its type in two known ways.** Of 27 ways for safe code to throw or to reject with no
-  `throw` written, the rules refuse 24. What passes: a constant read before the line that declares it, in one file
-  or across two that import each other. A third is outside the guarantee: a function that calls itself without
-  end, as a stack overflow is outside Rust's. Each is a file of `packages/core/test/fixtures/escapes`, and
-  `packages/core/test/escapes.test.ts` records which ones are refused.
+- **The two reviews list known ways, and are not proofs.** Of 26 known ways to make a value differ from its type
+  with no `any`, cast, `!` or `declare`, and of 27 known ways for safe code to throw or to reject with no `throw`
+  written, the rules refuse all but one: a function that calls itself without end, which is outside the guarantee
+  as a stack overflow is outside Rust's. Each is a file of `packages/core/test/fixtures/attacks` or
+  `fixtures/escapes` that fails when it is run, and a test records which rule refuses it. What nobody thought of
+  is not in the list.
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused
