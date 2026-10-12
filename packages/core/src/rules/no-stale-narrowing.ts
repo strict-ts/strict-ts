@@ -44,17 +44,30 @@ export const noStaleNarrowing: Rule = {
       return node.kind === 'property-access' && !typeOf(node.object).readonlyProperties.includes(node.name);
     };
 
+    /** Whether a loop makes a call, in its own turns: not in a function written in it. */
+    const callsIn = (node: Node): boolean =>
+      node.kind !== 'function' && (node.kind === 'call' || node.kind === 'new' || node.kind === 'await' || node.children.some(callsIn));
+
     // One function at a time: where each path was last looked at, and where the calls of the function end.
     const walk = (body: Node): void => {
       const seen: Mut<Map<string, number>> = new Map();
       const calls: Mut<Node[]> = [];
+      // The loops around what is being read whose turns make a call: what a turn does comes before the next one.
+      const turning: Mut<Node[]> = [];
       const visit = (node: Node, isTarget: boolean): void => {
         if (node.kind === 'function') {
           walk(node);
           return;
         }
         const writes = targets(node);
-        for (const child of node.children) visit(child, writes.includes(child));
+        const turns = node.kind === 'loop' && callsIn(node);
+        // What a loop goes through is read once, before its first turn.
+        const once = node.kind === 'loop' ? node.once : undefined;
+        for (const child of node.children) {
+          if (turns && child !== once) turning.push(node);
+          visit(child, writes.includes(child));
+          if (turns && child !== once) turning.pop();
+        }
         if (node.kind === 'call' || node.kind === 'new' || node.kind === 'await') calls.push(node);
         // A write happens once its right side is computed: `cached = load()` is looked at after `load()` returns.
         for (const target of writes) {
@@ -72,7 +85,9 @@ export const noStaleNarrowing: Rule = {
           return;
         }
         if (last === undefined || !canChange(node)) return;
-        if (!calls.some((call) => call.start >= last && call.end <= node.start)) return;
+        // A call between the last look and this read; or a look before a loop, whose earlier turn made one.
+        const between = calls.some((call) => call.start >= last && call.end <= node.start);
+        if (!between && !turning.some((loop) => last <= loop.start)) return;
         report(
           node,
           'This is read as narrowed by a test, after a call that could have changed it: the compiler does not look into the call.',

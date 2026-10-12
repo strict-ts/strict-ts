@@ -24,6 +24,11 @@ export type Node = NodeBase &
     | { readonly kind: 'import-keyword' }
     | { readonly kind: 'this' }
     /**
+     * A statement that runs its body again: `for`, `for … of`, `for … in`, `while`, `do`. `once` is the part that
+     * runs a single time, before the first turn: what a `for … of` goes through, what a `for` starts with.
+     */
+    | { readonly kind: 'loop'; readonly once: Node | undefined }
+    /**
      * `declaredOutside`: the name refers to a value declared outside the checked files (a declaration file, a
      * dependency), so nothing checked where its type comes from.
      */
