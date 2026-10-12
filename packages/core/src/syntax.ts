@@ -85,7 +85,7 @@ export type Node = NodeBase &
         readonly method: string | undefined;
       }
     /** `object[…]`. */
-    | { readonly kind: 'element-access'; readonly object: Node }
+    | { readonly kind: 'element-access'; readonly object: Node; readonly index: Node }
     /** `x++`, `--x`. */
     | { readonly kind: 'update'; readonly operand: Node }
     /** `delete x.y`. */

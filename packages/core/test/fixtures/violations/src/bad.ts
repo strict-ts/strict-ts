@@ -117,3 +117,13 @@ export class Gauge {
 }
 
 export const renderLater = new Gauge().render; // expect: no-unbound-method
+
+const words: Mut<string[]> = ["a"];
+export const anything: Mut<(string | number)[]> = words; // expect: mut-exact
+
+const fixed: Mut<[number, number]> = [1, 2];
+fixed.pop(); // expect: no-resize
+
+export const setField = <K extends "n">(target: Mut<{ n: number }>, key: K, value: { readonly n: number }[K]): void => {
+  target[key] = value; // expect: no-keyed-write
+};

@@ -18,6 +18,7 @@ export interface FileContext {
   readonly isOwnModule: (specifier: Node) => boolean;
   readonly isUnreadSource: (specifier: Node) => boolean;
   readonly expectedOf: (node: Node) => Type | undefined;
+  readonly isWidened: (node: Node) => boolean;
   readonly asksForMutation: (node: Node) => boolean;
   readonly valuesOf: (node: Node) => readonly unknown[] | undefined;
   readonly exports: () => readonly ExportedValue[];

@@ -124,6 +124,11 @@ export interface TypeProvider {
    */
   readonly expectedOf: (node: Node) => Type | undefined;
   /**
+   * Whether the place of an expression expects a type that accepts more than the expression's own: a
+   * `(string | number)[]` where a `string[]` is given. False where nothing is expected.
+   */
+  readonly isWidened: (node: Node) => boolean;
+  /**
    * Every value an expression can have, when the compiler knows them all: a literal, a constant of a literal type, a
    * union of those, an object or an array made of those, a regular expression. Absent for anything else, and past
    * 16 values.

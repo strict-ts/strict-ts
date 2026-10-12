@@ -45,6 +45,7 @@ export function check(
           isOwnModule: provider.isOwnModule,
           isUnreadSource: provider.isUnreadSource,
           expectedOf: provider.expectedOf,
+          isWidened: provider.isWidened,
           asksForMutation: provider.asksForMutation,
           valuesOf: provider.valuesOf,
           exports: () => provider.exportsOf(file),
