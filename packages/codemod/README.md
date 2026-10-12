@@ -56,7 +56,8 @@ Measured on the applications of the pilot (dry run, the gate's own machine):
 | DungeonCardRPG | 17,411 | 871 | 9 min 39 s | 6 s |
 
 These times are those of the search with the compiler alone. Asking the gate too adds one run of it for each
-compilation that holds: 21 s, 11 s and 13 s on the same three, measured while the machine was busy with other work.
+compilation that holds: 6 s, 6 s and 9 s on the same three, and 20 s, 35 s and 56 s on the three larger
+applications of the pilot (1,444, 1,616 and 2,369 fixes), measured while the machine was busy with other work.
 
 ## To know
 

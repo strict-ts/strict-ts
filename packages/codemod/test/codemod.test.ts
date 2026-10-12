@@ -281,6 +281,13 @@ describe('the pieces', () => {
       expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(12, 20));
     });
 
+    test('a chain of fixes that each need the next falls with its end, without a search', () => {
+      // 30 is at fault and named with 31, which is not; 29 needs 30, 28 needs 29, 27 needs 28.
+      const { tryWith, builds } = projectWith([30], { 30: [30, 31] }, { 29: 30, 28: 29, 27: 28 });
+      expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(27, 28, 29, 30));
+      expect(builds()).toBeLessThan(20);
+    });
+
     test('errors that point at nothing spell the fix that causes them', () => {
       const { tryWith, builds } = projectWith([9, 26, 33], { 9: [], 26: [], 33: [] });
       expect(numbers(keepUnblamed(fixes, tryWith))).toEqual(allBut(9, 26, 33));

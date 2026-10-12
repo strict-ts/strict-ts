@@ -90,6 +90,8 @@ export interface Trial {
 
 /** How many times the errors that point at nothing are asked to spell what causes them, before searching blind. */
 const HUNTS = 8;
+/** How many times what was refused is tried again on what came back since. */
+const PASSES = 6;
 
 /**
  * Keeps the fixes under which the project holds, asking the errors which fixes to drop instead of searching blind:
@@ -99,7 +101,8 @@ const HUNTS = 8;
  * errors point at is taken out until the project holds. The rest of what was taken out is not known to be at
  * fault: it was named together with others, or it only failed because another fix was out. Those are put back in
  * turns, half of what an error has named together at a time, and each is kept unless an error names it alone;
- * this is done again, on what the last turns kept, until nothing more comes back.
+ * one that came back while another fix was in goes out again if an error names it once that fix is out. This is
+ * done again, on what the last turns kept, until nothing more comes back.
  *
  * What `tryWith` blames is only a hint. The result is compiled before it is returned, and wherever the hints fail,
  * `keepWhatHolds` decides.
@@ -169,11 +172,14 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
   }
 
   const back: Mut<Set<Fix>> = new Set(floor);
+  const settled = new Set(floor);
   const unsure: Mut<Set<Fix>> = new Set();
   let proven = true;
-  for (let before = -1; before < back.size; ) {
+  for (let before = -1, passes = 0; before < back.size && passes < PASSES; passes++) {
     before = back.size;
     const refused: Mut<Set<Fix>> = new Set();
+    // What came back and is not yet proven to hold: an error that names one of these takes it out again.
+    const returned = (): readonly Fix[] => [...back].filter((fix) => !settled.has(fix));
     const open = (): readonly Fix[] => fixes.filter((fix) => !dropped.has(fix) && !back.has(fix) && !unsure.has(fix) && !refused.has(fix));
     for (let waiting = open(); waiting.length > 0; waiting = open()) {
       // Half of the smallest group is tried and the rest of it waits, as does any group that shares a fix with
@@ -198,12 +204,30 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
       remember(groups);
       const named = new Set(groups.flat());
       const unnamed = [...tried].filter((fix) => !named.has(fix));
-      const lost = orphans(trial, tried);
+      // A fix that came back while another was in, and that an error names now that the other is out. An error
+      // that also names a fix being tried is that fix's: what came back held without it.
+      // Named alone, it is refused; named with others, they all wait again and are tried by halves.
+      const earlier = new Set(returned());
+      const fallen = trial.holds ? [] : pointed({ holds: false, errors: trial.errors.filter((error) => !error.fixes.some((fix) => tried.has(fix))) }, earlier);
+      remember(fallen);
+      const lost = orphans(trial, new Set([...tried, ...earlier]));
       const spelled = lost.length === 0 ? [] : hunt(inOrder(back), unnamed, lost);
-      for (const fix of [...alone(groups), ...spelled]) refused.add(fix);
+      for (const fix of [...alone(groups), ...spelled, ...alone(fallen)]) refused.add(fix);
+      for (const fix of fallen.flat()) back.delete(fix);
       // Errors that point at none of them and spell nothing: these are left to the search by halves.
       for (const fix of unnamed) if (!refused.has(fix)) (lost.length > 0 && spelled.length === 0 ? unsure : back).add(fix);
     }
+    // What came back holds together only once the fixes that needed one that was refused are out too.
+    while (!proven) {
+      const trial = tryWith(inOrder(back));
+      proven = trial.holds;
+      const groups = trial.holds ? [] : pointed(trial, new Set(returned()));
+      if (groups.length === 0) break;
+      // Those an error names together are tried by halves the next time round.
+      remember(groups);
+      for (const fix of groups.flat()) back.delete(fix);
+    }
+    if (proven) for (const fix of back) settled.add(fix);
   }
   const sure =
     proven || holds(inOrder(back))
