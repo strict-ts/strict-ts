@@ -9,9 +9,11 @@ const files = fixture('escapes');
 const attacks = Object.keys(files).filter((name) => /^e\d\d-/.test(name));
 // Beside the attack: the unsafe file four of them import, and the two files that import each other.
 const beside = Object.fromEntries(Object.entries(files).flatMap(([name, text]) => (/^(unsafe|cycle)\//.test(name) ? [[`src/${name}`, text]] : [])));
-/** What refuses the attack, in its own file or in the two files of the cycle. */
-const refusedBy = (name: string): readonly string[] =>
-  [...new Set(checkFiles({ ...beside, 'src/a.ts': files[name] ?? '' }, page).flatMap((d) => (d.file === 'src/a.ts' || d.file.startsWith('src/cycle/') ? [d.rule] : [])))].toSorted();
+/** What refuses the attack in its own file; for the one that goes through them, in the two files of the cycle. */
+const refusedBy = (name: string): readonly string[] => {
+  const own = (file: string): boolean => file === 'src/a.ts' || (name.includes('cycle') && file.startsWith('src/cycle/'));
+  return [...new Set(checkFiles({ ...beside, 'src/a.ts': files[name] ?? '' }, page).flatMap((d) => (own(d.file) ? [d.rule] : [])))].toSorted();
+};
 
 describe('the attacks on errors in the types', () => {
   test('each one compiles', () => {
@@ -35,14 +37,16 @@ describe('the attacks on errors in the types', () => {
     for (const name of ['e23-unsafe-object', 'e24-unsafe-class', 'e25-unsafe-returned-function', 'e26-unsafe-getter']) expect(refusedBy(`${name}.ts`), name).toEqual(['no-throwing-call']);
   });
 
-  test('three are accepted: two holes of guarantee 3, and a stack that overflows', () => {
+  test('a value is not read before the line that gives it one, in one file or across two', () => {
+    expect(refusedBy('e01-read-before-declaration.ts')).toEqual(['no-early-read']);
+    expect(refusedBy('e28-import-cycle.ts')).toEqual(['no-early-read']);
+  });
+
+  test('one is accepted, and is outside the guarantee: a stack that overflows', () => {
     const accepted = attacks.filter((name) => refusedBy(name).length === 0).toSorted();
     expect(accepted).toEqual([
-      // Read before the line that gives it a value, in one file and across two.
-      'e01-read-before-declaration.ts',
       // A function that calls itself without end: the stack overflows. Not closed, and said as a limit.
       'e14-recursion.ts',
-      'e28-import-cycle.ts',
     ]);
   });
 });

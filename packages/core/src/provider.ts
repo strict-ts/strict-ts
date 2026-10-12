@@ -103,6 +103,11 @@ export interface TypeProvider {
    */
   readonly declarationFiles: readonly string[];
   /**
+   * For each checked file, by the path shown in diagnostics, the checked files it imports for their values (an
+   * `import type` runs nothing). What the files of a project ask of each other when they start.
+   */
+  readonly imports: Readonly<Record<string, readonly string[]>>;
+  /**
    * The sources of the project that no rule reads because the compiler does not: single-file components, by the
    * path shown in diagnostics. Empty for a host that did not look for them.
    */

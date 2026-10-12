@@ -37,8 +37,8 @@ export type Node = NodeBase &
          */
         readonly parameter: 'none' | 'readonly' | 'mutable';
         /**
-         * Where the variable or the parameter the name refers to is declared, as an offset in this file: two names
-         * with the same offset are the same variable. Absent for anything else.
+         * Where the variable, the parameter or the declared function the name refers to is declared, as an offset in
+         * this file: two names with the same offset are the same one. Absent for anything else.
          */
         readonly declaredAt: number | undefined;
         /** Read here with a type narrower than the one it is declared with: a test before it said more. */

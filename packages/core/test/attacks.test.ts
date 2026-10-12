@@ -16,7 +16,7 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('twenty-two are refused', () => {
+  test('each one is refused, by the rule that was written for it', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
@@ -47,13 +47,9 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('b21-getter-narrowing.ts')).toEqual(['no-stale-narrowing']);
   });
 
-  test('one is accepted, and is a call that throws: it is looked at with guarantee 3', () => {
-    const accepted = Object.keys(attacks)
-      .filter((name) => refusedBy(name).length === 0)
-      .toSorted();
-    // By family, with the task that is to close each: the Plane page « Review · guarantee 2, safe typing ».
-    expect(accepted).toEqual([
-      'a21-read-before-declaration.ts',
-    ]);
+  test('none is accepted', () => {
+    // The last one, a constant read through a function before its line, throws: it is refused with guarantee 3.
+    expect(refusedBy('a21-read-before-declaration.ts')).toEqual(['no-early-read']);
+    expect(Object.keys(attacks).filter((name) => refusedBy(name).length === 0)).toEqual([]);
   });
 });

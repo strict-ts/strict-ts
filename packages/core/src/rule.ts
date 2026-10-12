@@ -30,6 +30,7 @@ export interface ProjectContext {
   readonly compilerOptions: Readonly<Record<string, unknown>>;
   readonly declarationFiles: readonly string[];
   readonly unreadSources: readonly string[];
+  readonly imports: Readonly<Record<string, readonly string[]>>;
   /** Reports about the project as a whole, or about `file` when one is given. */
   readonly report: (message: string, help: string, file?: string) => void;
 }

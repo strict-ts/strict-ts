@@ -24,6 +24,7 @@ export function check(
       compilerOptions: provider.compilerOptions,
       declarationFiles: provider.declarationFiles,
       unreadSources: provider.unreadSources,
+      imports: provider.imports,
       report: (message, help, file = PROJECT_FILE) =>
         found.push({ rule: rule.name, file, start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, message, help }),
     });

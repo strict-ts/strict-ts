@@ -1895,6 +1895,47 @@ describe('no-throwing-call and what an unsafe directory hands over', () => {
   });
 });
 
+describe('no-early-read', () => {
+  const only = (lines: readonly string[]) => checkSafe([...lines, ''].join('\n')).filter((d) => d.rule === 'no-early-read').map((d) => `${d.start.line} ${d.message.split(':')[0]}`);
+
+  test('refuses a function used above a variable it reads, directly or through another', () => {
+    const lines = [
+      'const read = (): number => later;',
+      'function through(): number {',
+      '  return read() + 1;',
+      '}',
+      'export const a = read();',
+      'export const b = through();',
+      'export const c = [1].map(read);',
+      'const later = 1;',
+      'export const d = read();',
+    ];
+    expect(only(lines)).toEqual([
+      '5 `read` is used here, and reads `later`, which is declared further down',
+      '6 `through` is used here, and reads `later`, which is declared further down',
+      '7 `read` is used here, and reads `later`, which is declared further down',
+    ]);
+  });
+
+  test('accepts a function that is only declared above what it reads, and one used inside another function', () => {
+    const lines = ['const read = (): number => later;', 'export const soon = (): number => read();', 'const later = 1;', 'export const now = read();'];
+    expect(only(lines)).toEqual([]);
+  });
+
+  test('refuses the files that import each other in a circle, and accepts an import of types', () => {
+    const cycle = (kind: string) =>
+      checkFiles({
+        'src/a.ts': `import ${kind}{ b } from "./b.js";\nexport const a = 1;\nexport type A = typeof b;\n`,
+        'src/b.ts': 'import { a } from "./a.js";\nexport const b = a + 1;\n',
+        'src/c.ts': 'import { b } from "./b.js";\nexport const c = b;\n',
+      })
+        .filter((d) => d.rule === 'no-early-read')
+        .map((d) => d.file);
+    expect(cycle('')).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(cycle('type ')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

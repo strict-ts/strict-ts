@@ -151,3 +151,7 @@ export const phaseText = (): string => {
 export const failing = (): Promise<number> => new Promise<number>((_resolve, reject) => { // expect: no-reject
   reject(new Error("no"));
 });
+
+const readLate = (): number => lateValue;
+export const tooEarly = readLate(); // expect: no-early-read
+const lateValue = 1;

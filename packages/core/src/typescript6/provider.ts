@@ -356,7 +356,7 @@ export function createTypeScript6Provider(
             const owner = node.parent;
             const symbol = api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node);
             const declaration = symbol?.valueDeclaration;
-            const declares = declaration !== undefined && (api.isVariableDeclaration(declaration) || api.isParameter(declaration));
+            const declares = declaration !== undefined && (api.isVariableDeclaration(declaration) || api.isParameter(declaration) || api.isFunctionDeclaration(declaration));
             return declares && declaration.getSourceFile() === sourceFile ? declaration.getStart(sourceFile) : undefined;
           },
           get declaredOutside() {
@@ -656,6 +656,27 @@ export function createTypeScript6Provider(
   return {
     files,
     declarationFiles,
+    get imports() {
+      // An import of types only is erased: it makes no file run.
+      const forValues = (statement: ts.Statement): ts.Expression | undefined => {
+        if (api.isImportDeclaration(statement)) return statement.importClause?.isTypeOnly === true ? undefined : statement.moduleSpecifier;
+        if (api.isExportDeclaration(statement)) return statement.isTypeOnly ? undefined : statement.moduleSpecifier;
+        return undefined;
+      };
+      return record(
+        program
+          .getSourceFiles()
+          .filter(isChecked)
+          .map((sourceFile): readonly [string, readonly string[]] => [
+            displayName(sourceFile.fileName),
+            sourceFile.statements.flatMap((statement) => {
+              const specifier = forValues(statement);
+              const target = specifier === undefined ? undefined : checker.getSymbolAtLocation(specifier)?.valueDeclaration;
+              return target !== undefined && api.isSourceFile(target) && isChecked(target) ? [displayName(target.fileName)] : [];
+            }),
+          ]),
+      );
+    },
     unreadSources: [...unread].map(displayName).toSorted(),
     compilerOptions: program.getCompilerOptions(),
     compilerDiagnostics,
