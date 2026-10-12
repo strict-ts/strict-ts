@@ -37,6 +37,7 @@ export type Owner =
   | { readonly kind: 'parameter'; readonly name: string }
   | { readonly kind: 'this' }
   | { readonly kind: 'giver'; readonly call: Node }
+  | { readonly kind: 'module'; readonly name: string }
   | { readonly kind: 'field'; readonly name: string }
   | { readonly kind: 'elements'; readonly name: string };
 
@@ -67,7 +68,15 @@ const closedField = (object: Node): string | undefined => {
  * a parameter holds may be written itself, and not what it holds. `gives` says whether a call hands out something
  * its caller may write.
  */
-export const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
+export const ownerOf = (
+  object: Node,
+  gives: (call: Node) => boolean,
+  isCopied: (node: Node) => boolean,
+  depth = 0,
+  below = 0,
+  /** A list of numbers or texts: a new list of them holds nothing of the first. */
+  isListOfCopies: (node: Node) => boolean = () => false,
+): Owner | undefined => {
   const { root, steps } = rootOf(object);
   // A name for a number or a text names nothing that can be written: it was copied when it was given.
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
@@ -94,15 +103,17 @@ export const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: 
     return steps + below > 0 && root.elements === 'writable' ? closed() : { kind: 'parameter', name: root.text };
   }
   if (root.kind === 'identifier' && root.parameter === 'mutable') return closed();
+  // What another module made and exports with no `Mut<…>` is that module's to change.
+  if (root.kind === 'identifier' && root.fromModule === 'readonly') return { kind: 'module', name: root.text };
   for (const alias of aliases) {
     // A number or a text that was put there is a copy of its own.
     if (isCopied(alias.place)) continue;
-    if (alias.as === 'copy' && steps + below === 0) continue;
+    if (alias.as === 'copy' && (steps + below === 0 || isListOfCopies(alias.place))) continue;
     if (alias.as === 'result') {
       if (!gives(alias.place)) return { kind: 'giver', call: alias.place };
       continue;
     }
-    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0));
+    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0), isListOfCopies);
     if (found !== undefined) return found;
     // One of the things a list holds: the list has to say they may be written.
     const list = alias.as === 'element' ? closedElements(alias.place) : undefined;
@@ -134,11 +145,16 @@ export const noParamMutation: Rule = {
       return callee === undefined || callee.origin.kind !== 'project' || typeOf(call.callee).mutableReturn;
     };
     const isCopied = (named: Node): boolean => typeOf(named).kinds.every((kind) => PRIMITIVES.includes(kind));
+    const isListOfCopies = (named: Node): boolean => typeOf(named).element?.kinds.every((kind) => PRIMITIVES.includes(kind)) === true;
     const refuse = (at: Node, object: Node, how: string): boolean => {
-      const owner = ownerOf(object, gives, isCopied);
+      const owner = ownerOf(object, gives, isCopied, 0, 0, isListOfCopies);
       if (owner === undefined) return false;
       const { root } = rootOf(object);
       const name = root.kind === 'identifier' ? root.text : '';
+      if (owner.kind === 'module') {
+        report(at, `\`${owner.name}\` is mutated${how}: another module made it, and does not say it may be changed.`, 'Declare it with `Mut<…>` where it is exported, so that who reads it there sees it change; or export a function that changes it.');
+        return true;
+      }
       if (owner.kind === 'field') {
         report(
           at,

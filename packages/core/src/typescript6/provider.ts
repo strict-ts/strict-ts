@@ -602,6 +602,8 @@ export function createTypeScript6Provider(
       // `new Map(other)`, `new Set(list)`: a new collection of the same things.
       if (api.isNewExpression(expression)) {
         const [first] = expression.arguments ?? [];
+        // `new Proxy(target, …)` is the target, seen through.
+        if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Proxy') return sourcesOf(first, as);
         return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy')) : [];
       }
       if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as), ...sourcesOf(expression.whenFalse, as)];
@@ -749,6 +751,21 @@ export function createTypeScript6Provider(
       return elementsOf(promised ?? written);
     };
 
+    /** The members a method of a class stands for under the types the class extends or implements. */
+    const overriddenBy = (method: ts.Node): readonly { readonly mutableReceiver: boolean; readonly mutableParameters: readonly number[] }[] => {
+      const holder = method.parent;
+      if (!api.isMethodDeclaration(method) || !api.isClassLike(holder) || !api.isIdentifier(method.name)) return [];
+      const name = method.name.text;
+      return (holder.heritageClauses ?? []).flatMap((clause) =>
+        clause.types.flatMap((base) => {
+          const member = checker.getPropertyOfType(checker.getTypeAtLocation(base), name);
+          if (member === undefined) return [];
+          const type = wrapType(checker.getTypeOfSymbolAtLocation(member, base));
+          return [{ mutableReceiver: type.mutableReceiver !== undefined, mutableParameters: type.mutableParameters }];
+        }),
+      );
+    };
+
     const shape = (): Node => {
       if (node.kind === api.SyntaxKind.AnyKeyword) return { ...base, kind: 'any-keyword' };
       if (node.kind === api.SyntaxKind.NullKeyword) return { ...base, kind: 'null-keyword' };
@@ -793,6 +810,13 @@ export function createTypeScript6Provider(
           ...base,
           kind: 'identifier',
           text: node.text,
+          get fromModule() {
+            const named = checker.getSymbolAtLocation(node);
+            const symbol = named !== undefined && (named.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(named) : named;
+            const declaration = symbol?.valueDeclaration;
+            if (declaration === undefined || !api.isVariableDeclaration(declaration) || !isChecked(declaration.getSourceFile()) || declaration.getSourceFile() === node.getSourceFile()) return undefined;
+            return mentionsMut(declaration.type) ? 'mutable' : 'readonly';
+          },
           // Asked of few identifiers, and it needs the checker: computed on demand.
           get parameter() {
             const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
@@ -998,7 +1022,8 @@ export function createTypeScript6Provider(
         const waitsForValue = node.initializer === undefined && api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && !isDeclared;
         return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue, hiddenDefaults: hiddenDefaults(node).map(part) };
       }
-      if (node.kind === api.SyntaxKind.ThisKeyword) {
+      // `super.method()` is called on the object itself.
+      if (node.kind === api.SyntaxKind.ThisKeyword || (node.kind === api.SyntaxKind.SuperKeyword && api.isPropertyAccessExpression(node.parent))) {
         return {
           ...base,
           kind: 'this',
@@ -1037,7 +1062,7 @@ export function createTypeScript6Provider(
         const isDeclared =
           api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
         const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
-        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined };
+        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined, get overridden() { return overriddenBy(node); } };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

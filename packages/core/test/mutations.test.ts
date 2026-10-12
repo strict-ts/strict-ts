@@ -110,6 +110,15 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m48-mut-said-of-something-else.ts')).toEqual(['no-param-mutation']);
   }, 180_000);
 
+  test('the fourth round: what a type hides, and a function given its arguments another way', () => {
+    expect(refusedBy('m49-through-super.ts')).toContain('no-param-mutation');
+    // An override, or an object given under a type whose members say less.
+    expect(refusedBy('m50-override-that-says-more.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m51-under-a-quieter-type.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m52-given-by-call.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m53-through-a-proxy.ts')).toContain('no-param-mutation');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

@@ -6,6 +6,9 @@ import { closedElements, ownerOf } from './no-param-mutation.js';
 /** The name at the start of `a.b[c].d`, when there is one. */
 const rootOf = (node: Node): Node => (node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object) : node);
 
+/** The kinds of expression whose owner is asked: anything else around one is looked through. */
+const HELD: readonly string[] = ['identifier', 'property-access', 'element-access', 'call', 'new', 'literal', 'this'];
+
 /** An object, an array or an instance written in place. */
 const isWritten = (node: Node): boolean => node.kind === 'literal' || node.kind === 'new';
 
@@ -62,6 +65,7 @@ export const mutFromReadonly: Rule = {
   scope: 'safe',
   visit(node, { typeOf, expectedOf, asksForMutation, asksForMutationInside, calleeOf, report }, parent) {
     // As no-param-mutation asks it: a function of the project hands out something to write only if it says so.
+    const plain = (named: Node): boolean => typeOf(named).element !== undefined && isCopied(typeOf(named).element ?? typeOf(named));
     const gives = (call: Node): boolean => {
       if (call.kind !== 'call') return true;
       const callee = calleeOf(call);
@@ -92,14 +96,18 @@ export const mutFromReadonly: Rule = {
       const owner = isReceiver
         ? undefined
         : given.kind === 'literal'
-          ? given.spreadFrom.flatMap((alias) => ownerOf(alias.place, gives, copied, 1, 1) ?? []).at(0)
-          : ownerOf(given, gives, copied, 0, asksForMutationInside(given) ? 1 : 0);
+          ? given.spreadFrom.flatMap((alias) => ownerOf(alias.place, gives, copied, 1, 1, plain) ?? []).at(0)
+          : ownerOf(given, gives, copied, 0, asksForMutationInside(given) ? 1 : 0, plain);
       if (owner?.kind === 'parameter') {
         report(given, `Parameter \`${owner.name}\`, or a part of it, is given ${where}, and does not ask for mutation itself.`, HELP);
         return true;
       }
       if (owner?.kind === 'this') {
         report(given, `\`this\`, or a part of it, is given ${where}, in a function that does not say \`this: Mut<…>\`.`, 'Say `this: Mut<…>` on the method, so that it is called only on what may change; or give a copy.');
+        return true;
+      }
+      if (owner?.kind === 'module') {
+        report(given, `\`${owner.name}\`, or a part of it, is given ${where}: another module made it, and does not say it may be changed.`, 'Declare it with `Mut<…>` where it is exported; or give a copy.');
         return true;
       }
       if (owner?.kind === 'giver') {
@@ -117,6 +125,43 @@ export const mutFromReadonly: Rule = {
       return false;
     };
 
+    // A method stands for the member of the same name under each type its class extends or implements: it does
+    // not write what that member does not say it writes.
+    if (node.kind === 'function' && node.overridden.length > 0) {
+      const own = typeOf(node);
+      for (const base of node.overridden) {
+        const louder = own.mutableParameters.find((index) => !base.mutableParameters.includes(index));
+        if (own.mutableReceiver !== undefined && !base.mutableReceiver) {
+          report(node, `\`${node.name ?? ''}\` says \`this: Mut<…>\`, and the member it stands for in a type its class extends or implements does not: called through that type, it changes an object its caller was told cannot change.`, 'Say `this: Mut<…>` on the member there too; or do not change the object here.');
+          break;
+        }
+        if (louder !== undefined) {
+          report(node, `Parameter ${louder + 1} of \`${node.name ?? ''}\` asks for \`Mut<…>\`, and the member it stands for in a type its class extends or implements does not: called through that type, it is given what its caller was told cannot change.`, 'Ask for `Mut<…>` on the member there too; or do not write into the parameter here.');
+          break;
+        }
+      }
+    }
+    // `zero.call(undefined, cart)`, `apply`, `bind`: a function that asks for `Mut<…>`, given its arguments another
+    // way than by being called.
+    if (node.kind === 'call' && node.callee.kind === 'property-access' && ['call', 'apply', 'bind'].includes(node.callee.name)) {
+      const asked = typeOf(node.callee.object).mutableParameters;
+      const [, ...given] = node.arguments;
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      // `apply` is given them in a list; the others one by one, after the object.
+      const written = node.callee.name === 'apply' ? given.slice(0, 1) : given.filter((_, index) => asked.includes(index));
+      if (asked.length > 0 && written.some((one) => ownerOf(one, gives, copied, 0, node.callee.kind === 'property-access' && node.callee.name === 'apply' ? 1 : 0, plain) !== undefined)) {
+        report(node, `A function that asks for \`Mut<…>\` is given, by \`${node.callee.name}\`, what this function may not change.`, HELP);
+      }
+    }
+    // `zero(...list)`: what the list holds is given where `Mut<…>` may be asked.
+    if (node.kind === 'call' && node.hasSpread && typeOf(node.callee).mutableParameters.length > 0) {
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      // What is spread is the one thing written under `...`.
+      const spread = (one: Node): Node => (HELD.includes(one.kind) ? one : (one.children[0] ?? one));
+      if (node.arguments.some((one) => ownerOf(spread(one), gives, copied, 0, 1, plain) !== undefined)) {
+        report(node, 'A function that asks for `Mut<…>` is called with a list spread into its arguments, which holds what this function may not change.', HELP);
+      }
+    }
     // A method that says `this: Mut<…>` writes its receiver.
     if (node.kind === 'call' && (node.callee.kind === 'property-access' || node.callee.kind === 'element-access')) {
       const receiver = typeOf(node.callee).mutableReceiver;
@@ -146,7 +191,7 @@ export const mutFromReadonly: Rule = {
       const sources = [...(call.callee.kind === 'property-access' ? [call.callee.object] : []), ...call.arguments.filter((argument) => argument !== node && argument.kind !== 'function')];
       // Of a list, a map or a set, what it holds has to say so too; any other object hands out parts of itself.
       const isList = (source: Node): boolean => typeOf(source).element !== undefined || /^(Readonly)?(Map|Set|Array)</.test(typeOf(source).text);
-      if (sources.some((source) => ownerOf(source, gives, copied, 0, 1) !== undefined || (isList(source) && closedElements(source) !== undefined))) {
+      if (sources.some((source) => ownerOf(source, gives, copied, 0, 1, plain) !== undefined || (isList(source) && closedElements(source) !== undefined))) {
         report(
           node,
           `A function whose parameter ${asks + 1} asks for \`Mut<…>\` is given to \`${call.callee.kind === 'property-access' ? call.callee.name : call.callee.kind === 'identifier' ? call.callee.text : 'a function'}\`, which calls it with what this function may not change.`,
@@ -164,6 +209,26 @@ export const mutFromReadonly: Rule = {
           'Give a function that does not write into what it receives, or ask for `Mut<…>` where the function is asked for.',
         );
         return;
+      }
+    }
+    // An object given under a type whose members say less of `Mut<…>` than its own: a method that says
+    // `this: Mut<…>` where the type asked says none, a parameter that asks for it where the type asked does not.
+    // Who holds it under that type calls them with what was not theirs to change.
+    if (wanted !== undefined && node.kind !== 'function' && typeOf(node).text !== wanted.text) {
+      const own = typeOf(node);
+      for (const name of wanted.propertyNames) {
+        const asked = wanted.property(name);
+        const has = own.property(name);
+        if (asked === undefined || has === undefined || asked.returns.length === 0) continue;
+        const louder = has.mutableParameters.find((index) => !asked.mutableParameters.includes(index));
+        if ((has.mutableReceiver !== undefined && asked.mutableReceiver === undefined) || louder !== undefined) {
+          report(
+            node,
+            `\`${name}\` of what is given says \`Mut<…>\` of ${louder === undefined ? 'its object (`this: Mut<…>`)' : `its parameter ${louder + 1}`}, and \`${name}\` of the type it is given under does not: called through that type, it changes what its caller was told cannot change.`,
+            'Say `Mut<…>` on the member of the type that is asked for too; or give an object whose member does not write.',
+          );
+          return;
+        }
       }
     }
     if (node.kind === 'function' || wanted === undefined || !asksForMutation(node)) return;

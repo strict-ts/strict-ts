@@ -20,18 +20,22 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- **Explicit mutability is a list of known ways too.** Of 47 known ways to change what a function did not make and
-  that does not say `Mut`, the rules refuse 46. The last is outside the guarantee: whoever made a value may change
+- **Explicit mutability is a list of known ways too.** Of 52 known ways to change what a function did not make and
+  that does not say `Mut`, the rules refuse 51. The last is outside the guarantee: whoever made a value may change
   it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
   list.push(2)`). That is aliasing, which Rust refuses with its borrow checker and strict-ts does not. Each is a
-  file of `packages/core/test/fixtures/mutations`. Three rounds found them, the third twelve more after an
-  application had already been made to pass: this list is younger than the two above, and still moving.
+  file of `packages/core/test/fixtures/mutations`. Four rounds found them: the third twelve more after an
+  application had already been made to pass, the fourth eight more a few hours later. This list is younger than
+  the two above, and still moving.
 - **What a function of the library gives back is taken to be, perhaps, what it was given.** `Promise.resolve(value)`,
   `Array.of(value)`, `weak.deref()` hand back their argument or a part of it, and no type says so. So what such a
   call gives is followed back to everything it was given, unless it is a number or a text, a new list of them, or
   one of a short list of functions known to make something new (`structuredClone`, `JSON.parse`, `Object.keys`,
   `createElement`, …). That list is a judgement. The other way round, code that changes what a library function
   made out of a parameter is refused though it is right: `carts.reduce(…)` into an accumulator, then written.
+- **A constructor of the library or of a package is taken to make something new**, that holds nothing of what it
+  was given to write through, except the collections (`new Map(other)`) and `Proxy`. `new Mesh(geometry, material)`
+  then changed is not taken as a change of the material.
 - **A method the project wrote is believed about what it keeps.** `grid.set(x, y, tile)` is taken to keep `tile`
   only if its parameter says `Mut<…>`: without it, the method cannot put the tile anywhere that may be written,
   and the rules check that where the method is written.
