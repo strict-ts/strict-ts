@@ -77,7 +77,7 @@ describe('the scenarios, checked as the page checks them', () => {
     expect(playground.check(request(id)).diagnostics).toEqual([]);
   });
 
-  test('the challenge lines are counted as the README says: 58 against 39', () => {
+  test('the challenge lines are counted as the documentation says: 58 against 39', () => {
     const label = (id: string) => data.scenarios.find((scenario: { id: string }) => scenario.id === id).label;
     expect(label('challenge')).toBe('Challenge: an invoice to fix · 58 lines');
     expect(label('challenge-solution')).toBe('Concise solution · 39 lines');

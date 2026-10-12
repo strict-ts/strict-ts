@@ -1,0 +1,22 @@
+# The standard library
+
+`@strict-ts/std` is what conforming code is written with. It is a runtime library and does not depend on the checker.
+
+```ts
+import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts/std';
+```
+
+| | |
+|---|---|
+| `Result<T, E>` | `ok(value)`, `err(error)`; `.map`, `.mapErr`, `.andThen`, `.unwrapOr`, `.match`, `.expect` (stops the program: for a bug); `if (r.ok)` narrows |
+| `Result.gen` | Rust's `?` operator: `const x = yield* r` gives the value or leaves with the error. Works with `async function*` |
+| `attempt(fn, onError)` | For unsafe code: turns an exception or a rejected promise into an `Err` |
+| `Option<T>` | `Option.from(value)`, `some`, `none`; `.map`, `.andThen`, `.unwrapOr`, `.okOr`, `.match` |
+| `s` | Schemas: `s.object`, `s.array`, `s.record`, `s.literal`, `s.optional`, `s.string`, `s.number`, `s.boolean`, `s.date`; `s.Infer<typeof X>` gives the type, read-only |
+| `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
+| `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
+| `textOf(value)`, `record(pairs)` | What `String(value)` and `Object.fromEntries` do, without their exceptions |
+| `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | The three bigint operators that throw, giving an `Option` |
+| `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
+| `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
+| `Once<T>`, `end(value)` | A value with one owner, in the manner of a value Rust moves; `end` is where the function that finishes it takes it back as a plain `T` |

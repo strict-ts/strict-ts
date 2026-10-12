@@ -1,7 +1,8 @@
 # @strict-ts/cli
 
 The strict-ts gate: one command in place of `tsc --noEmit`. The options, the exit codes, the configuration and the
-baseline are described in the [README of the repo](../../README.md).
+baseline are described in [the command line](../../docs/cli.md), [the configuration](../../docs/configuration.md)
+and [adopting it](../../docs/adopting.md).
 
 ```sh
 strict-ts -p . --strict-baseline
