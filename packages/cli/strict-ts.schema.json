@@ -100,7 +100,8 @@
           "no-open-read",
           "no-in-narrowing",
           "no-loose-spread",
-          "no-class-lookalike"
+          "no-class-lookalike",
+          "no-stale-narrowing"
         ]
       },
       "uniqueItems": true,

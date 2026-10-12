@@ -41,6 +41,8 @@ export type Node = NodeBase &
          * with the same offset are the same variable. Absent for anything else.
          */
         readonly declaredAt: number | undefined;
+        /** Read here with a type narrower than the one it is declared with: a test before it said more. */
+        readonly isNarrowed: boolean;
       }
     | { readonly kind: 'string-literal'; readonly text: string }
     /** An object or an array written in place: `{ … }`, `[ … ]`. Nobody else holds it yet. */
@@ -85,6 +87,10 @@ export type Node = NodeBase &
          * name of what declares it, or an empty text. A method reads `this`, which a call through its object gives.
          */
         readonly method: string | undefined;
+        /** Read here with a type narrower than the one the property is declared with. */
+        readonly isNarrowed: boolean;
+        /** The property is computed each time it is read (`get name()`). */
+        readonly isGetter: boolean;
       }
     /** `object[…]`. */
     | { readonly kind: 'element-access'; readonly object: Node; readonly index: Node }

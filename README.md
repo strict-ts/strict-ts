@@ -133,6 +133,7 @@ is both, `project` is once for the whole project.
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
 | `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
+| `no-stale-narrowing` | typing | safe | What a test narrowed is not relied on after a call or an `await` that could change it (a `let` another function writes, a property that can be written), nor on a getter |
 | `no-class-lookalike` | typing | safe | Where a class is asked for, the value is made by that class, not an object of its shape |
 | `no-loose-spread` | typing | safe | A spread does not write a property its type does not name: over one written before it, or into one the result may have |
 | `no-in-narrowing` | typing | safe | `in` does not choose between the members of a union: a tag does |
@@ -419,7 +420,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 36 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 37 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -437,13 +438,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- **What TypeScript itself lets through, where a change or an order is not followed.** strict-ts closes the doors a
-  programmer opens on purpose (`any`, a cast, `!`, `declare`, a written predicate), and most of the unsound corners
-  of the compiler: of 23 known ways to make a value differ from its type without any of those, it refuses 19. What
-  passes: a test that narrowed a value which is changed before it is used (a `let` written by another function, a
-  mutable property, a getter), and a constant read through a function before the line that declares it. Each
-  attack is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
-  `packages/core/test/attacks.test.ts` records which ones are refused.
+- **The unsound corners of TypeScript are closed as far as they are known.** strict-ts closes the doors a
+  programmer opens on purpose (`any`, a cast, `!`, `declare`, a written predicate) and what the compiler lets
+  through by design: of 23 known ways to make a value differ from its type without any of those, it refuses 22.
+  The last is a constant read through a function before the line that declares it, which throws. Each attack is a
+  file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
+  `packages/core/test/attacks.test.ts` records which ones are refused. This is a list of known ways, not a proof
+  that there is no other.
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused

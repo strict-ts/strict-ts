@@ -137,3 +137,13 @@ class Label {
   readonly text = "tag";
 }
 export const lookalike: Label = { text: "tag" }; // expect: no-class-lookalike
+
+let phase: string | number = "a";
+const restart = (): void => {
+  phase = 1;
+};
+export const phaseText = (): string => {
+  if (typeof phase !== "string") return "";
+  restart();
+  return phase; // expect: no-stale-narrowing
+};

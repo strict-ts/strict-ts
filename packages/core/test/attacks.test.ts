@@ -16,7 +16,7 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('nineteen are refused', () => {
+  test('twenty-two are refused', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
@@ -41,18 +41,19 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('a16-spread-overwrite.ts')).toEqual(['no-loose-spread']);
     expect(refusedBy('b01-spread-optional.ts')).toEqual(['no-loose-spread']);
     expect(refusedBy('b31-instanceof.ts')).toEqual(['no-class-lookalike']);
+    // What a test narrowed, changed before it is used.
+    expect(refusedBy('a08-narrowing-outlives-a-call.ts')).toEqual(['no-stale-narrowing']);
+    expect(refusedBy('b14-narrowed-let.ts')).toEqual(['no-stale-narrowing']);
+    expect(refusedBy('b21-getter-narrowing.ts')).toEqual(['no-stale-narrowing']);
   });
 
-  test('four are accepted: the holes of guarantee 2, to close one by one', () => {
+  test('one is accepted, and is a call that throws: it is looked at with guarantee 3', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
     // By family, with the task that is to close each: the Plane page « Review · guarantee 2, safe typing ».
     expect(accepted).toEqual([
-      'a08-narrowing-outlives-a-call.ts',
       'a21-read-before-declaration.ts',
-      'b14-narrowed-let.ts',
-      'b21-getter-narrowing.ts',
     ]);
   });
 });
