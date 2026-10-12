@@ -1527,6 +1527,78 @@ describe('no-method-signature', () => {
   });
 });
 
+describe('no-default-on-undefined', () => {
+  const only = (...lines: readonly string[]) => refusals(checkSafe([...lines, ''].join('\n'))).filter((refusal) => refusal.startsWith('no-default-on-undefined'));
+  const at = (...numbers: readonly number[]) => numbers.map((line) => `no-default-on-undefined@${line}`);
+
+  test('refuses a default on a parameter whose type says undefined: what the caller gave on purpose is lost', () => {
+    expect(
+      only(
+        'type Topic = "news" | "sport";',
+        'export const correct = (id: string, topic: Topic | "keep" | undefined = "keep"): string => `${id} ${topic}`;',
+        'export function other(count: number | undefined = 1): number { return count; }',
+        'export class Box { constructor(readonly size: number | undefined = 1) {} grow(by: number | undefined = 1): number { return by; } }',
+        'interface Options { readonly tone?: "plain" | "loud" }',
+        'export const chip = (tone: Options["tone"] = "plain"): string => tone;',
+      ),
+    ).toEqual(at(2, 3, 4, 4, 6));
+  });
+
+  test('accepts a default where undefined is not a value of the type, and a default that is undefined', () => {
+    expect(
+      only(
+        'export const a = (count: number = 1, name = "x"): string => `${count} ${name}`;',
+        'export const b = (count: number | undefined = undefined): number => count ?? 1;',
+        'export const c = (count: number | undefined = void 0): number => count ?? 1;',
+        'export const d = (count?: number): number => count ?? 1;',
+      ),
+    ).toEqual([]);
+  });
+
+  test('a function written where a type is expected is read with that type', () => {
+    expect(
+      only(
+        'type Clear = (topic: string | undefined) => string;',
+        'type Maybe = (topic?: string) => string;',
+        'export const a: Clear = (topic = "keep") => topic;',
+        'export const b: Maybe = (topic = "keep") => topic;',
+        'export const c = [1, undefined].map((value = 0) => value);',
+        'export const d = [1, 2].map((value = 0) => value);',
+        // Expected to have one of two types: one of them is enough.
+        'export const e: Clear | Maybe = (topic = "keep") => topic;',
+        'export const f: { (topic: string | undefined): string; (topic: string, more: number): string } = (topic = "keep") => topic;',
+      ),
+    ).toEqual(at(3, 5, 7, 8));
+  });
+
+  test('a name taken out by a pattern: an optional property is absent or given, one that says undefined is refused', () => {
+    expect(
+      only(
+        'interface Props { readonly size?: number; readonly tone: string | undefined; readonly both?: number | undefined; readonly label: string }',
+        'export const a = ({ size = 1, label }: Props): string => `${size} ${label}`;',
+        'export const b = ({ tone = "plain" }: Props): string => tone;',
+        'export const c = ({ both = 2 }: Props): number => both;',
+        'export const d = ({ tone = undefined }: Props): string => tone ?? "";',
+        'export const e = (props: Props): number => { const { size = 1, both: renamed = 3 } = props; return size + renamed; };',
+        'export const f = ({ size = 1 }: Partial<Props>): number => size;',
+        'export const g = ({ inner: { tone = "x" } }: { readonly inner: Props }): string => tone;',
+      ),
+    ).toEqual(at(3, 4, 6, 8));
+  });
+
+  test('a pattern over a list: an element that may be missing is not one that is undefined', () => {
+    expect(
+      only(
+        'export const a = (list: readonly number[]): number => { const [first = 0] = list; return first; };',
+        'export const b = (list: readonly (number | undefined)[]): number => { const [first = 0] = list; return first; };',
+        'export const c = (pair: readonly [number | undefined, number]): number => { const [first = 0, second = 1] = pair; return first + second; };',
+        'export const d = (pair: readonly [number, number?]): number => { const [first, second = 1] = pair; return first + second; };',
+        'export const e = (bag: Readonly<Record<string, number | undefined>>): number => { const { count = 0 } = bag; return count; };',
+      ),
+    ).toEqual(at(2, 3, 5));
+  });
+});
+
 describe('no-numeric-enum', () => {
   const only = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-numeric-enum'));
 

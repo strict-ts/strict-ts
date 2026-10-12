@@ -92,6 +92,64 @@ export function createTypeScript6Provider(
     return [fromLibrary && name !== undefined && /^[A-Z]\w*$/.test(name) ? name : 'object'];
   };
 
+  const admitsUndefined = (type: ts.Type): boolean => (type.isUnion() ? type.types : [type]).some((member) => (member.flags & (api.TypeFlags.Undefined | api.TypeFlags.Void)) !== 0);
+  const exactOptional = program.getCompilerOptions().exactOptionalPropertyTypes === true;
+  /**
+   * Whether a property, or a parameter of a function type, may be given `undefined` on purpose. One that is only
+   * optional may not, as far as its type is written: its `undefined` is its absence.
+   */
+  const takesUndefined = (symbol: ts.Symbol): boolean => {
+    const type = checker.getTypeOfSymbol(symbol);
+    if (!admitsUndefined(type)) return false;
+    const declaration = symbol.valueDeclaration;
+    const optional = declaration !== undefined && (api.isPropertySignature(declaration) || api.isPropertyDeclaration(declaration) || api.isParameter(declaration)) && declaration.questionToken !== undefined;
+    // Written `name?: T`: what the type written after it says. The compiler keeps the two apart for a property
+    // when the project asks for exact optional properties, and then a type that is made (`Partial<T>`) is read too.
+    if (optional && declaration.type !== undefined) return admitsUndefined(checker.getTypeFromTypeNode(declaration.type));
+    const given = checker.getUndefinedType();
+    return !exactOptional || (symbol.flags & api.SymbolFlags.Property) === 0 || (type.isUnion() ? type.types : [type]).some((member) => member === given);
+  };
+  const isUndefinedWritten = (written: ts.Expression): boolean => {
+    let expression = written;
+    while (api.isParenthesizedExpression(expression)) expression = expression.expression;
+    return (api.isIdentifier(expression) && expression.text === 'undefined') || api.isVoidExpression(expression);
+  };
+  /** What a caller may give a parameter that has no written type: by each type the function is expected to have. */
+  const expectedParameters = (parameter: ts.ParameterDeclaration): readonly ts.Symbol[] => {
+    const owner = parameter.parent;
+    if (!api.isArrowFunction(owner) && !api.isFunctionExpression(owner)) return [];
+    const index = owner.parameters.indexOf(parameter);
+    return (checker.getContextualType(owner)?.getCallSignatures() ?? []).flatMap((signature) => signature.getParameters()[index] ?? []);
+  };
+  /**
+   * The parameters and the names of a pattern whose default stands in for an `undefined` their type admits: see
+   * `hiddenDefaults` in the syntax. `root` is a parameter or a declared variable.
+   */
+  const hiddenDefaults = (root: ts.ParameterDeclaration | ts.VariableDeclaration): readonly ts.Node[] => {
+    const found: Mut<ts.Node[]> = [];
+    if (api.isParameter(root) && root.initializer !== undefined && !isUndefinedWritten(root.initializer)) {
+      if (root.type === undefined ? expectedParameters(root).some(takesUndefined) : admitsUndefined(checker.getTypeFromTypeNode(root.type))) found.push(root);
+    }
+    const look = (pattern: ts.BindingName): void => {
+      if (api.isIdentifier(pattern)) return;
+      const holder = checker.getNonNullableType(checker.getTypeAtLocation(pattern));
+      pattern.elements.forEach((element, index) => {
+        if (api.isOmittedExpression(element)) return;
+        look(element.name);
+        if (element.initializer === undefined || element.dotDotDotToken !== undefined || isUndefinedWritten(element.initializer)) return;
+        const named = element.propertyName ?? element.name;
+        const key = api.isArrayBindingPattern(pattern) ? String(index) : api.isIdentifier(named) || api.isStringLiteralLike(named) || api.isNumericLiteral(named) ? named.text : undefined;
+        // A name that is computed: which property it is is not known.
+        if (key === undefined) return void found.push(element);
+        const property = checker.getPropertyOfType(holder, key);
+        const indexed = property === undefined ? checker.getIndexTypeOfType(holder, api.isArrayBindingPattern(pattern) ? api.IndexKind.Number : api.IndexKind.String) : undefined;
+        if (property !== undefined ? takesUndefined(property) : indexed !== undefined && admitsUndefined(indexed)) found.push(element);
+      });
+    };
+    look(root.name);
+    return found;
+  };
+
   const isMut = (written: ts.TypeNode | undefined): boolean =>
     written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
 
@@ -605,7 +663,7 @@ export function createTypeScript6Provider(
         // Not the variable of a loop or of a `catch`, which gets its value there; not one under `declare`.
         const isDeclared = api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && (api.getCombinedModifierFlags(node) & api.ModifierFlags.Ambient) !== 0;
         const waitsForValue = node.initializer === undefined && api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && !isDeclared;
-        return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue };
+        return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue, hiddenDefaults: hiddenDefaults(node).map(part) };
       }
       if (node.kind === api.SyntaxKind.ThisKeyword) {
         return {
@@ -644,7 +702,7 @@ export function createTypeScript6Provider(
         const isDeclared =
           api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
         const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
-        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined };
+        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

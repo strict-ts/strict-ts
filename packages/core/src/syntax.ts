@@ -83,13 +83,18 @@ export type Node = NodeBase &
         readonly initializer: Node | undefined;
         /** A `let` or a `var` of a statement, declared with no value: it gets one later, by an assignment. */
         readonly waitsForValue: boolean;
+        /** The names of its pattern whose default hides an `undefined`: see `hiddenDefaults` of a function. */
+        readonly hiddenDefaults: readonly Node[];
       }
     /**
      * A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns).
      * `isOverload` for a signature with no body that an implementation follows: not an abstract method, and not a
      * declaration of what is defined elsewhere. `name` for a function or a method declared with one.
+     * `hiddenDefaults`: the parameters, and the names their patterns take out, that are written with a default
+     * other than `undefined` while their type lets a caller give `undefined` on purpose. The default runs then, and
+     * what was given never arrives. A place that is only optional (`name?: T`) is not one: nothing is given there.
      */
-    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean; readonly name: string | undefined }
+    | { readonly kind: 'function'; readonly hiddenDefaults: readonly Node[]; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean; readonly name: string | undefined }
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }

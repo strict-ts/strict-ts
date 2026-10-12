@@ -20,6 +20,10 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
+- A default that hides an `undefined` is refused where it is declared (`no-default-on-undefined`), and not where a
+  function is given: `const clear: (topic: Topic | undefined) => void = correct`, with `correct` declared with a
+  default, is accepted, and `clear(undefined)` runs the default. A default in an assignment by a pattern
+  (`({ a = 1 } = value)`) is not read either.
 - **Explicit mutability: one known way is open.** Of 22 known ways to change a value its type says is read-only,
   or to change what a function receives without its parameter saying `Mut`, the rules refuse 21. A local with no
   written type is still mutable while someone else reads it as read-only. Each is a file of

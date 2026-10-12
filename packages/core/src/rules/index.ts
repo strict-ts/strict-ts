@@ -12,6 +12,7 @@ import { noParamMutation } from './no-param-mutation.js';
 import { noOverload } from './no-overload.js';
 import { noMethodSignature } from './no-method-signature.js';
 import { noNumericEnum } from './no-numeric-enum.js';
+import { noDefaultOnUndefined } from './no-default-on-undefined.js';
 import { noUnsetCapture } from './no-unset-capture.js';
 import { noEarlyThis } from './no-early-this.js';
 import { noUnboundMethod } from './no-unbound-method.js';
@@ -67,6 +68,7 @@ export const rules: readonly Rule[] = [
   noOverload,
   noMethodSignature,
   noNumericEnum,
+  noDefaultOnUndefined,
   noUnsetCapture,
   noEarlyThis,
   noUnboundMethod,

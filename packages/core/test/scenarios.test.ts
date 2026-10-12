@@ -107,6 +107,7 @@ describe('one violation per rule', () => {
       'no-any',
       'no-cast',
       'no-class-lookalike',
+      'no-default-on-undefined',
       'no-early-read',
       'no-early-this',
       'no-external-import',
