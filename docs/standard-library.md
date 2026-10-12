@@ -22,5 +22,5 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `textOf(value)`, `record(pairs)` | What `String(value)` and `Object.fromEntries` do, without their exceptions |
 | `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | The three bigint operators that throw, giving an `Option` |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
-| `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature |
+| `Mut<T>` | Asks for mutation: Rust's `&mut`, read at the signature. On a method, `this: Mut<Counter>` as its first parameter is Rust's `&mut self` |
 | `Once<T>`, `end(value)` | A value with one owner, in the manner of a value Rust moves; `end` is where the function that finishes it takes it back as a plain `T` |

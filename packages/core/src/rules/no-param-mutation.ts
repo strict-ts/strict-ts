@@ -37,6 +37,8 @@ const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: n
  */
 const parameterOf = (object: Node, depth = 0, below = 0): string | undefined => {
   const { root, steps } = rootOf(object);
+  // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
+  if (root.kind === 'this') return root.receiver === 'readonly' ? 'this' : undefined;
   if (root.kind !== 'identifier' || depth > DEPTH) return undefined;
   if (root.parameter === 'readonly') return root.text;
   if (root.parameter === 'mutable') return undefined;
@@ -56,7 +58,7 @@ export const noParamMutation: Rule = {
   name: 'no-param-mutation',
   guarantee: 'mutability',
   description:
-    'A function does not change what it receives unless the parameter asks for it with `Mut<T>`, Rust\'s `&mut`: not by its name, not by another name for it or for a part of it, not by a function of the platform.',
+    'A function does not change what it receives unless the parameter asks for it with `Mut<T>`, Rust\'s `&mut`: not by its name, not by another name for it or for a part of it, not by a function of the platform. The object a method is called on is one of the things it receives: a method that changes it says `this: Mut<…>`.',
   scope: 'safe',
   visit(node, { typeOf, report }) {
     const help = 'Return a new value instead, or type the parameter `Mut<…>` so that callers see it is changed.';
@@ -65,6 +67,14 @@ export const noParamMutation: Rule = {
       if (parameter === undefined) return false;
       const { root } = rootOf(object);
       const through = root.kind === 'identifier' && root.text !== parameter ? `, through \`${root.text}\`` : '';
+      if (parameter === 'this') {
+        report(
+          at,
+          `\`this\` is mutated${how}${through}, in a function that does not say \`this: Mut<…>\`.`,
+          'Write `this: Mut<…>` as its first parameter, so that callers see it changes its object; or return a new value.',
+        );
+        return true;
+      }
       report(at, `Parameter \`${parameter}\` is mutated${how}${through}.`, help);
       return true;
     };
@@ -86,6 +96,11 @@ export const noParamMutation: Rule = {
     }
     if (node.kind !== 'call' || node.callee.kind !== 'property-access') return;
     const { name, object } = node.callee;
+    // A method that says it writes its object.
+    if (typeOf(node.callee).mutableReceiver !== undefined) {
+      refuse(node, object, ` by \`${name}\`, which says \`this: Mut<…>\``);
+      return;
+    }
     const [first] = node.arguments;
     if (object.kind === 'identifier' && first !== undefined && (WRITERS[object.text] ?? []).includes(name)) {
       refuse(node, first, ` by \`${object.text}.${name}\``);

@@ -805,6 +805,50 @@ describe('no-param-mutation', () => {
     expect(refusedAt(lines)).toEqual([]);
   });
 
+  test('the object a method is called on is one of the things it receives', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'export class Counter {',
+      '  value: Mut<number> = 0;',
+      '  readonly log: Mut<string[]> = [];',
+      '  readonly started: number = this.value;',
+      '  constructor(start: number) {',
+      '    this.value = start;',
+      '  }',
+      '  set shown(text: string) {',
+      '    this.log.push(text);',
+      '  }',
+      '  read(): number {',
+      '    this.log.push("read");',
+      '    this.value += 1;',
+      '    return this.value;',
+      '  }',
+      '  increment(this: Mut<Counter>): void {',
+      '    this.value += 1;',
+      '    const self = this;',
+      '    self.log.push("more");',
+      '  }',
+      '  twice(): void {',
+      '    this.increment();',
+      '  }',
+      '  readonly later = (): void => {',
+      '    this.value = 0;',
+      '  };',
+      '}',
+      'export function a(counter: Counter, open: Mut<Counter>): void {',
+      '  counter.increment();',
+      '  open.increment();',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '13 `this` is mutated by `push`, in a function that does not say `this: Mut<…>`.',
+      '14 `this` is mutated, in a function that does not say `this: Mut<…>`.',
+      '23 `this` is mutated by `increment`, which says `this: Mut<…>`, in a function that does not say `this: Mut<…>`.',
+      '26 `this` is mutated, in a function that does not say `this: Mut<…>`.',
+      '30 Parameter `counter` is mutated by `increment`, which says `this: Mut<…>`.',
+    ]);
+  });
+
   test('known limit: what a function gives back is not followed to what it was given', () => {
     const code = 'const same = <T>(value: T): T => value;\nexport function fill(list: number[]): void {\n  const alias = same(list);\n  alias.push(1);\n}\n';
     expect(checkSafe(code, alone)).toEqual([]);

@@ -16,7 +16,7 @@ node packages/cli/dist/main.js -p examples/report/strict     # nothing
 | [`invoice`](invoice) | Typing and errors: a cast on `JSON.parse`, `null`, `throw`, `!`, a `switch` that forgets a case | 22 refusals, 10 rules | Schemas, `Result`, `Option`, a `satisfies` object |
 | [`report`](report) | What throws without saying so | 15 refusals: `JSON.parse`, `new RegExp`, `BigInt`, `toFixed`, a bigint `/`, a template | `attempt` in `unsafe/`, `quotient`, `Result.gen` |
 | [`cart`](cart) | Explicit mutability | 12 refusals: `push` and `sort` on a parameter, a write through the variable of a loop over it, properties that can be reassigned | Read-only types, copies, `Mut<…>`, a directory declared pure |
-| [`transfer`](transfer) | Ownership | 7 refusals, none about the transaction: nothing says it has an owner | `Once<Transaction>`, `end` |
+| [`transfer`](transfer) | Ownership | 11 refusals, none about who owns the transaction: nothing says it has an owner | `Once<Transaction>`, `end` |
 
 ## report: five ways to throw that no type announces
 

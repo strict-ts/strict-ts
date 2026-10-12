@@ -33,8 +33,8 @@ describe('the gate on the examples', () => {
     expect(refused('cart/classic')).toEqual({ code: 1, count: 12, rules: ['no-param-mutation', 'readonly-types'] });
   });
 
-  test('the classic transfer says nothing of its transaction, so only its throws and its types are refused', () => {
-    expect(refused('transfer/classic')).toEqual({ code: 1, count: 7, rules: ['no-throw', 'readonly-types'] });
+  test('the classic transfer says nothing of who owns its transaction: its throws, its types and its quiet writes are refused', () => {
+    expect(refused('transfer/classic')).toEqual({ code: 1, count: 11, rules: ['no-param-mutation', 'no-throw', 'readonly-types'] });
   });
 });
 
