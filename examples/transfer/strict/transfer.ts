@@ -4,10 +4,10 @@ import { end, err, ok, type Mut, type Once, type Result } from "@strict-ts/std";
 export class Transaction {
   private readonly entries: Mut<string[]> = [];
 
-  debit(account: string, cents: number): void {
+  debit(this: Mut<Transaction>, account: string, cents: number): void {
     this.entries.push(`${account} -${cents}`);
   }
-  credit(account: string, cents: number): void {
+  credit(this: Mut<Transaction>, account: string, cents: number): void {
     this.entries.push(`${account} +${cents}`);
   }
   written(): readonly string[] {

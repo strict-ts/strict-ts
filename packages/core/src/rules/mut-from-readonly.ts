@@ -46,9 +46,10 @@ export const mutFromReadonly: Rule = {
     'What is given where `Mut<…>` is asked for is the giver\'s to change: not a parameter that does not ask for mutation itself, not a value typed read-only. Wherever it is given: as an argument, a returned value, a property or an element of what is written in place, the right side of an assignment, the receiver of a method.',
   scope: 'safe',
   visit(node, { typeOf, expectedOf, asksForMutation, report }) {
-    const frozenIn = (given: Node, wanted: Type, where: string): boolean => {
+    const frozenIn = (given: Node, wanted: Type, where: string, isReceiver = false): boolean => {
       const root = rootOf(given);
-      if (root.kind === 'identifier' && root.parameter === 'readonly') {
+      // A receiver that is a parameter is no-param-mutation's to refuse: it follows other names for it too.
+      if (!isReceiver && root.kind === 'identifier' && root.parameter === 'readonly') {
         report(given, `Parameter \`${root.text}\` is given ${where}, and does not ask for mutation itself.`, HELP);
         return true;
       }
@@ -61,7 +62,7 @@ export const mutFromReadonly: Rule = {
     // A method that says `this: Mut<…>` writes its receiver.
     if (node.kind === 'call' && (node.callee.kind === 'property-access' || node.callee.kind === 'element-access')) {
       const receiver = typeOf(node.callee).mutableReceiver;
-      if (receiver !== undefined && mayBeHeld(node.callee.object)) frozenIn(node.callee.object, receiver, 'to a method that asks for `this: Mut<…>`');
+      if (receiver !== undefined && mayBeHeld(node.callee.object)) frozenIn(node.callee.object, receiver, 'to a method that asks for `this: Mut<…>`', true);
     }
     // A variable with no written type takes the type of its first value: it may be one that can be written.
     // Not a pattern on the left: `[a, b] = pair` copies what the pair holds.

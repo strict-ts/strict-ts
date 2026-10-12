@@ -59,16 +59,17 @@ describe('the attacks on explicit mutability', () => {
     }
   });
 
-  test('two are accepted: the holes of guarantee 4', () => {
+  test('a method changes its object only if it says `this: Mut<…>`, and is then called only on what may change', () => {
+    expect(refusedBy('m04-mutating-method.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m22-method-that-says-mut.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m23-through-a-method-that-reads.ts')).toEqual(['no-param-mutation']);
+  });
+
+  test('one is accepted: a local with no written type, seen read-only by someone else', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
-    // The Plane page « Review · guarantee 4, explicit mutability » has the task that is to close each.
-    expect(accepted).toEqual([
-      // A parameter changed by its own method.
-      'm04-mutating-method.ts',
-      // A local with no written type, seen read-only by someone else.
-      'm12-inferred-and-viewed.ts',
-    ]);
+    // The Plane page « Review · guarantee 4, explicit mutability » has the task that is to close it.
+    expect(accepted).toEqual(['m12-inferred-and-viewed.ts']);
   });
 });

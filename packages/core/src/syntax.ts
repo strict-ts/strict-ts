@@ -22,7 +22,12 @@ export type Node = NodeBase &
     | { readonly kind: 'any-keyword' }
     | { readonly kind: 'null-keyword' }
     | { readonly kind: 'import-keyword' }
-    | { readonly kind: 'this' }
+    /**
+     * `this`. `receiver` says whether what it stands for may be written here: `mutable` in a constructor, in a
+     * setter, in the value a property is declared with, and in a function that says `this: Mut<…>`; `readonly` in
+     * any other function, Rust's `&self`.
+     */
+    | { readonly kind: 'this'; readonly receiver: 'mutable' | 'readonly' }
     /**
      * A statement that runs its body again: `for`, `for … of`, `for … in`, `while`, `do`. `once` is the part that
      * runs a single time, before the first turn: what a `for … of` goes through, what a `for` starts with.

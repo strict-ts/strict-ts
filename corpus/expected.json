@@ -25,6 +25,7 @@
   },
   "examples/report/strict": {},
   "examples/transfer/classic": {
+    "no-param-mutation": 4,
     "no-throw": 2,
     "readonly-types": 5
   },

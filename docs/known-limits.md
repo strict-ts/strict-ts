@@ -20,10 +20,13 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- **Explicit mutability holds for the plain cases only.** Of 20 known ways to change a value its type says is
-  read-only, or to change what a function receives without its parameter saying `Mut`, the rules refuse 18. A
-  parameter is still changed by its own method (`counter.increment()`), and a local with no written type is
-  mutable while someone else reads it as read-only. Each is a file of `packages/core/test/fixtures/mutations`.
+- **Explicit mutability: one known way is open.** Of 22 known ways to change a value its type says is read-only,
+  or to change what a function receives without its parameter saying `Mut`, the rules refuse 21. A local with no
+  written type is still mutable while someone else reads it as read-only. Each is a file of
+  `packages/core/test/fixtures/mutations`.
+- A function written with an arrow in a constructor may change the object later, without anything saying so: the
+  constructor may write `this`, and the arrow has its `this`. A getter cannot say `this: Mut<…>`, so a getter that
+  writes (a value computed once and kept) is refused.
 - `mut-from-readonly` compares the properties of what is given with those of what is asked three levels deep, and
   not the elements of an array that is not written in place.
 - `no-param-mutation` follows a local name made from a parameter, not what a function gives back

@@ -607,7 +607,24 @@ export function createTypeScript6Provider(
         const waitsForValue = node.initializer === undefined && api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && !isDeclared;
         return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue };
       }
-      if (node.kind === api.SyntaxKind.ThisKeyword) return { ...base, kind: 'this' };
+      if (node.kind === api.SyntaxKind.ThisKeyword) {
+        return {
+          ...base,
+          kind: 'this',
+          get receiver() {
+            // A function written with an arrow has the `this` of where it is written.
+            let throughArrow = false;
+            for (let outer: ts.Node | undefined = node.parent; outer !== undefined; outer = outer.parent) {
+              if (api.isArrowFunction(outer)) throughArrow = true;
+              else if (api.isConstructorDeclaration(outer) || api.isSetAccessor(outer) || api.isClassStaticBlockDeclaration(outer)) return 'mutable';
+              // The value a property is declared with runs while the object is made; a function kept there runs later.
+              else if (api.isPropertyDeclaration(outer)) return throughArrow ? 'readonly' : 'mutable';
+              else if (api.isFunctionLike(outer)) return isMut(outer.parameters.find(isThis)?.type) ? 'mutable' : 'readonly';
+            }
+            return 'mutable';
+          },
+        };
+      }
       if (api.isIterationStatement(node, false)) {
         const once = api.isForOfStatement(node) || api.isForInStatement(node) ? node.expression : api.isForStatement(node) ? node.initializer : undefined;
         const written = (api.isForOfStatement(node) || api.isForInStatement(node)) && !api.isVariableDeclarationList(node.initializer) ? node.initializer : undefined;
