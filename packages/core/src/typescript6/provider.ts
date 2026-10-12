@@ -497,6 +497,10 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue };
       }
       if (node.kind === api.SyntaxKind.ThisKeyword) return { ...base, kind: 'this' };
+      if (api.isIterationStatement(node, false)) {
+        const once = api.isForOfStatement(node) || api.isForInStatement(node) ? node.expression : api.isForStatement(node) ? node.initializer : undefined;
+        return { ...base, kind: 'loop', once: once === undefined ? undefined : part(once) };
+      }
       if (api.isMethodSignature(node)) return { ...base, kind: 'method-signature' };
       if (api.isEnumDeclaration(node)) {
         const isText = (member: ts.EnumMember): boolean => member.initializer !== undefined && api.isStringLiteralLike(member.initializer);

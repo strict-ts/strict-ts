@@ -39,6 +39,9 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('c02-delete-element.ts')).toEqual(['no-resize']);
     expect(refusedBy('c03-array-of-nothing.ts')).toEqual(['no-resize']);
     expect(refusedBy('c04-writable-property.ts')).toEqual(['mut-exact']);
+    // Two ways the rules had said they left open.
+    expect(refusedBy('c05-callback-in-constructor.ts')).toEqual(['no-early-this']);
+    expect(refusedBy('c06-narrowed-before-a-loop.ts')).toEqual(['no-stale-narrowing']);
     // A value that holds more than its type names: read whole, narrowed by `in`, spread, taken for a class.
     expect(refusedBy('a02-object-values.ts')).toEqual(['no-open-read']);
     expect(refusedBy('a03-in-narrowing.ts')).toEqual(['no-in-narrowing']);
