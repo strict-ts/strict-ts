@@ -7,6 +7,8 @@ const hand = (byHand: string) => ({ byHand });
 const total = { verdict: 'total', evidence: hand('judged not to throw on arguments its types accept') } as const;
 const platform = { verdict: 'total', evidence: hand('a platform function judged not to throw; no specification is read for the DOM') } as const;
 
+const asks = { verdict: 'total', evidence: hand('HTML standard, confirm(message): answers false when no dialog can be shown, and has no step that throws') } as const;
+
 export const seed: Ledger = {
   'Array.at': total,
   'Array.entries': total,
@@ -156,6 +158,9 @@ export const seed: Ledger = {
   'HTMLTextAreaElement.addEventListener': platform,
   'Node.contains': platform,
   'Performance.now': platform,
+  // Never run: it waits for a person. The HTML standard gives it no way to throw.
+  'Window.confirm': asks,
+  confirm: asks,
   clearTimeout: platform,
   getComputedStyle: platform,
   setTimeout: platform,
@@ -168,6 +173,12 @@ export const seed: Ledger = {
   'Body.formData': { verdict: 'throws', why: 'rejects when the body cannot be read', evidence: hand('known to throw') },
   'Body.json': { verdict: 'throws', why: 'rejects on a body that is not JSON', evidence: hand('known to throw') },
   'Body.text': { verdict: 'throws', why: 'rejects when the body cannot be read', evidence: hand('known to throw') },
+  'DateTimeFormat.format': {
+    verdict: 'throws',
+    why: 'throws a RangeError on a date that is not one, as seen with (new Date(NaN))',
+    atLeast: 1,
+    evidence: hand('ECMA-402, DateTime Format Functions: a date whose time value is NaN is a RangeError; with no argument it reads the clock'),
+  },
   'Date.toISOString': { verdict: 'throws', why: 'throws a RangeError on an invalid date', evidence: hand('known to throw') },
   'FunctionConstructor.new': { verdict: 'throws', why: 'runs text as code', evidence: hand('known to throw') },
   'JSON.parse': { verdict: 'throws', why: 'throws a SyntaxError on text that is not JSON', evidence: hand('known to throw') },

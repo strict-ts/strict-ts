@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { effectsLedger, hasShape, type Shape, threatOf } from '../src/index.js';
+import { effectsLedger, hasShape, quietAsWritten, type Shape, threatOf } from '../src/index.js';
 
 describe('the effects ledger', () => {
   const entries = Object.entries(effectsLedger);
@@ -53,6 +53,7 @@ describe('the effects ledger', () => {
       'Headers.has',
       'ParentNode.querySelector',
       'ParentNode.querySelectorAll',
+      'Response.new',
     ]);
     for (const [name, effect] of written) {
       expect(effect.verdict, name).toBe('throws');
@@ -79,6 +80,33 @@ describe('the effects ledger', () => {
       'rgba(0,0,0,0)',
     ]);
     expect(shaped('unit', [0, 1, 0.55, -0.1, 1.5, Number.NaN, '0'])).toEqual([0, 1, 0.55]);
+  });
+
+  test('what an answer is told of itself: a status that has a body, and headers written as an object', () => {
+    const init = (value: unknown): boolean => hasShape('response-init', value);
+    expect([{}, { status: 200 }, { status: 404 }, { status: 599 }, { headers: {} }, { status: 201, headers: { 'content-type': 'application/json', ETag: '"a"' } }].every(init)).toBe(true);
+    expect(
+      [
+        // No answer has these; these three say there is no body.
+        { status: 199 }, { status: 600 }, { status: 200.5 }, { status: Number.NaN }, { status: '200' },
+        { status: 204 }, { status: 205 }, { status: 304 },
+        { statusText: 'OK' },
+        { status: 200, extra: 1 },
+        { headers: { 'bad name': 'x' } }, { headers: { a: 'line\nbreak' } }, { headers: { a: 'é' } }, { headers: { a: 1 } }, { headers: [['a', 'b']] }, { headers: 'a: b' },
+        undefined, 'text', 200, [], Number.NaN,
+      ].filter(init),
+    ).toEqual([]);
+  });
+
+  test('an argument that is not written passes only a shape every value of its type has: any text is a text', () => {
+    const entry = effectsLedger['Element.setAttribute'];
+    if (entry === undefined) return expect(entry).toBeDefined();
+    expect(quietAsWritten(entry, [['data-x'], undefined], [['string'], ['string']])).toBe(true);
+    // The name of an attribute is not any text; a text or nothing is not a text; and a kind must be known.
+    expect(quietAsWritten(entry, [undefined, ['x']], [['string'], ['string']])).toBe(false);
+    expect(quietAsWritten(entry, [['data-x'], undefined], [['string'], ['string', 'undefined']])).toBe(false);
+    expect(quietAsWritten(entry, [['data-x'], undefined], [['string'], []])).toBe(false);
+    expect(quietAsWritten(entry, [['data-x'], undefined])).toBe(false);
   });
 
   test('a function is called safe only when the specification and the runs agree', () => {

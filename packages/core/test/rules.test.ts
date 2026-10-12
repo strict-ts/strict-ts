@@ -2212,6 +2212,75 @@ describe('no-throwing-call on arguments written in the call', () => {
   });
 });
 
+describe('no-throwing-call on an argument that is not written', () => {
+  const said = (lines: readonly string[], assume: readonly ('generated-arguments' | 'generated-receivers')[] = ['generated-arguments', 'generated-receivers']) =>
+    checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], assume } })
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+  const compared = [
+    'export const a = (x: string, y: string): number => x.localeCompare(y, undefined, { numeric: true });',
+    'export const b = (x: string, y: string): number => x.localeCompare(y, "fr");',
+    'export const c = (x: string, y: string | undefined): number => x.localeCompare(y ?? "", "fr");',
+  ];
+
+  test('a text, a number or nothing is run on a list of them: what never threw is accepted', () => {
+    expect(said(compared)).toEqual([]);
+  });
+
+  test('what throws on one value of the list is refused', () => {
+    expect(
+      said([
+        'export const a = (x: string, y: string, locale: string): number => x.localeCompare(y, locale);',
+        'export const b = (text: string, count: number): string => text.repeat(count);',
+        'export const c = (text: string, form: string): string => text.normalize(form);',
+        'export const d = (source: string): RegExp => new RegExp(source);',
+        'export const e = (text: string, part: string): boolean => text.match(part) === undefined;',
+        'export const f = (text: string): bigint => BigInt(text);',
+        'export const g = (text: string): string => decodeURIComponent(text);',
+      ]).map((line) => line.split(' ').slice(0, 2).join(' ')),
+    ).toEqual(['1 `String.localeCompare`', '2 `String.repeat`', '3 `String.normalize`', '4 `RegExp.new`', '5 `String.match`', '6 `BigInt`', '7 `decodeURIComponent`']);
+  });
+
+  test('an argument whose type admits an object has no list: the call is refused', () => {
+    expect(
+      said([
+        'export const a = (x: string, y: string, options: Intl.CollatorOptions): number => x.localeCompare(y, undefined, options);',
+        'export const b = (x: string, y: string, locales: readonly string[]): number => x.localeCompare(y, locales);',
+      ]).map((line) => line.slice(0, 1)),
+    ).toEqual(['1', '2']);
+  });
+
+  test('it is a list and not the value: refused unless the project says so, and the receiver is another matter', () => {
+    expect(said(compared, []).map((line) => line.slice(0, 1))).toEqual(['1', '2', '3']);
+    expect(said(compared, ['generated-receivers']).map((line) => line.slice(0, 1))).toEqual(['1', '2', '3']);
+    expect(said(compared, ['generated-arguments']).map((line) => line.slice(0, 1))).toEqual(['1', '2', '3']);
+    // With a receiver that is written, the list of arguments is all that is taken on trust.
+    expect(said(['export const a = (y: string): number => "a".localeCompare(y, "fr");'], ['generated-arguments'])).toEqual([]);
+  });
+});
+
+describe('no-throwing-call on arguments given by `...list`', () => {
+  const said = (lines: readonly string[]) =>
+    checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], assume: ['generated-arguments', 'generated-receivers'] } })
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+
+  test('how many arguments there are is not known: a function that throws from a number of them is refused', () => {
+    expect(
+      said([
+        // One argument is written, and two are given: the second is a locale.
+        'export const a = (x: string, pair: readonly [string, string]): number => x.localeCompare(...pair);',
+        'export const b = (x: string): number => x.localeCompare(...(["b", "not a locale"] as const));',
+        'export const c = (x: string, y: string): number => x.localeCompare(y);',
+      ]),
+    ).toEqual(['1 `String.localeCompare` throws a RangeError.', '2 `String.localeCompare` throws a RangeError.']);
+  });
+
+  test('nothing is run on what is not written as it is given', () => {
+    expect(said(['export const a = (): string => String.fromCodePoint(...[65, 66]);', 'export const b = (): string => String.fromCodePoint(65, 66);']).map((line) => line.slice(0, 1))).toEqual(['1']);
+  });
+});
+
 describe('no-throwing-call in a page', () => {
   const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
   const lines = [
@@ -2298,6 +2367,45 @@ describe('no-throwing-call on arguments written in a call into the DOM', () => {
         'export const j = (el: Element, names: readonly string[]): void => el.classList.add(...names);',
       ]).map((line) => line.split(' ')[0]),
     ).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+  });
+
+  test('a text that is not written has the shape of a text: any text was given in the browser', () => {
+    expect(
+      said([
+        'export const a = (el: Element, value: string): void => el.setAttribute("data-count", value);',
+        'export const b = (el: Element, value: string | undefined): void => el.setAttribute("data-count", value ?? "");',
+        'export const c = (el: Element, name: string, value: string): void => el.setAttribute(name, value);',
+      ]).map((line) => line.slice(0, 1)),
+    ).toEqual(['3']);
+  });
+
+  test('an answer built with a text and a status written in the call', () => {
+    expect(
+      said([
+        'export const a = (text: string): Response => new Response(text, { status: 404 });',
+        'export const b = (text: string): Response => new Response(text, { status: 200, headers: { "content-type": "application/json" } });',
+        'export const c = (text: string, found: boolean): Response => new Response(text, { status: found ? 200 : 404 });',
+        'export const d = (text: string): Response => new Response(text);',
+        'export const e = (): Response => new Response();',
+        // A status that is not written, one that says there is no body, a body that may have been read already.
+        'export const f = (text: string, status: number): Response => new Response(text, { status });',
+        'export const g = (text: string): Response => new Response(text, { status: 204 });',
+        'export const h = (body: ReadableStream): Response => new Response(body, { status: 200 });',
+        'export const i = (text: string, type: string): Response => new Response(text, { headers: { "content-type": type } });',
+        'export const j = (text: string): Response => new Response(text, { status: 200, statusText: "Fine" });',
+        'export const k = (given: readonly [string]): Response => new Response(...given);',
+      ]).map((line) => line.split(' ')[0]),
+    ).toEqual(['6', '7', '8', '9', '10', '11']);
+  });
+
+  test('a question asked of the person has no way to throw, and a date that is shown may not be one', () => {
+    expect(
+      said([
+        'export const a = (text: string): boolean => confirm(text) && window.confirm(text);',
+        'export const b = (format: Intl.DateTimeFormat): string => format.format();',
+        'export const c = (format: Intl.DateTimeFormat, at: Date): string => format.format(at);',
+      ]),
+    ).toEqual(['3 `DateTimeFormat.format` throws a RangeError on a date that is not one.']);
   });
 
   test('it is something seen in a browser: only a project that takes that as enough is told', () => {

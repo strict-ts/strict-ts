@@ -129,7 +129,7 @@ by the gate on such arguments; the gate has no DOM to run these in.
 CHROME=/path/to/chrome node scripts/dom-shapes.mjs    # writes packages/core/src/effects/dom-shapes.ts
 ```
 
-So for eleven functions a person wrote, from the DOM standard, the **shape** of the arguments on which the function
+So for fourteen functions a person wrote, from the DOM standard, the **shape** of the arguments on which the function
 does not throw, each narrower than what the browser accepts (`packages/core/src/effects/shapes.ts`):
 
 | Shape | What has it | For |
@@ -139,10 +139,15 @@ does not throw, each narrower than what the browser accepts (`packages/core/src/
 | `attribute-name` | `role`, `aria-…`, `data-…` | `setAttribute` (with any text as the value) |
 | `selector` | Names, `#id`, `.class`, `[attribute]`, `[attribute="value"]`, combinators, commas | `querySelector`, `querySelectorAll`, `closest`, `matches` |
 | `unit`, `colour` | A number from 0 to 1; `#rgb` to `#rrggbbaa`, `rgb(…)`, `rgba(…)` | `addColorStop` |
+| `header-name` | ASCII letters and digits, in parts joined by hyphens | `Headers.get`, `has` |
+| `text`, `response-init` | Any text; an object with a `status` from 200 to 599 that is not 204, 205 or 304, and `headers` written as an object of header names and printable ASCII | `new Response` |
+
+`text` is the one shape every value of a type has: an argument typed as a text passes it without being written in
+the call, since any text was given in the browser.
 
 `scripts/dom-shapes.mjs` then makes 600 lists of arguments for each function, keeps those the shape lets through
 (the predicate it runs is the one the rule runs), and calls the function with each in a browser, on every object of
-the page it can be called on: 40,200 calls. An entry is written only if none threw; a shape that lets through one
+the page it can be called on: 49,200 calls. An entry is written only if none threw; a shape that lets through one
 argument the browser refuses fails the script, with the call.
 
 What a shape leaves out is refused as before, and nothing is said of it: a pseudo-class in a selector, a colour by
@@ -153,7 +158,10 @@ text. Like everything known of the DOM, this was seen and not read by the tool: 
 ## What it does not do
 
 - It runs 802 of the 844 functions. The rest is `Intl`, which another specification defines, and the interfaces a
-  caller implements (a proxy handler, an iterator): they are refused.
+  caller implements (a proxy handler, an iterator): they are refused. One is in the ledger by hand, as throwing:
+  `Intl.DateTimeFormat.format`, which throws on a date that is not one and does not without an argument.
+- `confirm` is never run, since it waits for a person. It is in the ledger by hand: the HTML standard gives it no
+  step that throws. `alert` and `prompt` are not.
 - **Three lists are still a judgement**: the operations taken to run the caller's own code, the checks of the
   receiver's class, the sizes no machine holds. A write to a frozen object is taken for a plain write.
 - Node has no specification this reads, and nothing runs it: its functions are refused.

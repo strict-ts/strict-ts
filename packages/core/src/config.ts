@@ -1,5 +1,5 @@
 /** See `Config.assume`. */
-export const assumptions = ['attached-buffers', 'dom-as-observed', 'generated-receivers'] as const;
+export const assumptions = ['attached-buffers', 'dom-as-observed', 'generated-arguments', 'generated-receivers'] as const;
 export type Assumption = (typeof assumptions)[number];
 
 export interface Config {
@@ -30,6 +30,8 @@ export interface Config {
    * `dom-as-observed`: a function of the DOM that was called in a browser on generated values and never threw is
    * taken not to throw, although no specification was read for it; and one that throws is taken not to on
    * arguments written in the call, of a shape on which it never threw there.
+   * `generated-arguments`: an argument that is not written in the call, and whose type is a text, a number or a
+   * boolean, is taken not to make the call throw when the gate ran the call on a list of such values and none did.
    * `generated-receivers`: a method called with arguments written in the call, that did not throw when the gate ran
    * it with them on a list of receivers of its class, is taken not to throw on the receiver it will have.
    */

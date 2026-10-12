@@ -16,5 +16,6 @@ export const domWritten: Readonly<Record<string, Written>> = {
   'Element.matches': { shapes: ['selector'], clause: 'DOM standard, matches(selectors): throws when selectors does not parse', runs: 5400 },
   'Headers.get': { shapes: ['header-name'], clause: 'Fetch standard, get(name): throws when name is not a header name', runs: 3000 },
   'Headers.has': { shapes: ['header-name'], clause: 'Fetch standard, has(name): throws when name is not a header name', runs: 3000 },
+  'Response.new': { shapes: ['text', 'response-init'], clause: 'Fetch standard, new Response(body, init): throws when the status is outside 200 to 599, when it says there is no body and there is one, when the status text or a header is not one', runs: 3000 },
   'CanvasGradient.addColorStop': { shapes: ['unit', 'colour'], clause: 'HTML standard, addColorStop(offset, color): throws when offset is outside 0 to 1 or color does not parse', runs: 1800 },
 };

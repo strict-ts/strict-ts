@@ -39,6 +39,7 @@ const receiversOf = (owner: string): readonly unknown[] => {
       return ['', 'a', 'abc', ' a,b ', '42', '-1.5', '%', '(', '[a-', '\\', '{"a":1}', '\ud800', 'é', '😀', 'x'.repeat(300)];
     case 'Number':
       return [0, -0, 1, -1, 0.5, 1.005, 37, 1e21, 1e-7, 2 ** 31, 2 ** 53, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+    case 'Bigint':
     case 'BigInt':
       return [0n, 1n, -1n, 2n ** 64n, -(2n ** 64n)];
     case 'Boolean':
@@ -51,6 +52,17 @@ const receiversOf = (owner: string): readonly unknown[] => {
       return [];
   }
 };
+
+/**
+ * Values for an argument that is not written in the call, from the kinds of value its type admits: the lists the
+ * receivers come from. An error when the type admits a kind that has no list (an object, an array, a symbol).
+ */
+export function generatedFor(kinds: readonly string[]): Outcome<readonly unknown[]> {
+  const lists = kinds.map((kind) => (kind === 'undefined' ? [undefined] : receiversOf(`${kind.slice(0, 1).toUpperCase()}${kind.slice(1)}`)));
+  // A class has a list too, and `Date` is the name of a kind: only the kinds of primitive values are meant here.
+  const primitive = kinds.every((kind) => ['string', 'number', 'bigint', 'boolean', 'undefined'].includes(kind));
+  return kinds.length === 0 || !primitive || lists.some((list) => list.length === 0) ? { ok: false, error: 'no list for this type' } : { ok: true, value: lists.flat() };
+}
 
 type Call = (receiver: unknown, given: readonly unknown[]) => Outcome<unknown>;
 

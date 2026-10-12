@@ -3,7 +3,7 @@ import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
 import { quietAsWritten, threatOf } from '../effects/ledger.js';
 import { ledger } from '../effects/index.js';
-import { runs } from '../unsafe/run.js';
+import { generatedFor, runs } from '../unsafe/run.js';
 import { isCaught, isTrusted } from './caught.js';
 import { isOption, isResult } from './types.js';
 
@@ -29,19 +29,34 @@ function threat(callee: Callee, argumentCount: number, plain: () => boolean, con
   return threatOf(effect, argumentCount, effect.unprintable === true && plain(), config.assume?.includes('attached-buffers') === true, config.assume?.includes('dom-as-observed') === true);
 }
 
+const HELP = 'Call it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.';
+
 const MOST = 16;
+const MOST_GENERATED = 256;
+
+/** An argument of a call: every value it can have when it is written, and the kinds of value its type admits. */
+interface Given {
+  readonly values: readonly unknown[] | undefined;
+  readonly kinds: readonly string[];
+}
 
 /**
  * Whether a call does not throw on the arguments written in it. Without a receiver, running the call says so. With
- * one, it is run on a list of receivers of the class, which is enough only for a project that says so.
+ * one, it is run on a list of receivers of the class, which is enough only for a project that says so; and so for
+ * an argument that is not written and whose type is a text, a number or a boolean: it is run on a list of those.
  */
-function neverThrowsAsWritten(name: string, written: readonly (readonly unknown[] | undefined)[], receiver: readonly unknown[] | undefined, config: Config): boolean {
+function neverThrowsAsWritten(name: string, given: readonly Given[], receiver: readonly unknown[] | undefined, config: Config): boolean {
+  const mayGenerate = config.assume?.includes('generated-arguments') === true;
   let lists: readonly (readonly unknown[])[] = [[]];
-  for (const values of written) {
-    // An argument whose values the compiler does not know: nothing to run.
-    if (values === undefined) return false;
-    lists = lists.flatMap((chosen) => values.map((value) => [...chosen, value]));
-    if (lists.length > MOST) return false;
+  let generated = false;
+  for (const { values, kinds } of given) {
+    // An argument whose values the compiler does not know: nothing to run, unless a list stands for its type.
+    const stands = values === undefined && mayGenerate ? generatedFor(kinds) : undefined;
+    const possible = values ?? (stands?.ok === true ? stands.value : undefined);
+    if (possible === undefined) return false;
+    generated = generated || values === undefined;
+    lists = lists.flatMap((chosen) => possible.map((value) => [...chosen, value]));
+    if (lists.length > (generated ? MOST_GENERATED : MOST)) return false;
   }
   const outcome = runs(name, lists, receiver);
   if (!outcome.ok || !outcome.value.quiet) return false;
@@ -87,16 +102,23 @@ export const noThrowingCall: Rule = {
       const receiver = node.callee.kind === 'property-access' || node.callee.kind === 'element-access' ? [node.callee.object] : [];
       return [...receiver, ...node.arguments].every((given) => typeOf(given).isPlain);
     };
-    const why = threat(callee, node.kind === 'call' ? node.arguments.length : node.argumentCount, plain, config);
+    // An argument written `...list` may be none or several: a function that throws only below a number of arguments
+    // is asked with the fewest there can be, and one that throws only from a number of them with the most.
+    const why = node.hasSpread ? (threat(callee, 0, plain, config) ?? threat(callee, Number.POSITIVE_INFINITY, plain, config)) : threat(callee, node.arguments.length, plain, config);
     if (why === undefined) return;
-    // Arguments that are all written in the call: the call is run, and what it does is known.
-    const receiver = node.kind === 'call' && node.callee.kind === 'property-access' ? valuesOf(node.callee.object) : undefined;
-    if (callee.origin.kind === 'library' && neverThrowsAsWritten(callee.name, node.arguments.map(valuesOf), receiver, config)) return;
-    // The DOM cannot be run here: its calls were run in a browser, on arguments of the shapes the ledger names.
-    const entry = callee.origin.kind === 'library' && node.kind === 'call' ? ledger[callee.name] : undefined;
-    if (entry !== undefined && config.assume?.includes('dom-as-observed') === true && quietAsWritten(entry, node.arguments.map(valuesOf))) return;
     if (isCaught(node, ancestors, calleeOf, config)) return;
     const shown = callee.name === '' ? 'This call' : `\`${callee.name.replace(/\.$/, '').replace(/Constructor\b/, '')}\``;
-    report(node, `${shown} ${why}.`, 'Call it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');
+    // What a function is given by `...list` is not what is written: nothing is run, and no shape is compared.
+    if (callee.origin.kind === 'library' && !node.hasSpread) {
+      // Arguments that are all written in the call: the call is run, and what it does is known.
+      const receiver = node.kind === 'call' && node.callee.kind === 'property-access' ? valuesOf(node.callee.object) : undefined;
+      const given = node.arguments.map((argument): Given => ({ values: valuesOf(argument), kinds: typeOf(argument).kinds }));
+      if (neverThrowsAsWritten(callee.name, given, receiver, config)) return;
+      // The DOM cannot be run here: its calls were run in a browser, on arguments of the shapes the ledger names.
+      const entry = ledger[callee.name];
+      const observed = config.assume?.includes('dom-as-observed') === true;
+      if (entry !== undefined && observed && quietAsWritten(entry, given.map(({ values }) => values), given.map(({ kinds }) => kinds))) return;
+    }
+    report(node, `${shown} ${why}.`, HELP);
   },
 };
