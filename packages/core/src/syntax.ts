@@ -114,6 +114,8 @@ export type Node = NodeBase &
     | { readonly kind: 'type-predicate'; readonly asserts: boolean }
     /** `T[]` or a tuple; `isReadonly` when written `readonly T[]`. */
     | { readonly kind: 'array-type'; readonly isReadonly: boolean }
+    /** `typeof f` in a type position: the type of a value is asked, and the value is not read. */
+    | { readonly kind: 'type-query' }
     /** A type named in a type position: `Map<K, V>` has the name `Map`. */
     | { readonly kind: 'type-reference'; readonly name: string }
     /**

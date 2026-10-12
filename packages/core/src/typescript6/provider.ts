@@ -316,6 +316,7 @@ export function createTypeScript6Provider(
         const isReadonly = api.isTypeOperatorNode(owner) && owner.operator === api.SyntaxKind.ReadonlyKeyword;
         return { ...base, kind: 'array-type', isReadonly };
       }
+      if (api.isTypeQueryNode(node)) return { ...base, kind: 'type-query' };
       if (api.isTypeReferenceNode(node)) {
         const named = node.typeName;
         return { ...base, kind: 'type-reference', name: api.isIdentifier(named) ? named.text : named.right.text };

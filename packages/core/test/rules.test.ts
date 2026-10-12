@@ -1947,6 +1947,15 @@ describe('no-early-read', () => {
     expect(only(lines)).toEqual([]);
   });
 
+  test('accepts a function whose type is asked above what it reads: `typeof` in a type runs nothing', () => {
+    const lines = ['const read = (): number => later;', 'export type Read = ReturnType<typeof read>;', 'export type Same = typeof read;', 'const later = 1;', 'export const now = read();'];
+    expect(only(lines)).toEqual([]);
+    // The operator `typeof` on a call is not a type: the call runs.
+    expect(only(['const read = (): number => later;', 'export const kind = typeof read();', 'const later = 1;'])).toEqual([
+      '2 `read` is used here, and reads `later`, which is declared further down',
+    ]);
+  });
+
   test('refuses the files that import each other in a circle, and accepts an import of types', () => {
     const cycle = (kind: string) =>
       checkFiles({

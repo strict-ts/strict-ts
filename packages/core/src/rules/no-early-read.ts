@@ -36,6 +36,7 @@ export const noEarlyRead: Rule = {
       const reads: Mut<Set<number>> = new Set();
       const names: Mut<Set<number>> = new Set();
       const look = (node: Node): void => {
+        if (node.kind === 'type-query') return;
         if (node.kind === 'identifier' && node.declaredAt !== undefined && node.declaredAt !== at) {
           if (functions.has(node.declaredAt)) names.add(node.declaredAt);
           else if (variables.has(node.declaredAt)) reads.add(node.declaredAt);
@@ -63,9 +64,10 @@ export const noEarlyRead: Rule = {
       return found;
     };
 
-    // A function named in what runs when the file starts may be called there, at once.
+    // A function named in what runs when the file starts may be called there, at once. In `typeof f`, written in
+    // a type, nothing runs.
     const named = (node: Node): void => {
-      if (node.kind === 'function') return;
+      if (node.kind === 'function' || node.kind === 'type-query') return;
       if (node.kind === 'identifier' && node.declaredAt !== undefined && functions.has(node.declaredAt)) {
         const late = [...reach(node.declaredAt)].filter((at) => at > node.start).toSorted((a, b) => a - b);
         const [first] = late;
