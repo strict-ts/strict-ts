@@ -14,6 +14,8 @@ export interface Fix {
   /** Where the refusal is, for the report: an offset in the original text. */
   readonly at: number;
   readonly edits: readonly Edit[];
+  /** A name of the library the fix writes, to be imported where it is not: `Mut`, `panic`. */
+  readonly needs?: 'Mut' | 'panic';
 }
 
 /**
