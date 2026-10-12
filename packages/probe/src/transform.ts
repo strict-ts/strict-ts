@@ -170,7 +170,9 @@ export function instrument(
           (api.isPropertyAccessExpression(reached) && (api.isPrivateIdentifier(reached.name) || reached.expression.kind === api.SyntaxKind.SuperKeyword)) ||
           (api.isIdentifier(reached) && reached.text === 'eval');
         const callee = special ? undefined : calleeOf(node);
-        const outside = callee !== undefined && (callee.origin.kind === 'library' || (callee.origin.kind === 'package' && !isTrusted(callee.origin.package)));
+        // As the rule reads it: a package is allowed for what it exports, wherever it keeps it.
+        const trusted = callee !== undefined && callee.origin.kind === 'package' && (isTrusted(callee.origin.package) || isTrusted(callee.importedFrom));
+        const outside = callee !== undefined && callee.origin.kind !== 'project' && !trusted;
         if (callee !== undefined && outside) {
           const index = add({
             kind: 'call',
