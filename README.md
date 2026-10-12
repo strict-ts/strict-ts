@@ -39,26 +39,32 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 | Rust guarantee | Equivalent in TS/JS | Status |
 |---|---|---|
 | Memory safety | The runtime's garbage collector | Acquired |
-| Safe typing, nothing unchecked outside `unsafe` | No `any`, cast, `declare` or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Prototype |
-| No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use`; a call or an operator that may throw is caught where it is written | Prototype |
+| Safe typing, nothing unchecked outside `unsafe` | No `any`, cast, `declare` or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Acquired |
+| No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use`; a call or an operator that may throw is caught where it is written | Acquired |
 | Explicit mutability | Types read-only unless they say `Mut<T>`. A function changes only what it made, or what says `Mut`: a parameter, `this`, what another function hands out | Prototype |
 | Ownership, no uncontrolled concurrent access | A value typed `Once<T>` has one owner and is given away exactly once (`use-once`). State shared across `await` and workers: nothing yet | Research: a first rule, on a small subset |
 
-« Prototype » means the rules exist and are tested, and known ways around them remain (see
-[Known limits](docs/known-limits.md)). No guarantee is « Acquired » by strict-ts yet.
+« Acquired » has a narrow meaning here: **no way around the guarantee is known in checked code.** Each way that was
+found is a file that fails when it is run, kept in the tests with the rule that refuses it: 31 for safe typing, 29
+for errors in the types. It is a list and not a proof, the lists were written by who wrote the rules, and what is
+taken on trust (the specification as it was read, the browser as it was run, the types of the packages a project
+allows) is in [Known limits](docs/known-limits.md). « Prototype » means the rules exist and are tested, and ways
+around them are still being found: explicit mutability went from 2 known ways refused to 23 in one day.
 
 ## Installation and usage
 
 Prerequisites: [Node.js](https://nodejs.org/) 22.13 or later, and a project with a `tsconfig.json`.
 
-Nothing is released yet. Each commit of `main` that passes the CI is published as a pilot version on the npm registry
-of the Gitea:
+The packages are on the npm registry of the Gitea:
 
 ```sh
 echo "@strict-ts:registry=https://git.cf.adserver.fr/api/packages/Alex/npm/" >> .npmrc
-npm install -D @strict-ts/cli@pilot
-npm install @strict-ts/std@pilot
+npm install -D @strict-ts/cli @strict-ts/codemod
+npm install @strict-ts/std
 ```
+
+`@strict-ts/cli` is the gate, `@strict-ts/codemod` the fixer (`strict-ts-fix`), `@strict-ts/std` what conforming code
+is written with.
 
 Then run it where `tsc --noEmit` ran:
 
@@ -136,13 +142,19 @@ runs TypeScript 6 or earlier.
 
 ### Is my program proven safe once it passes?
 
-No guarantee is « Acquired » yet. The ways around the rules that are known are listed in
+No. Two guarantees are « Acquired », which says that no way around them is known in checked code, not that there is
+none: they rest on lists of attacks, not on proofs. What is taken on trust, and what is still accepted, is in
 [Known limits](docs/known-limits.md).
 
 ## Versions
 
-A pilot version is named after its commit, `0.0.0-pilot.<time>.g<commit>`, under the tag `pilot`: it is not a release,
-and a rule may start refusing more from one to the next. Semantic versioning is followed strictly from 1.0.
+Semantic versioning is followed strictly from 1.0. A rule that starts refusing code it accepted is a breaking
+change, and waits for the next major version; one that stops refusing code it should not have is a fix. What each
+version holds is in the [changelog](CHANGELOG.md).
+
+Each commit of `main` that passes the CI is also published as a pilot version, named after its commit
+(`0.0.0-pilot.<time>.g<commit>`) under the tag `pilot`: it is not a release, and a rule may start refusing more
+from one to the next. `npm install -D @strict-ts/cli@pilot` takes the latest.
 
 ## Contribute
 

@@ -1,0 +1,39 @@
+# Publishes a release when a tag `v1.2.3` is pushed: the same checks as the CI, then std, core, cli and the fixer
+# under the version of the tag and the tag `latest`. On the registry of the Gitea with the secret PACKAGES_TOKEN;
+# on npmjs.org as well when the secret NPMJS_TOKEN is set, and only then.
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: corepack enable && pnpm install --frozen-lockfile
+      - name: Every check of the CI
+        run: pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus && pnpm probe && pnpm ledger
+      - name: Publish on the registry of the Gitea
+        env:
+          NPM_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "The secret PACKAGES_TOKEN is not set: nothing is published."
+            exit 1
+          fi
+          node scripts/publish-pilot.mjs --release "${GITHUB_REF_NAME#v}"
+      - name: Publish on npmjs.org
+        env:
+          NPM_TOKEN: ${{ secrets.NPMJS_TOKEN }}
+          STRICT_TS_REGISTRY: https://registry.npmjs.org/
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "The secret NPMJS_TOKEN is not set: the release is on the registry of the Gitea only."
+          else
+            node scripts/publish-pilot.mjs --release "${GITHUB_REF_NAME#v}"
+          fi
