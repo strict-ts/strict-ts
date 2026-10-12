@@ -17,6 +17,8 @@ export const noUnboundMethod: Rule = {
     // Called: `this` is the object. `object.method.bind(object)` gives it back.
     if (parent.kind === 'call' && parent.callee === node) return;
     if (parent.kind === 'property-access' && parent.object === node && ['bind', 'call', 'apply'].includes(parent.name)) return;
+    // Written: `object.method = …` takes nothing off the object.
+    if (parent.kind === 'binary' && parent.operator === '=' && parent.left === node) return;
     const owner = node.method;
     if (owner === undefined || !reads(owner)) return;
     report(

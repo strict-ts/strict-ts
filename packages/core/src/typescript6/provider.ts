@@ -244,7 +244,10 @@ export function createTypeScript6Provider(
   };
   /** The type a name of the project stands for, when it is one: `type Store = Mut<Map<…>>`. */
   const aliasOf = (written: ts.TypeReferenceNode): ts.TypeNode | undefined => {
-    const declaration = (checker.getSymbolAtLocation(written.typeName)?.declarations ?? []).find((one) => api.isTypeAliasDeclaration(one));
+    const symbol = checker.getSymbolAtLocation(written.typeName);
+    // A name that is imported stands for the one that is exported.
+    const target = symbol === undefined || (symbol.flags & api.SymbolFlags.Alias) === 0 ? symbol : checker.getAliasedSymbol(symbol);
+    const declaration = (target?.declarations ?? []).find((one) => api.isTypeAliasDeclaration(one));
     return declaration !== undefined && api.isTypeAliasDeclaration(declaration) && isChecked(declaration.getSourceFile()) ? declaration.type : undefined;
   };
   /** A written type without the `Mut<…>`, the `readonly` and the `| undefined` around it. */
