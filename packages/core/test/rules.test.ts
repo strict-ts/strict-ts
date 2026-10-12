@@ -2552,6 +2552,36 @@ describe('no-stale-narrowing: a read that is a test, and one that relies on noth
   });
 });
 
+describe('a name for a Mut type, imported', () => {
+  const store = 'import type { Mut } from "@strict-ts/std";\nexport type Store = Mut<Map<string, Mut<Map<string, number>>>>;\nexport type Frozen = ReadonlyMap<string, ReadonlyMap<string, number>>;\n';
+  const user = (type: string) =>
+    `import type { ${type} } from "./store.js";\nexport function clear(store: ${type}, id: string): void {\n  const inner = store.get(id);\n  if (inner === undefined) return;\n  inner.delete("a");\n  store.delete(id);\n}\n`;
+  const found = (type: string) =>
+    checkFiles({ 'src/store.ts': store, 'src/a.ts': user(type) })
+      .filter((d) => d.file === 'src/a.ts' && d.rule !== undefined)
+      .map((d) => `${d.rule}:${d.start.line}`);
+
+  test('says what it says where it is declared', () => {
+    expect(found('Store')).toEqual([]);
+  });
+
+  test('a name for a read-only type, imported, is still read-only', () => {
+    expect(found('Frozen').length).toBeGreaterThan(0);
+  });
+});
+
+describe('no-unbound-method: a method that is written', () => {
+  const lines = (body: string) => `class Run {\n  step = 0;\n  descend(): void {\n    this.step += 1;\n  }\n}\nexport function spy(run: Run): () => void {\n${body}\n}\n`;
+
+  test('is not taken off its object', () => {
+    expect(checkSafe(lines('  const before = run.descend.bind(run);\n  run.descend = () => before();\n  return before;')).filter((d) => d.rule === 'no-unbound-method')).toEqual([]);
+  });
+
+  test('read into a value, it still is', () => {
+    expect(checkSafe(lines('  return run.descend;')).filter((d) => d.rule === 'no-unbound-method')).toHaveLength(1);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
