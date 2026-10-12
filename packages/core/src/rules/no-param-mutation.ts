@@ -33,7 +33,7 @@ const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: n
   node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1) : { root: node, steps };
 
 /** Whose it is, when a written object is not the function's own to change. */
-type Owner =
+export type Owner =
   | { readonly kind: 'parameter'; readonly name: string }
   | { readonly kind: 'this' }
   | { readonly kind: 'giver'; readonly call: Node }
@@ -41,12 +41,13 @@ type Owner =
   | { readonly kind: 'elements'; readonly name: string };
 
 /** The name of a list, a map or a set whose written type says the container may be written, and not what it holds. */
-const closedElements = (container: Node): string | undefined =>
-  (container.kind === 'identifier' && container.elements === 'readonly') || (container.kind === 'property-access' && container.elements === 'readonly')
-    ? container.kind === 'identifier'
-      ? container.text
-      : container.name
-    : undefined;
+export const closedElements = (container: Node): string | undefined => {
+  if (container.kind === 'identifier') return container.elements === 'readonly' ? container.text : undefined;
+  if (container.kind === 'property-access') return container.elements === 'readonly' ? container.name : undefined;
+  // What a function of the project gives back: its return type says it, as the type of a field does.
+  if (container.kind !== 'call' || container.elements !== 'readonly') return undefined;
+  return container.callee.kind === 'property-access' ? container.callee.name : container.callee.kind === 'identifier' ? container.callee.text : 'the call';
+};
 /** The first list, on the way down to an object, that is read by position and does not say what it holds may be written. */
 const closedList = (object: Node): string | undefined => {
   if (object.kind === 'element-access') return closedList(object.object) ?? closedElements(object.object);
@@ -66,7 +67,7 @@ const closedField = (object: Node): string | undefined => {
  * a parameter holds may be written itself, and not what it holds. `gives` says whether a call hands out something
  * its caller may write.
  */
-const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
+export const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
   const { root, steps } = rootOf(object);
   // A name for a number or a text names nothing that can be written: it was copied when it was given.
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
@@ -85,10 +86,15 @@ const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: 
     const list = closedList(object);
     return list === undefined ? undefined : { kind: 'elements', name: list };
   };
-  if (root.kind !== 'identifier' || depth > DEPTH) return closed();
-  if (root.parameter === 'readonly') return { kind: 'parameter', name: root.text };
-  if (root.parameter === 'mutable') return closed();
-  for (const alias of root.aliasOf) {
+  // What a name was made from; or, with no name for it, what a method of a collection hands out of what it holds.
+  const aliases = root.kind === 'identifier' ? root.aliasOf : root.kind === 'call' || root.kind === 'new' || root.kind === 'literal' ? root.madeFrom : undefined;
+  if (aliases === undefined || depth > DEPTH) return closed();
+  if (root.kind === 'identifier' && root.parameter === 'readonly') {
+    // `readonly Mut<Line>[]`: the list is not the function's to change, what it holds is.
+    return steps + below > 0 && root.elements === 'writable' ? closed() : { kind: 'parameter', name: root.text };
+  }
+  if (root.kind === 'identifier' && root.parameter === 'mutable') return closed();
+  for (const alias of aliases) {
     // A number or a text that was put there is a copy of its own.
     if (isCopied(alias.place)) continue;
     if (alias.as === 'copy' && steps + below === 0) continue;
@@ -104,6 +110,9 @@ const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: 
   }
   return closed();
 };
+
+/** Whether a method of the platform changes its object, by its name. */
+const changes = (name: string): boolean => MUTATORS.has(name) || SETTER.test(name);
 
 /** The places a write changes: one for a plain assignment, each one a pattern names for `[a.b, c] = …`. */
 const targetsOf = (left: Node): readonly Node[] =>
@@ -196,6 +205,17 @@ export const noParamMutation: Rule = {
       refuse(node, object, ` by \`${name}\`, which says \`this: Mut<…>\``);
       return;
     }
+    // `Array.prototype.push.call(list, …)`, and `apply`, and `bind` which keeps it for later: a method that
+    // changes its object, given its object as an argument.
+    if (['call', 'apply', 'bind'].includes(name) && first !== undefined && object.kind === 'property-access' && changes(object.name) && !typeOf(object).isImplemented) {
+      refuse(node, first, ` by \`${name}\` of \`${object.name}\``);
+      return;
+    }
+    const [, second] = node.arguments;
+    if (object.kind === 'identifier' && object.text === 'Reflect' && name === 'apply' && first?.kind === 'property-access' && second !== undefined && changes(first.name)) {
+      refuse(node, second, ` by \`Reflect.apply\` of \`${first.name}\``);
+      return;
+    }
     if (object.kind === 'identifier' && first !== undefined && (WRITERS[object.text] ?? []).includes(name)) {
       refuse(node, first, ` by \`${object.text}.${name}\``);
       return;
@@ -203,7 +223,7 @@ export const noParamMutation: Rule = {
     // A method written in the project says itself whether it writes its object: its name is not asked. One that
     // is only declared (in an interface) says nothing of what stands behind it.
     if (typeOf(node.callee).isImplemented) return;
-    if (!MUTATORS.has(name) && !SETTER.test(name)) return;
+    if (!changes(name)) return;
     // A text or a number has no method that changes it.
     if (typeOf(object).kinds.every((kind) => PRIMITIVES.includes(kind))) return;
     refuse(node, object, ` by \`${name}\``);

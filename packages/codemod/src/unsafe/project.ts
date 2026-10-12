@@ -345,7 +345,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
             else if (pass === 0) left.push(where);
           };
 
-          if (refusal.message.startsWith('`this` is mutated')) {
+          if (refusal.message.startsWith('`this` is mutated') || refusal.message.startsWith('`this`, or a part of it, is given')) {
             // The function whose `this` it is: an arrow has the `this` of where it is written.
             let owner: ts.Node | undefined = place;
             while (owner !== undefined && !(ts.isFunctionLike(owner) && !ts.isArrowFunction(owner))) owner = owner.parent;
@@ -380,7 +380,8 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
             // in the function the refusal is in, and what it declares has to be a field, a parameter or a variable.
             let scope: ts.Node = place;
             while (!ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
-            const declares = (one: ts.Declaration): boolean => ts.isPropertySignature(one) || ts.isPropertyDeclaration(one) || ts.isParameter(one) || ts.isVariableDeclaration(one);
+            // Or a function, when the list is what it gives back: its return type says it.
+            const declares = (one: ts.Declaration): boolean => ts.isPropertySignature(one) || ts.isPropertyDeclaration(one) || ts.isParameter(one) || ts.isVariableDeclaration(one) || (!isField && ts.isFunctionLike(one));
             const find = (node: ts.Node): ts.Declaration | undefined => {
               const here = ts.isIdentifier(node) && node.text === wanted ? (checker.getSymbolAtLocation(node)?.declarations ?? []).find(declares) : undefined;
               return here ?? ts.forEachChild(node, find);
@@ -388,7 +389,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
             const declaration = find(scope);
             if (declaration === undefined || seen.has(declaration)) continue;
             seen.add(declaration);
-            const written = ts.isPropertySignature(declaration) || ts.isPropertyDeclaration(declaration) || ts.isParameter(declaration) || ts.isVariableDeclaration(declaration) ? declaration.type : undefined;
+            const written = ts.isPropertySignature(declaration) || ts.isPropertyDeclaration(declaration) || ts.isParameter(declaration) || ts.isVariableDeclaration(declaration) || ts.isFunctionLike(declaration) ? declaration.type : undefined;
             if (written === undefined) {
               done(false);
             } else if (isField) {
@@ -399,7 +400,14 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
               for (;;) {
                 if (ts.isTypeReferenceNode(inner) && ts.isIdentifier(inner.typeName) && inner.typeName.text === 'Mut' && inner.typeArguments?.[0] !== undefined) inner = inner.typeArguments[0];
                 else if (ts.isTypeOperatorNode(inner) || ts.isParenthesizedTypeNode(inner)) inner = inner.type;
-                else break;
+                else {
+                  // A name the project gives to the container: it is said where the name is declared.
+                  const symbol = ts.isTypeReferenceNode(inner) ? checker.getSymbolAtLocation(inner.typeName) : undefined;
+                  const target = symbol === undefined || (symbol.flags & ts.SymbolFlags.Alias) === 0 ? symbol : checker.getAliasedSymbol(symbol);
+                  const alias = (target?.declarations ?? []).find(ts.isTypeAliasDeclaration);
+                  if (alias === undefined || !texts.has(alias.getSourceFile().fileName)) break;
+                  inner = alias.type;
+                }
               }
               const held = ts.isArrayTypeNode(inner) ? inner.elementType : ts.isTypeReferenceNode(inner) && ts.isIdentifier(inner.typeName) ? (HOLDERS[inner.typeName.text] === undefined ? undefined : inner.typeArguments?.[HOLDERS[inner.typeName.text] ?? 0]) : undefined;
               done(held !== undefined && wrap(held));
@@ -409,12 +417,21 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
             let statement: ts.Node = place;
             while (!ts.isStatement(statement) && !ts.isSourceFile(statement.parent)) statement = statement.parent;
             const find = (node: ts.Node): ts.Identifier | undefined => (ts.isIdentifier(node) && node.text === named ? node : ts.forEachChild(node, find));
-            const name = find(statement);
+            // With no name in the message, the refusal is on what is given: a name for what a call gave, or the call.
+            const name = named === '' ? (ts.isIdentifier(place) ? place : undefined) : find(statement);
             let declaration: ts.Node | undefined = name === undefined ? undefined : checker.getSymbolAtLocation(name)?.valueDeclaration;
             while (declaration !== undefined && (ts.isBindingElement(declaration) || ts.isObjectBindingPattern(declaration) || ts.isArrayBindingPattern(declaration))) declaration = declaration.parent;
-            if (declaration === undefined || !ts.isVariableDeclaration(declaration)) continue;
-            const loop = declaration.parent.parent;
-            let source: ts.Expression | undefined = ts.isForOfStatement(loop) ? loop.expression : declaration.initializer;
+            let source: ts.Expression | undefined;
+            if (named === '') {
+              for (let outer: ts.Node = place; !ts.isSourceFile(outer) && outer.getStart(file) === at; outer = outer.parent) {
+                if (ts.isCallExpression(outer)) source = outer;
+              }
+            }
+            if (source === undefined && declaration !== undefined && ts.isVariableDeclaration(declaration)) {
+              const loop = declaration.parent.parent;
+              source = ts.isForOfStatement(loop) ? loop.expression : declaration.initializer;
+            }
+            if (source === undefined) continue;
             // `store.living().find(…)`: what `find` gives is a part of what `living` gave.
             for (;;) {
               if (source === undefined) break;

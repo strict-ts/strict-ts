@@ -80,7 +80,14 @@ export type Node = NodeBase &
       }
     | { readonly kind: 'string-literal'; readonly text: string }
     /** An object or an array written in place: `{ … }`, `[ … ]`. Nobody else holds it yet. */
-    | { readonly kind: 'literal'; readonly entries: readonly LiteralEntry[] }
+    | {
+        readonly kind: 'literal';
+        readonly entries: readonly LiteralEntry[];
+        /** The places whose content an object or an array written in place shares: what is spread or put in it. */
+        readonly madeFrom: readonly Alias[];
+        /** Those of what is spread in it only: what is put in it by name or by position is a value given on its own. */
+        readonly spreadFrom: readonly Alias[];
+      }
     /** `condition ? whenTrue : whenFalse`. */
     | { readonly kind: 'conditional'; readonly whenTrue: Node; readonly whenFalse: Node }
     /** A block of statements, or a whole file: its children run one after the other, and names declared in it end with it. */
@@ -114,9 +121,33 @@ export type Node = NodeBase &
      * A call. A tagged template is one too: its arguments are the template, then each substitution. `hasSpread`: an
      * argument is written `...list`, so how many the function receives is not what is counted here.
      */
-    | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[]; readonly hasSpread: boolean }
+    | {
+        readonly kind: 'call';
+        readonly callee: Node;
+        readonly arguments: readonly Node[];
+        readonly hasSpread: boolean;
+        /**
+         * The places whose content what the call gives back shares, when the callee is a method of a collection of
+         * the library that is known to hand out what it holds (`list.find(…)`, `list.slice()`). Empty for any other
+         * call: what it gives is the callee's to say.
+         */
+        readonly madeFrom: readonly Alias[];
+        /**
+         * Whether what the list, the map or the set the call gives back holds may be written into, by the return
+         * type its function of the project is written with. `unknown` for a function that is not the project's.
+         */
+        readonly elements: 'writable' | 'readonly' | 'unknown';
+      }
     /** `new Callee(…)`, with the number of arguments written. */
-    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number; readonly arguments: readonly Node[]; readonly hasSpread: boolean }
+    | {
+        readonly kind: 'new';
+        readonly callee: Node;
+        readonly argumentCount: number;
+        readonly arguments: readonly Node[];
+        readonly hasSpread: boolean;
+        /** For a collection of the library made from another one (`new Map(other)`): the places whose content it shares. */
+        readonly madeFrom: readonly Alias[];
+      }
     /** A `let` or `var` statement at the top level of a module: state every importer shares. */
     | { readonly kind: 'module-state' }
     /** `object.name`; parentheses around `object` are looked through. */

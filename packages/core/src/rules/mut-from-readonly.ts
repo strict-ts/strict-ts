@@ -1,12 +1,16 @@
 import type { Type } from '../provider.js';
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { closedElements, ownerOf } from './no-param-mutation.js';
 
 /** The name at the start of `a.b[c].d`, when there is one. */
 const rootOf = (node: Node): Node => (node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object) : node);
 
+/** An object, an array or an instance written in place. */
+const isWritten = (node: Node): boolean => node.kind === 'literal' || node.kind === 'new';
+
 /** What can be a value someone else holds: a name, a place, what a call gives back. An object written in place cannot. */
-const mayBeHeld = (node: Node): boolean => node.kind === 'identifier' || node.kind === 'property-access' || node.kind === 'element-access' || node.kind === 'call';
+const mayBeHeld = (node: Node): boolean => node.kind === 'identifier' || node.kind === 'property-access' || node.kind === 'element-access' || node.kind === 'call' || node.kind === 'this';
 
 /**
  * A number, a text, a boolean, nothing: copied when it is given. Nobody else holds what was given, and there is
@@ -56,7 +60,13 @@ export const mutFromReadonly: Rule = {
   description:
     'What is given where `Mut<…>` is asked for is the giver\'s to change: not a parameter that does not ask for mutation itself, not a value typed read-only. Wherever it is given: as an argument, a returned value, a property or an element of what is written in place, the right side of an assignment, the receiver of a method.',
   scope: 'safe',
-  visit(node, { typeOf, expectedOf, asksForMutation, report }) {
+  visit(node, { typeOf, expectedOf, asksForMutation, asksForMutationInside, calleeOf, report }, parent) {
+    // As no-param-mutation asks it: a function of the project hands out something to write only if it says so.
+    const gives = (call: Node): boolean => {
+      if (call.kind !== 'call') return true;
+      const callee = calleeOf(call);
+      return callee === undefined || callee.origin.kind !== 'project' || typeOf(call.callee).mutableReturn;
+    };
     const frozenIn = (given: Node, wanted: Type, where: string, isReceiver = false): boolean => {
       if (isCopied(typeOf(given))) return false;
       const root = rootOf(given);
@@ -65,10 +75,46 @@ export const mutFromReadonly: Rule = {
         report(given, `Parameter \`${root.text}\` is given ${where}, and does not ask for mutation itself.`, HELP);
         return true;
       }
-      const paths = thawed(typeOf(given), wanted);
-      if (paths.length === 0) return false;
-      report(given, `A value typed read-only (${shown(paths)}) is given ${where}: a write there would change what its holder was told cannot change.`, HELP);
-      return true;
+      // What the types say first: a value typed read-only. A container written in place has no holder: what is
+      // put in it is looked at where it is put.
+      const paths = isWritten(given) ? [] : thawed(typeOf(given), wanted);
+      if (paths.length > 0) {
+        report(given, `A value typed read-only (${shown(paths)}) is given ${where}: a write there would change what its holder was told cannot change.`, HELP);
+        return true;
+      }
+      // Given where it may be written, it is as good as written here: whose it is is asked the same way, through
+      // other names for it and through what a collection hands out of what it holds.
+      // A new container of the same things is the giver's own; the things are not. Where `Mut<…>` is asked of
+      // what the container holds, one step down is counted from the start.
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      // Of an object or an array written in place, only what is spread: what is put in it by name or by position
+      // is given on its own, and looked at there.
+      const owner = isReceiver
+        ? undefined
+        : given.kind === 'literal'
+          ? given.spreadFrom.flatMap((alias) => ownerOf(alias.place, gives, copied, 1, 1) ?? []).at(0)
+          : ownerOf(given, gives, copied, 0, asksForMutationInside(given) ? 1 : 0);
+      if (owner?.kind === 'parameter') {
+        report(given, `Parameter \`${owner.name}\`, or a part of it, is given ${where}, and does not ask for mutation itself.`, HELP);
+        return true;
+      }
+      if (owner?.kind === 'this') {
+        report(given, `\`this\`, or a part of it, is given ${where}, in a function that does not say \`this: Mut<…>\`.`, 'Say `this: Mut<…>` on the method, so that it is called only on what may change; or give a copy.');
+        return true;
+      }
+      if (owner?.kind === 'giver') {
+        report(given, `What a call gave is given ${where}, and the function that gave it does not say it may be changed: its return type has no \`Mut<…>\`.`, 'Write `Mut<…>` in the return type of that function; or give a copy.');
+        return true;
+      }
+      if (owner?.kind === 'field') {
+        report(given, `What the field \`${owner.name}\` holds is given ${where}, and the field does not say it may be changed: its type has no \`Mut<…>\`.`, 'Type the field `Mut<…>`; or give a copy.');
+        return true;
+      }
+      if (owner?.kind === 'elements') {
+        report(given, `What \`${owner.name}\` holds is given ${where}, and its type says the container may be written, not what it holds.`, 'Say it inside the container too (`Mut<Mut<Line>[]>`, `readonly Mut<Line>[]`); or give a copy.');
+        return true;
+      }
+      return false;
     };
 
     // A method that says `this: Mut<…>` writes its receiver.
@@ -85,9 +131,30 @@ export const mutFromReadonly: Rule = {
       }
       return;
     }
-    if (!mayBeHeld(node)) return;
+    // A container written in place is nobody else's; what is put in it may be.
+    const isContainer = isWritten(node);
+    if (!mayBeHeld(node) && node.kind !== 'function' && !isContainer) return;
     const wanted = expectedOf(node);
     // A function that writes into its parameter, where a function that does not is asked for.
+    // A function of the library or of a package says nothing of `Mut<…>`. One it is given calls it with what
+    // its object holds (`forEach`, `then`, `traverse`) or with what it was given beside it (`Array.from(list, f)`):
+    // the function may ask for `Mut<…>` when all of that is the caller's to change, down to what it holds.
+    const call = parent?.kind === 'call' && parent.arguments.includes(node) && calleeOf(parent) !== undefined && calleeOf(parent)?.origin.kind !== 'project' ? parent : undefined;
+    const [asks] = typeOf(node).mutableParameters;
+    if (call !== undefined && asks !== undefined) {
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      const sources = [...(call.callee.kind === 'property-access' ? [call.callee.object] : []), ...call.arguments.filter((argument) => argument !== node && argument.kind !== 'function')];
+      // Of a list, a map or a set, what it holds has to say so too; any other object hands out parts of itself.
+      const isList = (source: Node): boolean => typeOf(source).element !== undefined || /^(Readonly)?(Map|Set|Array)</.test(typeOf(source).text);
+      if (sources.some((source) => ownerOf(source, gives, copied, 0, 1) !== undefined || (isList(source) && closedElements(source) !== undefined))) {
+        report(
+          node,
+          `A function whose parameter ${asks + 1} asks for \`Mut<…>\` is given to \`${call.callee.kind === 'property-access' ? call.callee.name : call.callee.kind === 'identifier' ? call.callee.text : 'a function'}\`, which calls it with what this function may not change.`,
+          'Give a function that does not write into what it receives; or say `Mut<…>` where what it is called with comes from, down to what it holds.',
+        );
+      }
+      return;
+    }
     if (wanted !== undefined && wanted.returns.length > 0) {
       const writes = typeOf(node).mutableParameters.find((index) => !wanted.mutableParameters.includes(index));
       if (writes !== undefined) {
@@ -99,7 +166,8 @@ export const mutFromReadonly: Rule = {
         return;
       }
     }
-    if (wanted === undefined || !asksForMutation(node)) return;
+    if (node.kind === 'function' || wanted === undefined || !asksForMutation(node)) return;
+    if (isContainer && !asksForMutationInside(node)) return;
     frozenIn(node, wanted, 'where `Mut<…>` is asked for');
   },
 };

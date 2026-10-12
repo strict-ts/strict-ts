@@ -90,6 +90,26 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m36-iterator-of-a-parameter.ts')).toContain('no-param-mutation');
   });
 
+  test('the third round: what is handed out, under any name or none, by the project or by the library', () => {
+    // A part of `this` given where `Mut<…>` is asked, in a method that does not say `this: Mut<…>`.
+    expect(refusedBy('m37-field-handed-out.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m41-this-by-another-name.ts')).toContain('no-param-mutation');
+    // What a call gives, with no name for it; a new collection of the same things.
+    expect(refusedBy('m38-result-with-no-name.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m39-new-collection.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m45-new-list-where-mut-is-asked-inside.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m47-through-the-library.ts')).toContain('no-param-mutation');
+    // A method that changes its object, reached another way than by calling it on the object.
+    expect(refusedBy('m40-mutator-through-call.ts')).toContain('no-param-mutation');
+    // A function that asks for `Mut<…>`, written where one that does not is asked for, or given to the library.
+    expect(refusedBy('m42-function-written-in-place.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m44-callback-of-the-library.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m43-returned-by-another-name.ts')).toEqual(['mut-from-readonly']);
+    // `Mut<…>` said of the list and not of what it holds, or of the keys of a map and not of its values.
+    expect(refusedBy('m46-elements-of-a-result.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m48-mut-said-of-something-else.ts')).toEqual(['no-param-mutation']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
