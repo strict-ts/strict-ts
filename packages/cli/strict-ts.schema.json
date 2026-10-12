@@ -77,6 +77,7 @@
           "unsafe-boundary",
           "safety-comment",
           "strict-compiler-options",
+          "unread-sources",
           "no-type-predicate",
           "no-ambient",
           "no-param-mutation",

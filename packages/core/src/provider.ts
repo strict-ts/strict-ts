@@ -87,6 +87,11 @@ export interface TypeProvider {
    * and not checked: what they declare is taken on trust.
    */
   readonly declarationFiles: readonly string[];
+  /**
+   * The sources of the project that no rule reads because the compiler does not: single-file components, by the
+   * path shown in diagnostics. Empty for a host that did not look for them.
+   */
+  readonly unreadSources: readonly string[];
   /** The compiler options in force, by name. */
   readonly compilerOptions: Readonly<Record<string, unknown>>;
   /** What the compiler itself refuses (rule `TS<code>`): strict-ts replaces `tsc --noEmit`. */
@@ -103,6 +108,8 @@ export interface TypeProvider {
    * of the configuration (`@/lib/types`) is. False for a declaration file, and when the compiler does not resolve it.
    */
   readonly isOwnModule: (specifier: Node) => boolean;
+  /** Whether a specifier names one of the unread sources, by a relative path or by a path alias. */
+  readonly isUnreadSource: (specifier: Node) => boolean;
   /**
    * The type the place of an expression expects: the type of the parameter for an argument, the return type of the
    * function for a returned value, the declared type for an initializer. Absent where nothing is expected.

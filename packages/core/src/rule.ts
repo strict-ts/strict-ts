@@ -16,6 +16,7 @@ export interface FileContext {
   readonly typeOf: (node: Node) => Type;
   readonly calleeOf: (node: Node) => Callee | undefined;
   readonly isOwnModule: (specifier: Node) => boolean;
+  readonly isUnreadSource: (specifier: Node) => boolean;
   readonly expectedOf: (node: Node) => Type | undefined;
   readonly asksForMutation: (node: Node) => boolean;
   readonly valuesOf: (node: Node) => readonly unknown[] | undefined;
@@ -27,6 +28,7 @@ export interface ProjectContext {
   readonly config: Config;
   readonly compilerOptions: Readonly<Record<string, unknown>>;
   readonly declarationFiles: readonly string[];
+  readonly unreadSources: readonly string[];
   /** Reports about the project as a whole, or about `file` when one is given. */
   readonly report: (message: string, help: string, file?: string) => void;
 }

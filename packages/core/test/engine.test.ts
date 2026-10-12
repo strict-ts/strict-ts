@@ -93,6 +93,8 @@ describe('check', () => {
       exportsOf: () => [],
       calleeOf: () => undefined,
       isOwnModule: () => false,
+      isUnreadSource: () => false,
+      unreadSources: [],
     };
     expect(check(provider, defaultConfig, [spy])).toEqual([]);
     expect(seen).toEqual(['file src/a.ts', 'null in binary']);
@@ -127,7 +129,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the twenty-two rules, each with a guarantee and a description', () => {
+  test('holds the twenty-three rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'freeze-fresh',
@@ -149,6 +151,7 @@ describe('the catalogue of rules', () => {
       'readonly-types',
       'safety-comment',
       'strict-compiler-options',
+      'unread-sources',
       'unsafe-boundary',
       'use-once',
     ]);

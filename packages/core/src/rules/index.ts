@@ -19,6 +19,7 @@ import { noTypePredicate } from './no-type-predicate.js';
 import { pureDomain } from './pure-domain.js';
 import { safetyComment } from './safety-comment.js';
 import { strictCompilerOptions } from './strict-compiler-options.js';
+import { unreadSources } from './unread-sources.js';
 import { unsafeBoundary } from './unsafe-boundary.js';
 import { useOnce } from './use-once.js';
 
@@ -36,6 +37,7 @@ export const rules: readonly Rule[] = [
   unsafeBoundary,
   safetyComment,
   strictCompilerOptions,
+  unreadSources,
   noTypePredicate,
   noAmbient,
   noParamMutation,

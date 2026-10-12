@@ -6,10 +6,18 @@ const isAllowed = (specifier: string, config: Config): boolean =>
   specifier.startsWith('.') ||
   config.allowedImports.some((allowed) => specifier === allowed || specifier.startsWith(`${allowed}/`));
 
-function checkSpecifier(specifier: Node | undefined, config: Config, isOwnModule: (specifier: Node) => boolean, report: Report): void {
+function checkSpecifier(
+  specifier: Node | undefined,
+  config: Config,
+  isOwnModule: (specifier: Node) => boolean,
+  isUnreadSource: (specifier: Node) => boolean,
+  report: Report,
+): void {
   if (specifier?.kind !== 'string-literal' || isAllowed(specifier.text, config)) return;
   // A path alias (`@/lib/types`) names a file of the project, as a relative path does.
   if (isOwnModule(specifier)) return;
+  // A source the gate does not read is refused once, as a whole, by `unread-sources`.
+  if (isUnreadSource(specifier)) return;
   report(
     specifier,
     `External import "${specifier.text}" forbidden outside unsafe/.`,
@@ -23,13 +31,13 @@ export const noExternalImport: Rule = {
   description: 'Dependencies (npm, node:*) are imported from unsafe/ only: the equivalent of an FFI boundary.',
   scope: 'safe',
   inTests: false,
-  visit(node, { config, isOwnModule, report }) {
+  visit(node, { config, isOwnModule, isUnreadSource, report }) {
     if (node.kind === 'module-reference') {
-      checkSpecifier(node.specifier, config, isOwnModule, report);
+      checkSpecifier(node.specifier, config, isOwnModule, isUnreadSource, report);
     } else if (node.kind === 'call') {
       const dynamicImport = node.callee.kind === 'import-keyword';
       const require = node.callee.kind === 'identifier' && node.callee.text === 'require';
-      if (dynamicImport || require) checkSpecifier(node.arguments[0], config, isOwnModule, report);
+      if (dynamicImport || require) checkSpecifier(node.arguments[0], config, isOwnModule, isUnreadSource, report);
     }
   },
 };

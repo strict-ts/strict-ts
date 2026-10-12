@@ -135,6 +135,7 @@ is both, `project` is once for the whole project.
 | `unsafe-boundary` | typing | unsafe | The functions an unsafe directory exports return `Result` or `Option`, and leak no `any` |
 | `safety-comment` | typing | unsafe | An `any`, a cast, a `!`, a written predicate or a `declare` has `// SAFETY: <reason>` right above |
 | `strict-compiler-options` | typing | project | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`, `noPropertyAccessFromIndexSignature` |
+| `unread-sources` | typing | project | A source the gate does not read (`.vue`, `.svelte`, `.astro`) is refused as a whole: nothing in it is checked |
 | `no-throw` | errors | safe | No `throw`: errors are values (`Result`) |
 | `no-null` | errors | safe | No `null`, as a value or as a type. Comparing with `=== null` stays allowed |
 | `must-use` | errors | all | A `Result`, an `Option` or a `Promise` is not ignored. To drop one on purpose: `void expr` |
@@ -405,7 +406,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 22 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 23 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -426,6 +427,9 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused
   unless the project writes `"assume": ["attached-buffers"]`.
+- A single-file component (`.vue`, `.svelte`, `.astro`) is not read. `unread-sources` refuses each one, so that a
+  project does not pass with code nobody checked; accepting them in the baseline is saying so in writing. The CLI
+  finds them by listing the project; the editor plugin and the playground do not look for them.
 - A call that is run because its arguments are written is run in the gate's engine. The code may run in another,
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run

@@ -60,8 +60,9 @@ describe('the scenarios, checked as the page checks them', () => {
   test('the challenge is refused twenty-two times, the scenario of violations by every rule', () => {
     expect(playground.check(request('challenge')).diagnostics).toHaveLength(22);
     const triggered = new Set(playground.check(request('violations')).diagnostics.map((d) => d.rule));
-    // pure-domain only runs in directories a project declares pure, and the page declares none.
-    const expected = rules.map((rule) => rule.name).filter((name) => name !== 'pure-domain');
+    // pure-domain only runs in directories a project declares pure, and the page declares none; unread-sources is
+    // about files the page does not have.
+    const expected = rules.map((rule) => rule.name).filter((name) => name !== 'pure-domain' && name !== 'unread-sources');
     expect([...triggered].toSorted()).toEqual(expected.toSorted());
   });
 

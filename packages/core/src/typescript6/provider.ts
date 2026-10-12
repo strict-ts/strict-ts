@@ -26,7 +26,15 @@ export interface TypeScript6Options {
    * from the path, after the last `node_modules/`.
    */
   readonly packageNameOf?: (fileName: string) => string | undefined;
+  /**
+   * The sources of the project the compiler does not read (single-file components), by absolute path, for a host
+   * that can list a directory. They are refused as such, and an import of one is not refused for another reason.
+   */
+  readonly unreadSources?: readonly string[];
 }
+
+/** The extensions of the sources that hold code and that the compiler does not read. */
+export const UNREAD_EXTENSIONS: readonly string[] = ['.vue', '.svelte', '.astro'];
 
 export function createTypeScript6Provider(
   api: typeof ts,
@@ -463,8 +471,52 @@ export function createTypeScript6Provider(
       ...perFile,
     ]);
   };
-  const reported =
-    options.compilerDiagnostics === false ? [] : options.only === undefined ? api.getPreEmitDiagnostics(program) : partial(options.only);
+  // The unread sources, and how a specifier names one: by a path from the file that imports it, or by an alias of
+  // `paths`, which is resolved here since the compiler does not look for a file it cannot read.
+  const slashed = (fileName: string): string => fileName.replace(/\\/g, '/');
+  const unread = new Set((options.unreadSources ?? []).map(slashed));
+  const joined = (directory: string, path: string): string => {
+    const parts: Mut<string[]> = [];
+    for (const part of (path.startsWith('/') ? path : `${directory}/${path}`).split('/')) {
+      if (part === '..') parts.pop();
+      else if (part !== '.' && part !== '') parts.push(part);
+    }
+    return `/${parts.join('/')}`;
+  };
+  const compilerOptions = program.getCompilerOptions();
+  const base = compilerOptions.baseUrl ?? compilerOptions['pathsBasePath'];
+  const aliased = (text: string): readonly string[] =>
+    Object.entries(compilerOptions.paths ?? {}).flatMap(([pattern, targets]) => {
+      const star = pattern.indexOf('*');
+      const matched =
+        star === -1
+          ? pattern === text
+            ? ''
+            : undefined
+          : text.length >= pattern.length - 1 && text.startsWith(pattern.slice(0, star)) && text.endsWith(pattern.slice(star + 1))
+            ? text.slice(star, text.length - (pattern.length - star - 1))
+            : undefined;
+      return matched === undefined ? [] : targets.map((target) => joined(typeof base === 'string' ? slashed(base) : root, target.replace('*', matched)));
+    });
+  const namesUnread = (specifier: ts.Node): boolean => {
+    if (unread.size === 0 || !api.isStringLiteralLike(specifier)) return false;
+    const text = specifier.text;
+    const from = slashed(specifier.getSourceFile().fileName);
+    const candidates = text.startsWith('.') ? [joined(from.slice(0, from.lastIndexOf('/')), text)] : aliased(text);
+    return candidates.some((candidate) => unread.has(candidate));
+  };
+  /** « Cannot find module »: for an unread source that is no news, it is refused as one. */
+  const CANNOT_FIND_MODULE = 2307;
+  const aboutUnread = (diagnostic: ts.Diagnostic): boolean => {
+    if (diagnostic.code !== CANNOT_FIND_MODULE || diagnostic.file === undefined || diagnostic.start === undefined) return false;
+    const at = diagnostic.start;
+    const within = (node: ts.Node): ts.Node => api.forEachChild(node, (child) => (child.pos <= at && at < child.end ? within(child) : undefined)) ?? node;
+    return namesUnread(within(diagnostic.file));
+  };
+
+  const reported = (
+    options.compilerDiagnostics === false ? [] : options.only === undefined ? api.getPreEmitDiagnostics(program) : partial(options.only)
+  ).filter((diagnostic) => !aboutUnread(diagnostic));
   const compilerDiagnostics = reported.map((diagnostic): Diagnostic => {
     const rule = `TS${diagnostic.code}`;
     const message = api.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
@@ -501,6 +553,7 @@ export function createTypeScript6Provider(
   return {
     files,
     declarationFiles,
+    unreadSources: [...unread].map(displayName).toSorted(),
     compilerOptions: program.getCompilerOptions(),
     compilerDiagnostics,
     typeOf: (node) => {
@@ -514,6 +567,10 @@ export function createTypeScript6Provider(
       // Only a source the rules read: a declaration file, even one the project keeps, says what a dependency is,
       // and a module declared by its name (`declare module "x"`) is no file at all.
       return modules.length > 0 && modules.every((module) => api.isSourceFile(module) && isChecked(module));
+    },
+    isUnreadSource: (node) => {
+      const source = origin.get(node);
+      return source !== undefined && namesUnread(source);
     },
     calleeOf: (node) => {
       const source = origin.get(node);

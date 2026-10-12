@@ -1,9 +1,9 @@
 // unsafe/: the file system and the compiler. Everything that may throw or return `any` leaves here as a Result.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { TypeProvider } from '@strict-ts/core';
-import { checkedFileNames, createTypeScript6Provider } from '@strict-ts/core/typescript6';
+import { checkedFileNames, createTypeScript6Provider, UNREAD_EXTENSIONS } from '@strict-ts/core/typescript6';
 import { attempt, err, ok, Option, type Result, textOf } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { type Facts, fileKeys } from '../cache.js';
@@ -49,6 +49,16 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
     const rootDir = dirname(tsconfig).replaceAll('\\', '/');
     const relative = (fileName: string): string => (fileName.startsWith(`${rootDir}/`) ? fileName.slice(rootDir.length + 1) : fileName);
     const checked = new Set(checkedFileNames(program, rootDir));
+    // The sources under a directory that the compiler does not read (single-file components), by absolute path.
+    // Dependencies and the directories whose name starts with a dot (what a tool generates, a repository) are not
+    // looked into. Declared here, inside what `attempt` catches: listing a directory may throw.
+    const unreadSourcesIn = (directory: string): readonly string[] =>
+      readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const path = `${directory}/${entry.name}`;
+        if (entry.isDirectory()) return entry.name === 'node_modules' || entry.name.startsWith('.') ? [] : unreadSourcesIn(path);
+        return entry.isFile() && UNREAD_EXTENSIONS.some((extension) => entry.name.endsWith(extension)) ? [path] : [];
+      });
+    const unreadSources = unreadSourcesIn(rootDir);
 
     const facts = (settings: string): Facts => {
       // A file that declares globals, or adds to a module from outside, can change the types of any other file:
@@ -83,7 +93,7 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
       provider: (only) => {
         const names = (fileName: string): string | undefined => packageNameOf(ts.sys.readFile, fileName).unwrapOr(undefined);
         const asked = only === undefined ? {} : { only: (fileName: string) => only.has(relative(fileName)) };
-        return createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, ...asked });
+        return createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, unreadSources, ...asked });
       },
       facts,
     });
