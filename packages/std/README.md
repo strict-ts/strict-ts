@@ -64,6 +64,11 @@ User.parse(input); // Result<User, { path: string; expected: string }>
 `s.optional(inner)`, `s.object(shape)`, `s.record(value)` (an object used as a table: any names, values of one kind).
 Unknown keys of an object are dropped.
 
+`s.union(a, b, …)` is a choice between shapes: each is tried in the order written, and the first that reads the
+value wins, so a shape that holds another comes before it. `s.nullish(inner)` is a value that may be missing: a
+`null` or an `undefined` is read as `undefined`, and in an object the key stays, where `s.optional` leaves it out.
+`s.unknown` keeps anything, as `unknown`.
+
 ## Constraints carried by the type
 
 A value that passed a check has a type that says so, and a plain value is not accepted in its place.

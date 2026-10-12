@@ -55,6 +55,9 @@ The generator reads the syntax of one file. It does not compile the project.
 | `readonly T[]`, `ReadonlyArray<T>` | `s.array(…)` |
 | `{ readonly a: T; readonly b?: U }`, an `interface` | `s.object({ a: …, b: s.optional(…) })` |
 | `Readonly<Record<string, T>>` | `s.record(…)` |
+| `Circle \| Square`, `string \| number` | `s.union(…)`, which tries each in the order written |
+| `T \| undefined` | `s.nullish(…)`, which reads a `null` as `undefined` too |
+| `unknown` | `s.unknown` |
 | `Date` | `s.date`, which reads an ISO text |
 | `Branded<number, 'Positive'>`, `'Integer'`, `'NonEmpty'` | `s.positive(…)`, `s.integer(…)`, `s.nonEmpty(…)` |
 | `Branded<string, 'CustomerId'>`, a brand of your own | `s.branded(…, 'CustomerId')`: a name, with no check |
@@ -68,10 +71,13 @@ It says so, with the place, and writes nothing:
 strict-ts-derive: types.ts:1:37 cannot follow a mutable array: a parsed value is read-only, write `readonly T[]`
 ```
 
-- **A choice between shapes** (`Circle | Square`, `T | undefined`, `T | null`): the standard library has no schema
-  for one. This is the largest gap.
-- A type declared in another file, a type with parameters, a type that contains itself, an interface that extends
-  another, a tuple, `unknown`.
+- A type declared in another file. This is the largest gap: a project keeps its types in one place and reads them
+  in another.
+- A type with parameters, a type that contains itself, an interface that extends another, a tuple, `Partial<…>`, a
+  record whose keys are not `string`.
+- `null`: the rules refuse it in a type, and `T | undefined` is read from a `null` as well.
+- A choice where one shape holds another: `s.union` takes the first that fits, and an object schema drops the keys
+  it does not name. The generator writes the shapes in the order of the type and does not look at this.
 - A mutable array: a parsed value is read-only.
 - A check of your own (`s.refine`, `s.between`): a type says the name of a brand, not what to test. The schema is
   then written by hand, as before; the two can live in the same project.
@@ -82,6 +88,9 @@ strict-ts-derive: types.ts:1:37 cannot follow a mutable array: a parsed value is
   against 34 with the schemas written by hand; 18 more are generated. The gain is not in lines: it is that the types
   are types, and that `s.Infer` is gone.
 - **The casts of six existing applications** (87,791 lines): 532 casts, 359 of them to a type written in the cast.
-  The generator follows 104 of those as they are. 107 fail on a mutable array, which the fixer turns read-only; 59
-  on a choice between shapes; 53 on a type with no schema (`unknown`, a tuple, `null`). 157 more casts name a type
-  declared elsewhere, which was not looked at.
+  The generator follows 134 of those as they are, and 178, half of them, once the fixer has made their arrays
+  read-only. What stops the others: a type the library has no schema for (36: a tuple, a function, `typeof`), a
+  mutable array the fixer left (22), `null` (18), and about 60 names of types declared elsewhere in the file or in
+  another. 157 more casts are to a bare name and were not looked at.
+- **Many of those casts are not a boundary.** `as HTMLElement`, `as Kind`: a value of the program narrowed by hand,
+  where a schema is not the answer. So this is a help where data comes in, and not a fix for `no-cast`.

@@ -57,7 +57,7 @@
   },
   "packages/std": {
     "no-any": 1,
-    "no-cast": 7,
+    "no-cast": 8,
     "no-overload": 4,
     "no-throw": 3,
     "no-type-predicate": 4,
