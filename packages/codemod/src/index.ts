@@ -5,6 +5,7 @@ export { blamedFixes } from './blame.js';
 export { applyEdits, type Complaint, type Edit, type Fix, keepUnblamed, keepWhatHolds, type Placed, placesAfter, type Trial } from './fix.js';
 export { readonlyFixes } from './fixes/readonly-types.js';
 export { typePredicateFixes } from './fixes/type-predicate.js';
+export { nullFixes } from './fixes/no-null.js';
 export { FIXABLE, fixProject, type Outcome, type Place } from './unsafe/project.js';
 
 export interface Io {
@@ -26,6 +27,7 @@ export const usage = [
   '                        no-param-mutation writes `Mut<…>` where the gate says something is changed without a',
   '                        word (a method, a parameter, a return type), all at once, and keeps it when the',
   '                        project compiles and is refused in fewer places',
+  '                        no-null is only fixed when it is named too: its fix changes what the program does',
   '      --dry-run         Say what would be fixed, and write nothing',
   '  -h, --help            Show this help',
 ].join('\n');
@@ -83,7 +85,9 @@ export function run(argv: readonly string[], io: Io): number {
     const why =
       rule === 'no-param-mutation' && fixed > 0
         ? 'there is no written type to put `Mut<…>` around, or the function cannot declare `this`'
-        : 'with the fix the project does not compile, or is refused for more';
+        : rule === 'no-null'
+          ? 'as `undefined` it does not compile, is refused for more, or is told apart from `null` where it goes'
+          : 'with the fix the project does not compile, or is refused for more';
     for (const place of kept) io.out(`  ${place.file}:${place.line}:${place.column} left as it is: ${why}`);
   }
   io.out(dryRun ? 'dry run: nothing written' : `${count(written.length, 'file', 'files')} written`);

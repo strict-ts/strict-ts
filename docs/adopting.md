@@ -106,6 +106,17 @@ project compiles and is refused in fewer places than before, or none of it is. O
 classes it wrote 154 of them in 18 seconds, and `no-param-mutation` went from 491 refusals to 30. It needs
 `@strict-ts/std` installed: it imports `Mut` from it.
 
+A last one is run only when it is asked for too, because it changes what the program does and not only its types:
+
+```sh
+node packages/codemod/dist/main.js -p . --rule no-null --dry-run
+```
+
+It writes `undefined` in place of `null` where the value stays in the program: a state, a parameter, what a
+function gives back. A `null` that is written as JSON, shown in a text, given to a library or checked by a test is
+left, and so is one that stands next to an `undefined` that means something else. Run the tests after it: see
+[the package](../packages/codemod) for what it cannot see.
+
 About the baseline itself:
 
 - A file and rule that hold more violations than recorded are refused whole, each with « n allowed by the baseline ».

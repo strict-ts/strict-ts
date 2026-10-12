@@ -9,15 +9,20 @@ import { attempt, err, type Mut, none, ok, type Option, type Result, some, textO
 import ts from '@typescript/typescript6';
 import { blamedFixes } from '../blame.js';
 import { applyEdits, type Fix, keepUnblamed, type Placed, placesAfter, type Trial } from '../fix.js';
+import { comparer, declaredBehind, names as shapeNames } from '../crossing.js';
 import { mutFixes } from '../fixes/mut-types.js';
+import { nullFixes } from '../fixes/no-null.js';
 import { nonNullFixes } from '../fixes/non-null.js';
 import { readonlyFixes } from '../fixes/readonly-types.js';
 import { typePredicateFixes } from '../fixes/type-predicate.js';
 
 /** The rules this package can fix. */
-export const FIXABLE = ['readonly-types', 'no-type-predicate', 'no-non-null', 'no-param-mutation'] as const;
-/** The fixes that are run only when their rule is named: they write names of the library, or are judged as a whole. */
-export const ON_REQUEST: readonly string[] = ['no-non-null', 'no-param-mutation'];
+export const FIXABLE = ['readonly-types', 'no-type-predicate', 'no-non-null', 'no-param-mutation', 'no-null'] as const;
+/**
+ * The fixes that are run only when their rule is named: they write names of the library, are judged as a whole, or
+ * change what the program does.
+ */
+export const ON_REQUEST: readonly string[] = ['no-non-null', 'no-param-mutation', 'no-null'];
 
 export interface Outcome {
   /** The fixes kept, with the file they are in (relative to the project) and their place there. */
@@ -136,7 +141,14 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
       ...(rules.includes('readonly-types') ? readonlyFixes(ts, sourceFile, sourceFile.fileName) : []),
       ...(rules.includes('no-type-predicate') ? typePredicateFixes(ts, sourceFile, sourceFile.fileName) : []),
       ...(rules.includes('no-non-null') ? nonNullFixes(ts, sourceFile, sourceFile.fileName) : []),
+      ...(rules.includes('no-null') ? nullFixes(ts, original.getTypeChecker(), sourceFile, sourceFile.fileName) : []),
     ]);
+    // A `null` that became `undefined` compiles where it is told apart from what it was: the types of the project
+    // as it was are compared with those of each trial, at every place where a value is handed on.
+    const compared = comparer(ts, { program: original, checker: original.getTypeChecker() }, shapeNames());
+    const fileNames = sources.map((sourceFile) => sourceFile.fileName);
+    const tellsApart = (program: ts.Program, candidates: readonly Fix[]) =>
+      candidates.some((fix) => fix.rule === 'no-null') ? compared.compare({ program, checker: program.getTypeChecker() }, fileNames) : { crossings: [], compared: [] };
 
     // Where a name of the library goes in each file, and which it has: a fix that writes `Mut` or `panic` needs it.
     const importsOf = new Map(
@@ -174,9 +186,20 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         if (here.length > 0) changed.set(fileName, applyEdits(text, here));
       }
     };
-    const judge = (settled: readonly Fix[]) => (candidates: readonly Fix[], thorough = false): Trial => {
-      const tried = [...settled, ...candidates];
+    // A strict comparison with `null` of what became `undefined` is rewritten with the fixes it follows from: left
+    // as it is, it would be a branch never taken again, and what it narrows would not compile. These edits are
+    // no fixes of their own: they come and go with the fixes that are tried.
+    const COMPARED = 'no-null: a comparison';
+    const withComparisons = (tried: readonly Fix[]): readonly Fix[] => {
       rewrite(tried);
+      if (!tried.some((fix) => fix.rule === 'no-null')) return tried;
+      const rewritten = tellsApart(compile(), tried).compared.map((comparison): Fix => ({ rule: COMPARED, file: comparison.file, at: comparison.start, edits: [{ start: comparison.start, end: comparison.end, text: 'undefined' }] }));
+      rewrite([...tried, ...rewritten]);
+      return [...tried, ...rewritten];
+    };
+    const judge = (settled: readonly Fix[]) => (candidates: readonly Fix[], thorough = false): Trial => {
+      const tried = withComparisons([...settled, ...candidates]);
+      const nulls = candidates.some((fix) => fix.rule === 'no-null');
       // A fix adds no line, so the line of an error names it from one compilation to the next; an import does add
       // one, and what is under it is named by the line it had.
       const addedIn = new Map(withImports(tried).flatMap((fix) => (fix.rule === 'import' ? [[fix.file, (fix.edits[0]?.text.match(/import /g) ?? []).length] as const] : [])));
@@ -197,7 +220,16 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
       };
       const checker = program.getTypeChecker();
       // A hint that cannot be computed is no hint: the search does without it.
-      const hint = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
+      const read = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
+      // A fix of `no-null` answers for every place that holds what it rewrote: the declarations behind the place
+      // of an error, and those of the members of its types.
+      const behind = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] =>
+        attempt(() => {
+          const from = error.start ?? 0;
+          const spans = error.file === undefined ? [] : declaredBehind(ts, checker, error.file, from, from + (error.length ?? 0));
+          return spans.flatMap((span) => placedIn(span.file).flatMap((placed) => (placed.fix.rule === 'no-null' && span.start <= placed.at && placed.at <= span.end ? [placed.fix] : [])));
+        }, describe).unwrapOr([]);
+      const hint = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] => (nulls ? [...new Set([...read(error), ...behind(error)])] : read(error));
       // Fixes add no line: the line of an error names it from one compilation to the next.
       const where = (error: ts.Diagnostic): string =>
         `${error.file?.fileName ?? ''}:${error.file === undefined ? 0 : lineBefore(error.file.fileName, ts.getLineAndCharacterOfPosition(error.file, error.start ?? 0).line + 1) - 1} ${error.code}`;
@@ -215,9 +247,16 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         const fixes = file === undefined ? [] : hint({ file, start: at(refusal.start), length: at(refusal.end) - at(refusal.start), code: 0, messageText: refusal.message });
         return [{ where: name, fixes }];
       });
-      return { holds: compiles && fromGate.length === 0, errors: [...fromCompiler, ...fromGate] };
+      // The types say nothing true of a project that does not compile.
+      const fromCrossings = !compiles
+        ? []
+        : tellsApart(program, candidates).crossings.map((crossing) => {
+            const file = program.getSourceFile(crossing.file);
+            return { where: crossing.where, fixes: file === undefined ? [] : hint({ file, start: crossing.start, length: crossing.length, code: 0, messageText: '' }) };
+          });
+      return { holds: compiles && fromGate.length === 0 && fromCrossings.length === 0, errors: [...fromCompiler, ...fromGate, ...fromCrossings] };
     };
-    const first = keepUnblamed(found, judge([]));
+    const first = keepUnblamed(found.filter((fix) => fix.rule !== 'no-null'), judge([]));
     // What could not be made read-only is written: the second chance of each such place is to say so.
     const dropped = new Set(found.filter((fix) => fix.rule === 'readonly-types' && !first.includes(fix)).map((fix) => `${fix.file} ${fix.at}`));
     const second = sources.flatMap((sourceFile) => {
@@ -225,9 +264,33 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
       return wanted.size === 0 ? [] : mutFixes(ts, sourceFile, sourceFile.fileName, wanted);
     });
     const announced = second.length === 0 ? [] : keepUnblamed(second, judge(first));
-    const kept = [...first, ...announced];
+    // The fixes of `no-null` hold in groups: a type and the values written for it. They are settled after the
+    // others, and only ever taken out: whatever an error points at goes, then what no longer compiles without
+    // it, until the project holds. Nothing is put back, since a fix that comes back alone breaks its group.
+    const settled = (nulls: readonly Fix[]): readonly Fix[] => {
+      if (nulls.length === 0) return [];
+      const trial = judge([...first, ...announced])(nulls, true);
+      if (trial.holds) return nulls;
+      const named = new Set(trial.errors.flatMap((error) => error.fixes));
+      if (nulls.some((fix) => named.has(fix))) return settled(nulls.filter((fix) => !named.has(fix)));
+      // Errors that point at none of them: the fixes of the files they are in go; when none is there, those of the
+      // files these import; and all of them when none is there either, since nothing says which to keep.
+      const files = new Set(trial.errors.map((error) => error.where.slice(0, error.where.lastIndexOf(':'))).map((name) => (name.startsWith('/') ? name : `${rootDir}/${name}`)));
+      const imported = new Set(
+        [...files].flatMap((fileName) =>
+          (last?.getSourceFile(fileName)?.statements ?? []).flatMap((statement) => {
+            const from = ts.isImportDeclaration(statement) ? last?.getTypeChecker().getSymbolAtLocation(statement.moduleSpecifier) : undefined;
+            return (from?.getDeclarations() ?? []).map((declaration) => declaration.getSourceFile().fileName);
+          }),
+        ),
+      );
+      const near = nulls.filter((fix) => files.has(fix.file));
+      const out = near.length > 0 ? near : nulls.filter((fix) => imported.has(fix.file));
+      return out.length === 0 ? [] : settled(nulls.filter((fix) => !out.includes(fix)));
+    };
+    const kept = [...first, ...announced, ...settled(found.filter((fix) => fix.rule === 'no-null'))];
     const saidAt = new Set(announced.map((fix) => `${fix.file} ${fix.at}`));
-    rewrite(kept);
+    withComparisons(kept);
 
     /**
      * `Mut<…>` where the gate says something is changed without a word: `this: Mut<Name>` on a method that writes

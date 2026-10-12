@@ -149,7 +149,7 @@ describe('strict-ts-fix', () => {
 
   test('says what it cannot do, with exit code 2', () => {
     const directory = project();
-    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate, no-non-null, no-param-mutation\)/);
+    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate, no-non-null, no-param-mutation, no-null\)/);
     expect(fix(directory, '--force').code).toBe(2);
     expect(fix(directory, '-p', 'missing').err.join('\n')).toMatch(/missing does not exist$/);
   });
@@ -230,6 +230,59 @@ describe('the pieces', () => {
     const fixes = [at(0, 0, 'readonly '), at(2, 3, 'XYZ'), removed, at(20, 20, '!')];
     // What a fix inserts at its own place does not move it; what is removed is found where the removal starts.
     expect(placesAfter(fixes).map((placed) => placed.at)).toEqual([0, 11, 15, 17]);
+  });
+
+  describe('no-null', () => {
+    const left = 'left as it is: as `undefined` it does not compile, is refused for more, or is told apart from `null` where it goes';
+
+    test('it is not run unless it is asked for: its fix changes what the program does', () => {
+      const directory = project('nulls');
+      expect(fix(directory, '--dry-run').out.map((line) => line.split(':')[0])).toEqual(['readonly-types', '  src/leaves.ts', 'no-type-predicate', 'dry run']);
+    });
+
+    test('a null that stays in the program becomes undefined, with the comparisons that read it', () => {
+      const directory = project('nulls');
+      expect(refused(directory)['src/state.ts no-null']).toBe(6);
+      expect(fix(directory, '--rule', 'no-null').out).toEqual([
+        'no-null: 6 fixes applied, 4 left',
+        // Written as JSON, where an `undefined` is left out.
+        `  src/leaves.ts:4:27 ${left}`,
+        // Shown in a text.
+        `  src/leaves.ts:11:27 ${left}`,
+        // Given to a parameter typed `unknown`.
+        `  src/leaves.ts:27:28 ${left}`,
+        // Filled from `JSON.parse`, which gives `any`: a `null` may still come in.
+        `  src/leaves.ts:39:28 ${left}`,
+        '1 file written',
+      ]);
+      const fixed = read(directory, 'src/state.ts');
+      expect(fixed).not.toContain('null');
+      expect(fixed).toContain('readonly topic: string | undefined;');
+      expect(fixed).toContain("export const empty: Draft = { title: '', topic: undefined };");
+      // The comparison follows what it compares, and still narrows.
+      expect(fixed).toContain("if (draft.topic === undefined) return 'none';");
+      expect(fixed).toContain('?? undefined;');
+      expect(fixed).toContain('withTopic(draft, undefined);');
+      expect(refused(directory)['src/state.ts no-null']).toBeUndefined();
+    });
+
+    test('where undefined already means something, null is not a candidate: two states would become one', () => {
+      const directory = project('nulls');
+      fix(directory, '--rule', 'no-null');
+      const kept = read(directory, 'src/leaves.ts');
+      expect(kept).toContain('readonly picked: string | null | undefined;');
+      expect(kept).toContain("choice.picked === null ? 'nothing'");
+      expect(kept).toContain("(picked: string | null = 'first')");
+      // And what leaves is as it was, with its comparison.
+      expect(kept).toContain('readonly note: string | null;');
+      expect(kept).toContain('given.count === null ? 0 : given.count');
+    });
+
+    test('a second run finds nothing more', () => {
+      const directory = project('nulls');
+      fix(directory, '--rule', 'no-null');
+      expect(fix(directory, '--rule', 'no-null').out.filter((line) => !line.startsWith('  '))).toEqual(['no-null: 0 fixes applied, 4 left', '0 files written']);
+    });
   });
 
   describe('keepUnblamed', () => {
