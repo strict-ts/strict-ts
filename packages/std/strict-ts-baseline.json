@@ -11,6 +11,7 @@
       "no-throw": 2
     },
     "src/result.ts": {
+      "no-overload": 4,
       "no-throw": 1
     },
     "src/schema.ts": {

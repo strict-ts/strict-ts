@@ -838,7 +838,7 @@ describe('readonly-types', () => {
 describe('constrained schemas of the standard library', () => {
   const header = [
     'import { s } from "@strict-ts/std";',
-    'const Quantity = s.positive(s.integer());',
+    'const Quantity = s.positive(s.integer(s.number));',
     'type Quantity = s.Infer<typeof Quantity>;',
     'const CustomerId = s.branded(s.string, "CustomerId");',
     'type CustomerId = s.Infer<typeof CustomerId>;',
@@ -860,7 +860,7 @@ describe('constrained schemas of the standard library', () => {
 
   test('two constraints are not confused, and neither are two branded names', () => {
     const wrongNumber = withBody(
-      'const Positive = s.positive();',
+      'const Positive = s.positive(s.number);',
       'export const quote = (raw: unknown, id: unknown) =>',
       '  Positive.parse(raw).andThen((n) => CustomerId.parse(id).map((customer) => price(n, customer)));',
     );
@@ -875,7 +875,7 @@ describe('constrained schemas of the standard library', () => {
 
   test('checks add up: a value with more of them is accepted where fewer are asked, not the reverse', () => {
     const found = withBody(
-      'const Positive = s.positive();',
+      'const Positive = s.positive(s.number);',
       'const half = (n: s.Infer<typeof Positive>): number => n / 2;',
       'export const ok = (raw: unknown) => Quantity.parse(raw).map(half);',
       'export const stacked: Quantity extends never ? "collapsed" : "kept" = "kept";',
@@ -1302,6 +1302,58 @@ describe('no-external-import and the path aliases of a project', () => {
     // Declarations the project keeps for a library say what the library is: the rules do not read it.
     expect(found('legacy')).toEqual(['no-external-import@1']);
     expect(found('@/lib/missing')).toEqual(['no-external-import@1']);
+  });
+});
+
+describe('no-overload', () => {
+  const only = (found: ReturnType<typeof checkSafe>) => refusals(found).filter((refusal) => refusal.startsWith('no-overload') || refusal.startsWith('safety-comment'));
+
+  test('refuses each signature that an implementation follows: of a function, a method, a constructor', () => {
+    const code = [
+      'export function coerce<T>(value: unknown): T;',
+      'export function coerce(value: unknown): unknown {',
+      '  return value;',
+      '}',
+      'export class Reader {',
+      '  constructor(text: string);',
+      '  constructor(count: number);',
+      '  constructor(readonly given: number | string) {}',
+      '  read(as: "text"): string;',
+      '  read(as: "count"): number;',
+      '  read(as: string): number | string {',
+      '    return as === "text" ? String(this.given) : 0;',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    expect(only(checkSafe(code))).toEqual(['no-overload@1', 'no-overload@6', 'no-overload@7', 'no-overload@9', 'no-overload@10']);
+    expect(checkSafe(code).find((d) => d.rule === 'no-overload')?.message).toBe('Overload signature forbidden: nothing checks that the implementation keeps this promise.');
+  });
+
+  test('accepts what has no body for another reason: an abstract method, a type with several call signatures', () => {
+    const code = [
+      'export abstract class Shape {',
+      '  abstract area(): number;',
+      '}',
+      'export interface Parse {',
+      '  (text: string): string;',
+      '  (count: number): number;',
+      '}',
+      'export type Pick = { of(text: string): string; of(count: number): number };',
+      '',
+    ].join('\n');
+    expect(only(checkSafe(code))).toEqual([]);
+  });
+
+  test('a declaration of what is defined elsewhere is not an overload: `no-ambient` answers for it', () => {
+    expect(refusals(checkSafe('declare function now(): string;\ndeclare function now(zone: string): string;\nexport const a = now;\n')).filter((r) => !r.startsWith('no-ambient'))).toEqual([]);
+  });
+
+  test('in an unsafe directory an overload is allowed, with its reason', () => {
+    const code = (comment: string) =>
+      ['import { ok, type Result } from "@strict-ts/std";', comment, 'export function twice(n: number): Result<number, string>;', 'export function twice(n: number): Result<number, string> {', '  return ok(n * 2);', '}', ''].join('\n');
+    expect(only(checkUnsafe(code('// the same promise, kept')))).toEqual(['safety-comment@3']);
+    expect(only(checkUnsafe(code('// SAFETY: the implementation returns exactly this.')))).toEqual([]);
   });
 });
 

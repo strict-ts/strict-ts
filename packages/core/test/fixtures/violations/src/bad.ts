@@ -88,3 +88,8 @@ const bump = (counter: Mut<{ n: number }>): void => {
   counter.n += 1;
 };
 export const touch = (counter: { readonly n: number }): void => bump(counter); // expect: mut-from-readonly
+
+export function widen<T>(value: unknown): T; // expect: no-overload
+export function widen(value: unknown): unknown {
+  return value;
+}

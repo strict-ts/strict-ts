@@ -50,8 +50,12 @@ export type Node = NodeBase &
     | { readonly kind: 'sequence' }
     /** One declared variable: `name = initializer`. `name` is an identifier, or a pattern (`other`). */
     | { readonly kind: 'variable'; readonly name: Node; readonly isConst: boolean; readonly initializer: Node | undefined }
-    /** A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns). */
-    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined }
+    /**
+     * A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns).
+     * `isOverload` for a signature with no body that an implementation follows: not an abstract method, and not a
+     * declaration of what is defined elsewhere.
+     */
+    | { readonly kind: 'function'; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean }
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }
