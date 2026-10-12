@@ -13,6 +13,20 @@ export const asRecord = (value: unknown): Option<Readonly<Record<string, unknown
   typeof value === 'object' && value !== null && !Array.isArray(value) ? some(value as Readonly<Record<string, unknown>>) : none;
 ```
 
+A call that may throw is caught where it is written, in the unsafe directory too: inside `attempt(() => …)` or a
+`try` with a `catch`, in the same function. A function given to something else is another function: what it throws
+when it is called later is caught by nobody, which is the case of every callback of an event emitter.
+
+```ts
+stream.on('data', (data: Buffer) => {
+  try {
+    received += data.toString();
+  } catch (cause) {
+    settle(err(textOf(cause)));
+  }
+});
+```
+
 To wrap a whole dependency instead of writing its file by hand:
 
 ```sh

@@ -18,6 +18,36 @@ throw, on harmless arguments written in the call (`classList.add("hidden")`): 13
 61 calls into what a bare page cannot run (audio, service workers, `Intl`), and calls into Node unless `"node"` is
 in `allowedImports`.
 
+## A Next application
+
+One was made to pass with no baseline (4,831 lines; a third of them changed). What a Next project needs that
+nothing above says:
+
+```json
+{
+  "unsafeDirs": ["src/unsafe", "next-env.d.ts", ".next"],
+  "testDirs": ["test", "tests", "vitest.config.ts"],
+  "allowedImports": ["@strict-ts/std", "next", "react", "react-dom"],
+  "assume": ["dom-as-observed"]
+}
+```
+
+- **`next-env.d.ts`** is generated at the root and rewritten by Next: it is named as a single unsafe file. So is the
+  configuration of the test runner, as a test.
+- **`.next/types` is not yours, and is checked if the gate sees it.** Next puts it in the `include` of
+  `tsconfig.json` and writes it back when it is removed. Naming `.next` unsafe is not enough: generated code has
+  `@ts-ignore` and casts with no reason given, which are refused there too. Give the gate its own project file,
+  and run `strict-ts -p tsconfig.strict.json`:
+
+  ```json
+  { "extends": "./tsconfig.json", "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"], "exclude": ["node_modules", ".next"] }
+  ```
+
+- **A stylesheet imported for its effect** (`import "./globals.css"`) needs a declaration: `declare module "*.css";`
+  in a `.d.ts` of the unsafe directory.
+- **A route reads its body with `bodyJson(request)`** and a schema; `request.json()` gives `any`.
+- **`null` becomes `undefined`** in states, props and what a component returns: React takes both.
+
 ## The baseline
 
 ```sh

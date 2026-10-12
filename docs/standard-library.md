@@ -18,7 +18,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
 | `bodyJson(source)` | The JSON a `Request` or a `Response` carries, as a `Result`: their own `json()` gives `any` and rejects |
 | `uriComponent(text)`, `fromUriComponent(text)` | `encodeURIComponent` and `decodeURIComponent` as a `Result`: both throw on text that is not well formed |
-| `resultEquality` | For a test runner: `expect.addEqualityTesters([resultEquality])`. Without it `toEqual` finds two `Ok` equal whatever they hold, and throws on an `Err`, because a `Result` is iterable |
+| `resultEquality` | For a test runner: `expect.addEqualityTesters([resultEquality])`. Without it `toEqual` throws on an `Err`: a `Result` is iterable, and the runner walks into it |
 | `textOf(value)`, `record(pairs)` | What `String(value)` and `Object.fromEntries` do, without their exceptions |
 | `quotient(a, b)`, `remainder(a, b)`, `power(a, b)` | The three bigint operators that throw, giving an `Option` |
 | `panic(message)`, `unreachable(value)` | For bugs, which are not domain errors: they stop the program |
