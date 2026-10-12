@@ -240,6 +240,18 @@ export function createTypeScript6Provider(
     !sourceFile.fileName.includes('/node_modules/') &&
     sourceFile.fileName.startsWith(root);
 
+  /**
+   * Whether a name is read with a type narrower than the one it is declared with: the declared type accepts values
+   * the type here does not.
+   */
+  const narrowed = (name: ts.Node): boolean => {
+    const symbol = checker.getSymbolAtLocation(name);
+    if (symbol === undefined || (symbol.flags & (api.SymbolFlags.Variable | api.SymbolFlags.Property | api.SymbolFlags.Accessor)) === 0) return false;
+    const access = api.isPropertyAccessExpression(name.parent) && name.parent.name === name ? name.parent : name;
+    const declared = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration ?? name);
+    return !checker.isTypeAssignableTo(declared, checker.getTypeAtLocation(access));
+  };
+
   /** The name of a member of an object written in place (`name: value`): it is no value, and nothing is expected of it. */
   const isNameOfMember = (node: ts.Node): boolean => {
     const owner = node.parent;
@@ -336,6 +348,9 @@ export function createTypeScript6Provider(
               written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
             return asksForMutation ? 'mutable' : 'readonly';
           },
+          get isNarrowed() {
+            return narrowed(node);
+          },
           get declaredAt() {
             const owner = node.parent;
             const symbol = api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node);
@@ -385,6 +400,12 @@ export function createTypeScript6Provider(
           kind: 'property-access',
           object: part(unwrapped(node.expression)),
           name: node.name.text,
+          get isNarrowed() {
+            return narrowed(node.name);
+          },
+          get isGetter() {
+            return ((checker.getSymbolAtLocation(node.name)?.flags ?? 0) & api.SymbolFlags.GetAccessor) !== 0;
+          },
           get method() {
             const declarations = checker.getSymbolAtLocation(node.name)?.declarations ?? [];
             const written = declarations.find((declaration) => api.isMethodDeclaration(declaration) || api.isMethodSignature(declaration));

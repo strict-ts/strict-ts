@@ -400,9 +400,11 @@ function renderPanel(force: boolean): void {
   const body = $('panel');
   // The configuration does not depend on the result: it is not redrawn while the user types in it.
   if (state.tab === 'config' && body.dataset['view'] === `config:${state.scenario}` && !force) return;
-  const focused = document.activeElement !== null && body.contains(document.activeElement) ? document.activeElement.id : '';
+  const active = document.activeElement;
+  const focused = active !== null && body.contains(active) ? active.id : '';
   const scroll = body.scrollTop;
-  body.innerHTML = state.tab === 'rules' ? renderRules() : state.tab === 'config' ? renderConfig() : renderProblems();
+  const tab = state.tab;
+  body.innerHTML = tab === 'rules' ? renderRules() : tab === 'config' ? renderConfig() : renderProblems();
   body.dataset['view'] = `${state.tab}:${state.scenario}`;
   body.scrollTop = scroll;
   if (focused !== '') document.getElementById(focused)?.focus({ preventScroll: true });

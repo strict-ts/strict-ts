@@ -1739,6 +1739,84 @@ describe('the rules on a value that holds more than its type names', () => {
   });
 });
 
+describe('no-stale-narrowing', () => {
+  const only = (lines: readonly string[]) =>
+    refusals(checkSafe(['import type { Mut } from "@strict-ts/std";', ...lines, ''].join('\n'))).filter((refusal) => refusal.startsWith('no-stale-narrowing'));
+
+  test('refuses a narrowed read after a call: of a variable another function writes, of a property that can be written', () => {
+    const lines = [
+      'let current: string | number = "a";',
+      'const reset = (): void => { current = 1; };',
+      'export const a = (): string => {',
+      '  if (typeof current !== "string") return "";',
+      '  reset();',
+      '  return current;',
+      '};',
+      'const box: Mut<{ value: string | undefined }> = { value: "x" };',
+      'export const b = (): number => {',
+      '  if (box.value === undefined) return 0;',
+      '  reset();',
+      '  return box.value.length;',
+      '};',
+      'export const c = async (wait: Promise<void>): Promise<number> => {',
+      '  if (box.value === undefined) return 0;',
+      '  await wait;',
+      '  return box.value.length;',
+      '};',
+    ];
+    expect(only(lines)).toEqual(['no-stale-narrowing@7', 'no-stale-narrowing@13', 'no-stale-narrowing@18']);
+  });
+
+  test('refuses a getter read as narrowed, with or without a call', () => {
+    const lines = [
+      'let asked = 0;',
+      'const source = { get value(): string | undefined { asked += 1; return asked % 2 === 1 ? "x" : undefined; } };',
+      'export const a = (): number => (source.value === undefined ? 0 : source.value.length);',
+    ];
+    expect(only(lines)).toEqual(['no-stale-narrowing@4']);
+  });
+
+  test('accepts a read with no call before it, a constant, a local nobody else writes, a property that cannot be written', () => {
+    const lines = [
+      'const box: Mut<{ value: string | undefined }> = { value: "x" };',
+      'const fixed: { readonly value: string | undefined } = { value: "x" };',
+      'const touch = (): void => { box.value = undefined; };',
+      'export const a = (): number => (box.value === undefined ? 0 : box.value.length);',
+      'export const b = (): number => {',
+      '  const value = box.value;',
+      '  if (value === undefined) return 0;',
+      '  touch();',
+      '  return value.length;',
+      '};',
+      'export const c = (): number => {',
+      '  let local: string | undefined = box.value;',
+      '  if (local === undefined) local = "";',
+      '  touch();',
+      '  return local.length;',
+      '};',
+      'export const d = (): number => {',
+      '  if (fixed.value === undefined) return 0;',
+      '  touch();',
+      '  return fixed.value.length;',
+      '};',
+    ];
+    expect(only(lines)).toEqual([]);
+  });
+
+  test('a write after the call is what the read relies on: filling a cache is accepted', () => {
+    const lines = [
+      'let cached: string | undefined;',
+      'const load = (): string => "x";',
+      'export const get = (): string => {',
+      '  if (cached === undefined) cached = load();',
+      '  return cached;',
+      '};',
+      'export const drop = (): void => { cached = undefined; };',
+    ];
+    expect(only(lines)).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

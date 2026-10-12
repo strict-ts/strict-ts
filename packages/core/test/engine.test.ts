@@ -66,7 +66,7 @@ describe('check', () => {
         if (node.kind === 'null-keyword') seen.push(`null in ${parent?.kind}`);
       },
     };
-    const left: Node = { kind: 'identifier', text: 'x', declaredOutside: false, parameter: 'none', start: 0, end: 1, isUnit: false, children: [] };
+    const left: Node = { kind: 'identifier', text: 'x', declaredOutside: false, parameter: 'none', declaredAt: undefined, isNarrowed: false, start: 0, end: 1, isUnit: false, children: [] };
     const provider: TypeProvider = {
       files: [
         {
@@ -130,7 +130,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the thirty-six rules, each with a guarantee and a description', () => {
+  test('holds the thirty-seven rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'freeze-fresh',
@@ -154,6 +154,7 @@ describe('the catalogue of rules', () => {
       'no-overload',
       'no-param-mutation',
       'no-resize',
+      'no-stale-narrowing',
       'no-throw',
       'no-throwing-call',
       'no-throwing-operator',
