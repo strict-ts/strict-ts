@@ -12,7 +12,7 @@ import { readonlyFixes } from '../fixes/readonly-types.js';
 import { typePredicateFixes } from '../fixes/type-predicate.js';
 
 /** The rules this package can fix. */
-export const FIXABLE = ['readonly-types', 'no-type-predicate'] as const;
+export const FIXABLE = ['readonly-types', 'no-type-predicate', 'no-param-mutation'] as const;
 
 export interface Outcome {
   /** The fixes kept, with the file they are in (relative to the project) and their place there. */
@@ -29,6 +29,12 @@ export interface Place {
   readonly line: number;
   readonly column: number;
 }
+
+/** How many times the gate is asked what is written without a word: one for each step up a chain of calls. */
+const MUT_PASSES = 12;
+/** The methods that give back something their receiver holds. */
+const PARTS: readonly string[] = ['find', 'findLast', 'at', 'get', 'pop', 'shift'];
+const STD = '@strict-ts/std';
 
 const describe = textOf;
 const flatten = (diagnostic: ts.Diagnostic): string => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
@@ -165,14 +171,143 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     });
     rewrite(kept);
 
+    /**
+     * `Mut<…>` where the gate says something is changed without a word: `this: Mut<Name>` on a method that writes
+     * its object, `Mut<…>` around the type of a parameter that is written, and around the return type of a function
+     * whose result is written. Not a fix like the others: the word removes a refusal where it is written and makes
+     * one at each caller that holds the value without saying it may change it, so it cannot be judged one place at
+     * a time. The gate is asked what is written, the word is put everywhere it asks, and it is asked again: a
+     * method that calls one that writes now writes too. When nothing more is found, the whole is kept if the
+     * project compiles and is refused in fewer places than before; or none of it is.
+     */
+    const sayWhatChanges = (): { readonly applied: readonly Place[]; readonly left: readonly Place[] } => {
+      const start = new Map(changed);
+      const applied: Mut<Place[]> = [];
+      const left: Mut<Place[]> = [];
+      const saysMut = (node: ts.Node): boolean =>
+        (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === 'Mut') || (ts.forEachChild(node, saysMut) ?? false);
+      let program = compile();
+      const refusedAtStart = refusals(program).length;
+      for (let pass = 0; pass < MUT_PASSES; pass++) {
+        const checker = program.getTypeChecker();
+        const inserts = new Map<string, Mut<{ at: number; text: string }[]>>();
+        const seen = new Set<ts.Node>();
+        const insert = (file: ts.SourceFile, at: number, text: string): void => {
+          const here = inserts.get(file.fileName) ?? [];
+          inserts.set(file.fileName, here);
+          here.push({ at, text });
+        };
+        /** `Mut<…>` around a written type; inside `Promise<…>`, around what it promises. */
+        const wrap = (type: ts.TypeNode): boolean => {
+          const promised = ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName) && type.typeName.text === 'Promise' ? type.typeArguments?.[0] : undefined;
+          const inner = promised ?? type;
+          const file = inner.getSourceFile();
+          if (seen.has(inner) || saysMut(type) || !texts.has(file.fileName)) return false;
+          seen.add(inner);
+          insert(file, inner.getStart(file), 'Mut<');
+          insert(file, inner.getEnd(), '>');
+          return true;
+        };
+        for (const refusal of refusals(program)) {
+          if (refusal.rule !== 'no-param-mutation' && refusal.rule !== 'mut-from-readonly') continue;
+          const file = program.getSourceFile(`${rootDir}/${refusal.file}`);
+          if (file === undefined || !texts.has(file.fileName)) continue;
+          const at = ts.getPositionOfLineAndCharacter(file, refusal.start.line - 1, refusal.start.column - 1);
+          const inner = (node: ts.Node): ts.Node => ts.forEachChild(node, (child) => (at >= child.getStart(file) && at < child.getEnd() ? inner(child) : undefined)) ?? node;
+          const place = inner(file);
+          const where: Place = { rule: 'no-param-mutation', file: refusal.file, line: refusal.start.line, column: refusal.start.column };
+          const named = /^(?:Parameter )?`([^`]+)`/.exec(refusal.message)?.[1] ?? '';
+          const done = (fixed: boolean): void => {
+            if (fixed) applied.push(where);
+            else if (pass === 0) left.push(where);
+          };
+
+          if (refusal.message.startsWith('`this` is mutated')) {
+            // The function whose `this` it is: an arrow has the `this` of where it is written.
+            let owner: ts.Node | undefined = place;
+            while (owner !== undefined && !(ts.isFunctionLike(owner) && !ts.isArrowFunction(owner))) owner = owner.parent;
+            if (owner === undefined || seen.has(owner)) continue;
+            seen.add(owner);
+            const holder = owner.parent;
+            // A getter and a function kept in a property cannot declare `this`; an object written in place has no name.
+            if (!ts.isMethodDeclaration(owner) || !ts.isClassLike(holder) || holder.name === undefined) {
+              done(false);
+              continue;
+            }
+            const generics = (holder.typeParameters ?? []).map((parameter) => parameter.name.text);
+            const self = `${holder.name.text}${generics.length === 0 ? '' : `<${generics.join(', ')}>`}`;
+            insert(file, owner.parameters.pos, `this: Mut<${self}>${owner.parameters.length === 0 ? '' : ', '}`);
+            done(true);
+          } else if (refusal.message.startsWith('Parameter `')) {
+            // The nearest function that has a parameter of that name.
+            let parameter: ts.ParameterDeclaration | undefined;
+            for (let owner: ts.Node | undefined = place; owner !== undefined && parameter === undefined; owner = owner.parent) {
+              if (ts.isFunctionLike(owner)) parameter = owner.parameters.find((one) => ts.isIdentifier(one.name) && one.name.text === named);
+            }
+            // A parameter with no written type takes it from where the function is given: nothing to write here.
+            if (parameter === undefined || seen.has(parameter)) continue;
+            seen.add(parameter);
+            done(parameter.type !== undefined && parameter.dotDotDotToken === undefined && wrap(parameter.type));
+          } else if (refusal.message.includes('that gave it does not say')) {
+            // The name that is written, in the statement the refusal is in; then the call it was made from.
+            let statement: ts.Node = place;
+            while (!ts.isStatement(statement) && !ts.isSourceFile(statement.parent)) statement = statement.parent;
+            const find = (node: ts.Node): ts.Identifier | undefined => (ts.isIdentifier(node) && node.text === named ? node : ts.forEachChild(node, find));
+            const name = find(statement);
+            let declaration: ts.Node | undefined = name === undefined ? undefined : checker.getSymbolAtLocation(name)?.valueDeclaration;
+            while (declaration !== undefined && (ts.isBindingElement(declaration) || ts.isObjectBindingPattern(declaration) || ts.isArrayBindingPattern(declaration))) declaration = declaration.parent;
+            if (declaration === undefined || !ts.isVariableDeclaration(declaration)) continue;
+            const loop = declaration.parent.parent;
+            let source: ts.Expression | undefined = ts.isForOfStatement(loop) ? loop.expression : declaration.initializer;
+            // `store.living().find(…)`: what `find` gives is a part of what `living` gave.
+            for (;;) {
+              if (source === undefined) break;
+              if (ts.isParenthesizedExpression(source) || ts.isNonNullExpression(source) || ts.isAwaitExpression(source)) source = source.expression;
+              else if (ts.isCallExpression(source) && ts.isPropertyAccessExpression(source.expression) && ts.isCallExpression(source.expression.expression) && PARTS.includes(source.expression.name.text)) source = source.expression.expression;
+              else break;
+            }
+            const giver = source !== undefined && ts.isCallExpression(source) ? checker.getResolvedSignature(source)?.getDeclaration() : undefined;
+            if (giver === undefined || seen.has(giver)) continue;
+            seen.add(giver);
+            done(giver.type !== undefined && wrap(giver.type));
+          }
+        }
+        if (inserts.size === 0) break;
+        for (const [fileName, here] of inserts) {
+          const file = program.getSourceFile(fileName);
+          if (file === undefined) continue;
+          const imports = file.statements.filter(ts.isImportDeclaration);
+          const imported = imports.some((declaration) => {
+            const bindings = declaration.importClause?.namedBindings;
+            return bindings !== undefined && ts.isNamedImports(bindings) && bindings.elements.some((element) => element.name.text === 'Mut');
+          });
+          // After the imports there are; or after the directives a file starts with (`"use client"`).
+          const directives = file.statements.filter((statement, index) => ts.isExpressionStatement(statement) && ts.isStringLiteral(statement.expression) && file.statements.slice(0, index).every(ts.isExpressionStatement));
+          const after = imports.at(-1)?.getEnd() ?? directives.at(-1)?.getEnd();
+          if (!imported) here.push(after === undefined ? { at: 0, text: `import type { Mut } from '${STD}';\n` } : { at: after, text: `\nimport type { Mut } from '${STD}';` });
+          let text = file.text;
+          // From the end of the file to its start, so that no place moves before it is written; at one place, in the order asked.
+          for (const one of here.map((entry, index) => ({ ...entry, index })).toSorted((a, b) => b.at - a.at || b.index - a.index)) text = `${text.slice(0, one.at)}${one.text}${text.slice(one.at)}`;
+          changed.set(fileName, text);
+        }
+        program = compile();
+      }
+      const holds = ts.getPreEmitDiagnostics(program).length <= before && refusals(program).length < refusedAtStart;
+      if (holds || applied.length === 0) return { applied, left };
+      changed.clear();
+      for (const [fileName, text] of start) changed.set(fileName, text);
+      return { applied: [], left: [...applied, ...left] };
+    };
+    const receivers = rules.includes('no-param-mutation') ? sayWhatChanges() : { applied: [], left: [] };
+
     const place = (fix: Fix): Place => {
       const { line, character } = ts.getLineAndCharacterOfPosition(original.getSourceFile(fix.file) ?? sources[0] ?? ts.createSourceFile('', '', 99), fix.at);
       return { rule: fix.rule, file: relative(fix.file), line: line + 1, column: character + 1 };
     };
     if (!dryRun) for (const [fileName, text] of changed) writeFileSync(fileName, text);
     return ok({
-      applied: kept.map(place),
-      left: found.filter((fix) => !kept.includes(fix)).map(place),
+      applied: [...kept.map(place), ...receivers.applied],
+      left: [...found.filter((fix) => !kept.includes(fix)).map(place), ...receivers.left],
       written: dryRun ? [] : [...changed.keys()].map(relative).toSorted(),
     });
   }, describe);

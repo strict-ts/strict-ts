@@ -149,7 +149,7 @@ describe('strict-ts-fix', () => {
 
   test('says what it cannot do, with exit code 2', () => {
     const directory = project();
-    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate\)/);
+    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate, no-param-mutation\)/);
     expect(fix(directory, '--force').code).toBe(2);
     expect(fix(directory, '-p', 'missing').err.join('\n')).toMatch(/missing does not exist$/);
   });
@@ -309,5 +309,51 @@ describe('the pieces', () => {
       expect(keepUnblamed(fixes, tryWith)).toEqual(fixes);
       expect(builds()).toBe(1);
     });
+  });
+});
+
+describe('strict-ts-fix --rule no-param-mutation', () => {
+  test('is not run unless it is named', () => {
+    const directory = project('says');
+    expect(fix(directory).out.join('\n')).not.toContain('no-param-mutation');
+    expect(read(directory, 'src/counter.ts')).not.toContain('this: Mut');
+  });
+
+  test('writes `Mut<…>` on the methods, the parameters and the return types, up the calls, and says what it could not', () => {
+    const directory = project('says');
+    expect(refused(directory)).toEqual({ 'src/counter.ts no-param-mutation': 3, 'src/use.ts no-param-mutation': 1 });
+    expect(fix(directory, '--rule', 'no-param-mutation')).toEqual({
+      code: 0,
+      out: [
+        'no-param-mutation: 6 fixes applied, 1 left',
+        '  src/counter.ts:20:5 left as it is: there is no written type to put `Mut<…>` around, or the function cannot declare `this`',
+        '2 files written',
+      ],
+      err: [],
+    });
+    const counter = read(directory, 'src/counter.ts');
+    expect(counter).toContain('increment(this: Mut<Counter>): void {');
+    // It calls one that writes: found at the second look.
+    expect(counter).toContain('twice(this: Mut<Counter>): void {');
+    expect(counter).toContain('add(this: Mut<Counter>, step: number): void {');
+    const use = read(directory, 'src/use.ts');
+    expect(use).toContain("import { Counter } from './counter.js';\nimport type { Mut } from '@strict-ts/std';");
+    expect(use).toContain('export const current = (): Mut<Counter> => held;');
+    expect(use).toContain('export function touch(counter: Mut<Counter>): void {');
+    expect(use).toContain('export const later = async (): Promise<Mut<Counter>> => held;');
+    // A getter cannot declare `this`: it is the one place still refused.
+    expect(refused(directory)).toEqual({ 'src/counter.ts no-param-mutation': 1 });
+  });
+
+  test('a second run has nothing more to write', () => {
+    const directory = project('says');
+    fix(directory, '--rule', 'no-param-mutation');
+    const after = read(directory, 'src/use.ts');
+    expect(fix(directory, '--rule', 'no-param-mutation').out).toEqual([
+      'no-param-mutation: 0 fixes applied, 1 left',
+      '  src/counter.ts:20:5 left as it is: with the fix the project does not compile, or is refused for more',
+      '0 files written',
+    ]);
+    expect(read(directory, 'src/use.ts')).toBe(after);
   });
 });

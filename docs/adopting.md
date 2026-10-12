@@ -79,6 +79,20 @@ It adds `readonly` to arrays and properties, writes `ReadonlyMap`, `ReadonlySet`
 a written type predicate where the compiler infers it. Each fix is kept only if the project still compiles: what the
 code really changes is left as it is, and listed.
 
+One fix is not run unless it is asked for, because it is not judged one place at a time:
+
+```sh
+node packages/codemod/dist/main.js -p . --rule no-param-mutation
+```
+
+It writes `Mut<…>` where the gate says something is changed without a word: `this: Mut<Name>` on a method that writes
+its object, `Mut<…>` around the type of a parameter that is written and around the return type of a function whose
+result is written. The word removes a refusal where it is written and makes one at each caller that holds the value
+without saying it may change it; so the gate is asked again, and again, up the calls. The whole is kept if the
+project compiles and is refused in fewer places than before, or none of it is. On an 11,000-line game written with
+classes it wrote 154 of them in 18 seconds, and `no-param-mutation` went from 491 refusals to 30. It needs
+`@strict-ts/std` installed: it imports `Mut` from it.
+
 About the baseline itself:
 
 - A file and rule that hold more violations than recorded are refused whole, each with « n allowed by the baseline ».

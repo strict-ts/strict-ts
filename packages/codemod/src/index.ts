@@ -21,6 +21,9 @@ export const usage = [
   'Options:',
   '  -p, --project <path>  A tsconfig.json, or a directory that holds one (default: the current directory)',
   `      --rule <name>     Fix this rule only; may be repeated (${FIXABLE.join(', ')})`,
+  '                        no-param-mutation is only fixed when it is named: it writes `Mut<…>` where the gate',
+  '                        says something is changed without a word (a method, a parameter, a return type), all',
+  '                        at once, and keeps it when the project compiles and is refused in fewer places',
   '      --dry-run         Say what would be fixed, and write nothing',
   '  -h, --help            Show this help',
 ].join('\n');
@@ -50,7 +53,7 @@ function parseArgs(argv: readonly string[]): Result<Arguments | 'help', string> 
       return err(`unknown argument: ${arg}`);
     }
   }
-  return ok({ project, rules: rules.length === 0 ? FIXABLE : rules, dryRun });
+  return ok({ project, rules: rules.length === 0 ? FIXABLE.filter((name) => name !== 'no-param-mutation') : rules, dryRun });
 }
 
 const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -75,7 +78,11 @@ export function run(argv: readonly string[], io: Io): number {
     const fixed = applied.filter((place) => place.rule === rule).length;
     const kept = left.filter((place) => place.rule === rule);
     io.out(`${rule}: ${count(fixed, 'fix', 'fixes')}${dryRun ? ' would be' : ''} applied, ${kept.length} left`);
-    for (const place of kept) io.out(`  ${place.file}:${place.line}:${place.column} left as it is: with the fix the project does not compile, or is refused for more`);
+    const why =
+      rule === 'no-param-mutation' && fixed > 0
+        ? 'there is no written type to put `Mut<…>` around, or the function cannot declare `this`'
+        : 'with the fix the project does not compile, or is refused for more';
+    for (const place of kept) io.out(`  ${place.file}:${place.line}:${place.column} left as it is: ${why}`);
   }
   io.out(dryRun ? 'dry run: nothing written' : `${count(written.length, 'file', 'files')} written`);
   return 0;
