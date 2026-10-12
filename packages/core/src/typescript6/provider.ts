@@ -95,6 +95,9 @@ export function createTypeScript6Provider(
   const isMut = (written: ts.TypeNode | undefined): boolean =>
     written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
 
+  /** The `this` a function declares as its first parameter. */
+  const isThis = (parameter: ts.ParameterDeclaration): boolean => api.isIdentifier(parameter.name) && parameter.name.text === 'this';
+
   /** Whether a property cannot be written: declared `readonly`, or made so by a mapped type (`Readonly<T>`). */
   const isReadonlySymbol = (symbol: ts.Symbol): boolean => {
     const declared = (symbol.getDeclarations() ?? []).some(
@@ -241,6 +244,15 @@ export function createTypeScript6Provider(
       },
       get returns() {
         return type.getCallSignatures().map((signature) => wrapType(signature.getReturnType()));
+      },
+      get mutableParameters() {
+        const declaration = type.getCallSignatures()[0]?.getDeclaration();
+        const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
+        return written.flatMap((parameter, index) => (isMut(parameter.type) ? [index] : []));
+      },
+      get mutableReceiver() {
+        const self = type.getCallSignatures()[0]?.getDeclaration()?.parameters.find(isThis);
+        return self?.type !== undefined && isMut(self.type) ? wrapType(checker.getTypeFromTypeNode(self.type)) : undefined;
       },
     };
     return self;
@@ -764,6 +776,8 @@ export function createTypeScript6Provider(
     property: () => undefined,
     properties: [],
     returns: [],
+    mutableParameters: [],
+    mutableReceiver: undefined,
   };
 
   return {
@@ -834,9 +848,26 @@ export function createTypeScript6Provider(
     asksForMutation: (node) => {
       const source = origin.get(node);
       if (source === undefined || !api.isExpression(source)) return false;
+      // The expression that is given: what is chosen between (`a ?? b`, `c ? a : b`) is given where the choice is.
       let place: ts.Node = source;
-      while (api.isParenthesizedExpression(place.parent)) place = place.parent;
+      for (;;) {
+        const outer: ts.Node = place.parent;
+        const chooses =
+          api.isParenthesizedExpression(outer) ||
+          api.isNonNullExpression(outer) ||
+          (api.isConditionalExpression(outer) && outer.condition !== place) ||
+          (api.isBinaryExpression(outer) && [api.SyntaxKind.QuestionQuestionToken, api.SyntaxKind.BarBarToken].includes(outer.operatorToken.kind));
+        if (!chooses) break;
+        place = outer;
+      }
       const holder = place.parent;
+      /** The written type of what a name of the program declares: a variable, a parameter, a property. */
+      const declared = (symbol: ts.Symbol | undefined): ts.TypeNode | undefined =>
+        (symbol?.declarations ?? []).flatMap((declaration) =>
+          (api.isVariableDeclaration(declaration) || api.isParameter(declaration) || api.isPropertySignature(declaration) || api.isPropertyDeclaration(declaration)) && declaration.type !== undefined
+            ? [declaration.type]
+            : [],
+        )[0];
       if (api.isVariableDeclaration(holder)) return holder.initializer === place && isMut(holder.type);
       if (api.isReturnStatement(holder) || (api.isArrowFunction(holder) && holder.body === place)) {
         let owner: ts.Node | undefined = holder;
@@ -850,6 +881,27 @@ export function createTypeScript6Provider(
         // Past the last one, an argument goes to the rest of them.
         const declaration = (parameters[index] ?? parameters.at(-1))?.valueDeclaration;
         return declaration !== undefined && api.isParameter(declaration) && isMut(declaration.type);
+      }
+      // A property of an object written in place: what the type the object is asked to have says of that property.
+      if ((api.isPropertyAssignment(holder) && holder.initializer === place) || api.isShorthandPropertyAssignment(holder)) {
+        const name = holder.name;
+        const wanted = checker.getContextualType(holder.parent);
+        if (wanted === undefined || !(api.isIdentifier(name) || api.isStringLiteralLike(name))) return false;
+        return (wanted.isUnion() ? wanted.types : [wanted]).some((member) => isMut(declared(member.getProperty(name.text))));
+      }
+      // The right side of an assignment: what the left side was declared as.
+      if (api.isBinaryExpression(holder) && holder.operatorToken.kind === api.SyntaxKind.EqualsToken && holder.right === place) {
+        const left = holder.left;
+        return isMut(declared(checker.getSymbolAtLocation(api.isPropertyAccessExpression(left) ? left.name : left)));
+      }
+      // An element of an array written in place: what the written type of the array says of its elements.
+      if (api.isArrayLiteralExpression(holder)) {
+        const owner = holder.parent;
+        const written = api.isVariableDeclaration(owner) && owner.initializer === holder ? owner.type : undefined;
+        const list = written !== undefined && api.isTypeOperatorNode(written) ? written.type : written;
+        if (list === undefined) return false;
+        if (api.isArrayTypeNode(list)) return isMut(list.elementType);
+        return api.isTypeReferenceNode(list) && api.isIdentifier(list.typeName) && ['Array', 'ReadonlyArray'].includes(list.typeName.text) && isMut(list.typeArguments?.[0]);
       }
       return false;
     },

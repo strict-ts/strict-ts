@@ -21,10 +21,11 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
 - **Explicit mutability holds for the plain cases only.** Of 20 known ways to change a value its type says is
-  read-only, or to change what a function receives without its parameter saying `Mut`, the rules refuse 12. A
-  parameter is still changed by its own method; a value typed read-only reaches a type that can be written through
-  a property of an object written in place, an element of an array, the right side of an assignment, the result of
-  a call. Each is a file of `packages/core/test/fixtures/mutations`.
+  read-only, or to change what a function receives without its parameter saying `Mut`, the rules refuse 18. A
+  parameter is still changed by its own method (`counter.increment()`), and a local with no written type is
+  mutable while someone else reads it as read-only. Each is a file of `packages/core/test/fixtures/mutations`.
+- `mut-from-readonly` compares the properties of what is given with those of what is asked three levels deep, and
+  not the elements of an array that is not written in place.
 - `no-param-mutation` follows a local name made from a parameter, not what a function gives back
   (`const alias = same(given)`), nor what `map` gives.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
