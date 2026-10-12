@@ -9,6 +9,7 @@ import { noCast } from './no-cast.js';
 import { noExternalImport } from './no-external-import.js';
 import { noNonNull } from './no-non-null.js';
 import { noParamMutation } from './no-param-mutation.js';
+import { noOverload } from './no-overload.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
@@ -37,7 +38,6 @@ export const rules: readonly Rule[] = [
   unsafeBoundary,
   safetyComment,
   strictCompilerOptions,
-  unreadSources,
   noTypePredicate,
   noAmbient,
   noParamMutation,
@@ -48,4 +48,6 @@ export const rules: readonly Rule[] = [
   useOnce,
   freezeFresh,
   mutFromReadonly,
+  unreadSources,
+  noOverload,
 ];

@@ -147,19 +147,12 @@ export const branded = <T, const B extends string>(inner: Schema<T>, name: B): S
 export const nonEmpty = <T extends { readonly length: number }>(inner: Schema<T>): Schema<Branded<T, 'NonEmpty'>> =>
   refine(inner, 'NonEmpty', (value) => value.length > 0);
 
-/** A number above zero. Around another constrained number, it keeps that constraint too. */
-export function positive(): Schema<Branded<number, 'Positive'>>;
-export function positive<T extends number>(inner: Schema<T>): Schema<Branded<T, 'Positive'>>;
-export function positive(inner: Schema<number> = number): Schema<Branded<number, 'Positive'>> {
-  return refine(inner, 'Positive', (value) => value > 0);
-}
+/** A number above zero: `positive(number)`. Around another constrained number, it keeps that constraint too. */
+export const positive = <T extends number>(inner: Schema<T>): Schema<Branded<T, 'Positive'>> => refine(inner, 'Positive', (value) => value > 0);
 
-/** A whole number. Around another constrained number, it keeps that constraint too. */
-export function integer(): Schema<Branded<number, 'Integer'>>;
-export function integer<T extends number>(inner: Schema<T>): Schema<Branded<T, 'Integer'>>;
-export function integer(inner: Schema<number> = number): Schema<Branded<number, 'Integer'>> {
-  return refine(inner, 'Integer', (value) => Number.isInteger(value));
-}
+/** A whole number: `integer(number)`. Around another constrained number, it keeps that constraint too. */
+export const integer = <T extends number>(inner: Schema<T>): Schema<Branded<T, 'Integer'>> =>
+  refine(inner, 'Integer', (value) => Number.isInteger(value));
 
 /** A number between two bounds, both included. Every range has the same brand: name yours with `refine` to tell two apart. */
 export const between = (min: number, max: number): Schema<Branded<number, 'Between'>> =>

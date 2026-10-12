@@ -405,7 +405,13 @@ export function createTypeScript6Provider(
       }
       if (api.isFunctionLike(node) && !api.isTypeNode(node) && !api.isTypeElement(node)) {
         const body = 'body' in node ? node.body : undefined;
-        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body) };
+        const declares = api.isFunctionDeclaration(node) || api.isMethodDeclaration(node) || api.isConstructorDeclaration(node);
+        const isAbstract = (api.getCombinedModifierFlags(node) & api.ModifierFlags.Abstract) !== 0;
+        // Under `declare`, a signature with no body says what is defined elsewhere: `no-ambient` answers for it.
+        const isDeclared =
+          api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
+        const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
+        return { ...base, kind: 'function', parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

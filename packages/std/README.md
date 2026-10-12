@@ -69,7 +69,7 @@ Unknown keys of an object are dropped.
 A value that passed a check has a type that says so, and a plain value is not accepted in its place.
 
 ```ts
-const Quantity = s.positive(s.integer());
+const Quantity = s.positive(s.integer(s.number));
 type Quantity = s.Infer<typeof Quantity>;        // a number, branded Positive and Integer
 const CustomerId = s.branded(s.string, 'CustomerId');
 
@@ -78,7 +78,7 @@ price(2);                                        // refused by the compiler: 2 d
 Quantity.parse(input).map(price);                // the only way in
 ```
 
-`s.nonEmpty(inner)`, `s.positive(inner?)`, `s.integer(inner?)`, `s.between(min, max)`, `s.refine(inner, 'Name', test)`
+`s.nonEmpty(inner)`, `s.positive(inner)`, `s.integer(inner)`, `s.between(min, max)`, `s.refine(inner, 'Name', test)`
 for a check of your own, `s.branded(inner, 'Name')` for a name without a check. The brand exists in the type only;
 outside an unsafe directory, forging one needs a cast, which `no-cast` refuses.
 

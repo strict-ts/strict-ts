@@ -77,7 +77,6 @@
           "unsafe-boundary",
           "safety-comment",
           "strict-compiler-options",
-          "unread-sources",
           "no-type-predicate",
           "no-ambient",
           "no-param-mutation",
@@ -87,7 +86,9 @@
           "no-throwing-operator",
           "use-once",
           "freeze-fresh",
-          "mut-from-readonly"
+          "mut-from-readonly",
+          "unread-sources",
+          "no-overload"
         ]
       },
       "uniqueItems": true,

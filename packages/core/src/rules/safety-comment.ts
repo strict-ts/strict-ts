@@ -10,6 +10,7 @@ const unchecked = (node: Node): string | undefined => {
   if (node.kind === 'definite-assignment') return 'definite assignment';
   if (node.kind === 'type-predicate') return 'type predicate';
   if (node.kind === 'ambient-declaration') return '`declare`';
+  if (node.kind === 'function' && node.isOverload) return 'overload';
   return undefined;
 };
 

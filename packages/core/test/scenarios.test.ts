@@ -108,6 +108,7 @@ describe('one violation per rule', () => {
       'no-external-import',
       'no-non-null',
       'no-null',
+      'no-overload',
       'no-param-mutation',
       'no-throw',
       'no-throwing-call',
