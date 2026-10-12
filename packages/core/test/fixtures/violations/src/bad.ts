@@ -93,3 +93,7 @@ export function widen<T>(value: unknown): T; // expect: no-overload
 export function widen(value: unknown): unknown {
   return value;
 }
+
+export interface Listener {
+  notify(event: string): void; // expect: no-method-signature
+}

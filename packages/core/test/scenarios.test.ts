@@ -106,6 +106,7 @@ describe('one violation per rule', () => {
       'no-any',
       'no-cast',
       'no-external-import',
+      'no-method-signature',
       'no-non-null',
       'no-null',
       'no-overload',
