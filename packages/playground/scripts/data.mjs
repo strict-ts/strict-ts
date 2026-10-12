@@ -23,7 +23,6 @@ const allFlags = {
   noImplicitReturns: true,
   noFallthroughCasesInSwitch: true,
   noImplicitOverride: true,
-  noPropertyAccessFromIndexSignature: true,
 };
 const lines = (files) => Object.values(files).reduce((sum, text) => sum + text.trimEnd().split('\n').length, 0);
 const scenario = (id, title, intro, files, flags = allFlags) => ({
@@ -102,7 +101,7 @@ export function scenarios() {
       'One violation per rule',
       'Every rule is triggered at least once, the missing compiler option included.',
       project(`${fixtures}/violations`),
-      { ...allFlags, noPropertyAccessFromIndexSignature: false },
+      { ...allFlags, noImplicitOverride: false },
     ),
   ];
 }

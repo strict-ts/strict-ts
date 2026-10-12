@@ -11,8 +11,7 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true
+    "noImplicitOverride": true
   },
   "include": ["src"]
 }

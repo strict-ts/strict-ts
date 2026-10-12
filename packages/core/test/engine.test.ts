@@ -108,7 +108,7 @@ describe('checking some files only', () => {
     ...fixture('violations'),
     'src/wrong.ts': 'export const n: number = "x";\nexport const m: string = 1;\n',
   };
-  const compilerOptions = { noPropertyAccessFromIndexSignature: false };
+  const compilerOptions = { noImplicitOverride: false };
   const whole = checkFiles(files, { compilerOptions });
 
   test('asked about every file, it gives exactly what a whole run gives', () => {

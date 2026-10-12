@@ -31,7 +31,6 @@ const strict = {
   noImplicitReturns: true,
   noFallthroughCasesInSwitch: true,
   noImplicitOverride: true,
-  noPropertyAccessFromIndexSignature: true,
 };
 
 /** Clones a project at its pinned commit, once, and gives it the tsconfig.json it is checked with. */

@@ -12,7 +12,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
     "paths": { "legacy": ["./vendor/legacy/index.d.ts"] }
   },
   "include": ["src"]
