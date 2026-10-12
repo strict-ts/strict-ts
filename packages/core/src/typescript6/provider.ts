@@ -220,6 +220,14 @@ export function createTypeScript6Provider(
       get readonlyProperties() {
         return type.getProperties().filter(isReadonlySymbol).map((symbol) => symbol.getName());
       },
+      get mutableProperties() {
+        const asks = (declaration: ts.Declaration): boolean =>
+          (api.isPropertySignature(declaration) || api.isPropertyDeclaration(declaration) || api.isParameter(declaration)) && isMut(declaration.type);
+        return type
+          .getProperties()
+          .filter((symbol) => (symbol.declarations ?? []).some(asks))
+          .map((symbol) => symbol.getName());
+      },
       get optionalProperties() {
         return type
           .getProperties()
@@ -633,6 +641,7 @@ export function createTypeScript6Provider(
     isBooleanLiteral: false,
     isOnce: false,
     readonlyProperties: [],
+    mutableProperties: [],
     optionalProperties: [],
     propertyNames: [],
     isPlain: false,

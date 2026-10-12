@@ -8,7 +8,7 @@ export const noResize: Rule = {
   name: 'no-resize',
   guarantee: 'typing',
   description:
-    'An array gets no hole and a tuple keeps its length: the length of an array is not assigned, an array is not written by position, a tuple is not pushed into or popped.',
+    'An array gets no hole and a tuple keeps its length: the length of an array is not assigned, an array is not written by position, no element is deleted, none is made from a length alone, a tuple is not pushed into or popped.',
   scope: 'safe',
   visit(node, { typeOf, report }) {
     if (node.kind === 'binary' && node.operator === '=') {
@@ -26,6 +26,21 @@ export const noResize: Rule = {
       const written = left.kind === 'literal' ? left.children.filter(byPosition) : [left].filter(byPosition);
       for (const target of written) {
         report(target, 'An array is written by position: past its end, the write leaves holes that are typed as elements.', 'Replace the element with `splice(index, 1, value)`, which never leaves a hole, or build another array.');
+      }
+      return;
+    }
+    if (node.kind === 'delete') {
+      const target = node.operand;
+      if (target.kind === 'element-access' && typeOf(target.object).isArray) {
+        report(node, 'An element of an array is deleted: it leaves a hole that is typed as an element.', 'Remove it with `splice(index, 1)`, which closes the gap.');
+      }
+      return;
+    }
+    // An object with a length and no element, taken for an array: `Array.from({ length: n })` makes n holes.
+    if (node.kind === 'call' && node.callee.kind === 'property-access' && node.callee.name === 'from' && node.callee.object.kind === 'identifier' && node.callee.object.text === 'Array') {
+      const [source] = node.arguments;
+      if (source?.kind === 'literal' && source.entries.some((entry) => entry.name === 'length') && node.arguments.length < 2) {
+        report(node, '`Array.from` of an object that only has a length: it makes that many holes, typed as elements.', 'Give the function that makes each element: `Array.from({ length: n }, (_, index) => …)`.');
       }
       return;
     }
