@@ -401,7 +401,10 @@ export function createTypeScript6Provider(
       if (api.isVariableDeclaration(node)) {
         const list = node.parent;
         const isConst = api.isVariableDeclarationList(list) && (list.flags & api.NodeFlags.Const) !== 0;
-        return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer) };
+        // Not the variable of a loop or of a `catch`, which gets its value there; not one under `declare`.
+        const isDeclared = api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && (api.getCombinedModifierFlags(node) & api.ModifierFlags.Ambient) !== 0;
+        const waitsForValue = node.initializer === undefined && api.isVariableDeclarationList(list) && api.isVariableStatement(list.parent) && !isDeclared;
+        return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer), waitsForValue };
       }
       if (api.isMethodSignature(node)) return { ...base, kind: 'method-signature' };
       if (api.isEnumDeclaration(node)) {

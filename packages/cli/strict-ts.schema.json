@@ -90,7 +90,8 @@
           "unread-sources",
           "no-overload",
           "no-method-signature",
-          "no-numeric-enum"
+          "no-numeric-enum",
+          "no-unset-capture"
         ]
       },
       "uniqueItems": true,

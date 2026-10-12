@@ -1428,6 +1428,70 @@ describe('no-numeric-enum', () => {
   });
 });
 
+describe('no-unset-capture', () => {
+  const only = (found: ReturnType<typeof checkSafe>) => refusals(found).filter((refusal) => refusal.startsWith('no-unset-capture'));
+
+  test('refuses a variable declared with no value that a function reads or writes', () => {
+    const code = [
+      'let ready: string;',
+      'export const peek = (): string => ready;',
+      'ready = "yes";',
+      'let count: number;',
+      'export function set(n: number): void {',
+      '  count = n;',
+      '}',
+      '',
+    ].join('\n');
+    const found = checkSafe(code);
+    expect(only(found)).toEqual(['no-unset-capture@1', 'no-unset-capture@4']);
+    expect(found.find((d) => d.rule === 'no-unset-capture')?.message).toBe('This variable is declared with no value and a function uses it: nothing shows it has one when the function runs.');
+  });
+
+  test('accepts one that gets its value on the path the compiler follows', () => {
+    const code = [
+      'export const label = (n: number): string => {',
+      '  let text: string;',
+      '  if (n > 0) text = "more";',
+      '  else text = "less";',
+      '  return text;',
+      '};',
+      '',
+    ].join('\n');
+    expect(only(checkSafe(code))).toEqual([]);
+  });
+
+  test('accepts one whose type says it may have no value, and one that is given a value', () => {
+    const code = [
+      'let maybe: string | undefined;',
+      'let given: string = "";',
+      'export const read = (): string => `${maybe ?? ""}${given}`;',
+      'export const write = (text: string): void => { maybe = text; given = text; };',
+      '',
+    ].join('\n');
+    expect(only(checkSafe(code))).toEqual([]);
+  });
+
+  test('a function inside the one that declares it uses it too; the variable of a loop is not one', () => {
+    const code = [
+      'export const run = (items: readonly number[]): readonly (() => number)[] => {',
+      '  let last: number;',
+      '  const readers = items.map((item) => () => item);',
+      '  for (const item of items) last = item;',
+      '  for (let i: number = 0; i < 1; i++) readers.length;',
+      '  return [...readers, () => last];',
+      '};',
+      '',
+    ].join('\n');
+    expect(only(checkSafe(code))).toEqual(['no-unset-capture@2']);
+  });
+
+  test('does not run in a test: the runner gives the value before each case', () => {
+    const code = 'let dir: string;\nexport const use = (): number => dir.length;\n';
+    expect(only(checkFiles({ 'src/a.test.ts': code }))).toEqual([]);
+    expect(only(checkFiles({ 'src/a.ts': code }))).toEqual(['no-unset-capture@1']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
