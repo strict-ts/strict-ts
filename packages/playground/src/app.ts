@@ -30,7 +30,8 @@ const COMPILER = compiler().unwrapOr(undefined);
 const STORE = 'strict-ts-playground-v3';
 const STD_PREFIX = `${STD_NAME}/`;
 
-const $ = (id: string): HTMLElement => document.getElementById(id) ?? document.body;
+// An element of the page, to write into.
+const $ = (id: string): Mut<HTMLElement> => document.getElementById(id) ?? document.body;
 const esc = (text: string): string =>
   text.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
 const split = (list: string): readonly string[] =>
@@ -74,7 +75,7 @@ try {
   // A storage that is blocked or holds something else: the page starts from the scenarios.
 }
 
-function workspace(): Workspace {
+function workspace(): Mut<Workspace> {
   const known = state.workspaces[state.scenario];
   if (known !== undefined) return known;
   const created = freshWorkspace(scenarioById(state.scenario));
@@ -248,7 +249,7 @@ function renderHighlight(): void {
     .join('');
 }
 
-const source = (): HTMLTextAreaElement | undefined => {
+const source = (): Mut<HTMLTextAreaElement> | undefined => {
   const element = $('src');
   return element instanceof HTMLTextAreaElement ? element : undefined;
 };

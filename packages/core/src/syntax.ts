@@ -198,9 +198,9 @@ export interface Alias {
    * `same`: the name is the place itself. `part`: it is something the place holds (an element, a property taken
    * out by a pattern, what `find` gave). `copy`: it is a new container that holds what the place holds
    * (`slice()`, `[...place]`, the rest of a pattern): writing the container is not writing the place, writing
-   * into what it holds is.
+   * into what it holds is. `result`: it is what a call gave back, and `place` is the call.
    */
-  readonly as: 'same' | 'part' | 'copy';
+  readonly as: 'same' | 'part' | 'copy' | 'result';
 }
 
 export interface LiteralEntry {

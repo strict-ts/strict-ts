@@ -41,7 +41,7 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 | Memory safety | The runtime's garbage collector | Acquired |
 | Safe typing, nothing unchecked outside `unsafe` | No `any`, cast, `declare` or `@ts-ignore` outside `unsafe/`; a `// SAFETY:` reason inside | Prototype |
 | No null, errors in the types | `Option`, `Result`, `no-throw`, `must-use`; a call or an operator that may throw is caught where it is written | Prototype |
-| Explicit mutability | Types read-only unless they say `Mut<T>`, no mutation of parameters | Prototype |
+| Explicit mutability | Types read-only unless they say `Mut<T>`. A function changes only what it made, or what says `Mut`: a parameter, `this`, what another function hands out | Prototype |
 | Ownership, no uncontrolled concurrent access | A value typed `Once<T>` has one owner and is given away exactly once (`use-once`). State shared across `await` and workers: nothing yet | Research: a first rule, on a small subset |
 
 « Prototype » means the rules exist and are tested, and known ways around them remain (see

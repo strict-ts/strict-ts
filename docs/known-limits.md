@@ -24,17 +24,20 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   function is given: `const clear: (topic: Topic | undefined) => void = correct`, with `correct` declared with a
   default, is accepted, and `clear(undefined)` runs the default. A default in an assignment by a pattern
   (`({ a = 1 } = value)`) is not read either.
-- **Explicit mutability: one known way is open.** Of 22 known ways to change a value its type says is read-only,
-  or to change what a function receives without its parameter saying `Mut`, the rules refuse 21. A local with no
-  written type is still mutable while someone else reads it as read-only. Each is a file of
-  `packages/core/test/fixtures/mutations`.
+- **Explicit mutability is a list of known ways too.** Of 24 known ways to change what a function did not make and
+  that does not say `Mut`, the rules refuse 23. The last is outside the guarantee: whoever made a value may change
+  it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
+  list.push(2)`). That is aliasing, which Rust refuses with its borrow checker and strict-ts does not. Each is a
+  file of `packages/core/test/fixtures/mutations`.
+- `no-param-mutation` does not see a write straight into what a call gave back, with no name for it
+  (`current().count += 1`), nor into a new container of what a call gave (`[...current()]`). What a library gives
+  back may be written: its types say nothing either way.
 - A function written with an arrow in a constructor may change the object later, without anything saying so: the
   constructor may write `this`, and the arrow has its `this`. A getter cannot say `this: Mut<…>`, so a getter that
   writes (a value computed once and kept) is refused.
 - `mut-from-readonly` compares the properties of what is given with those of what is asked three levels deep, and
   not the elements of an array that is not written in place.
-- `no-param-mutation` follows a local name made from a parameter, not what a function gives back
-  (`const alias = same(given)`), nor what `map` gives.
+- `no-param-mutation` follows a local name made from a parameter, not what `map` gives.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.

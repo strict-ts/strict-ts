@@ -30,21 +30,30 @@ const DEPTH = 8;
 const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: number } =>
   node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1) : { root: node, steps };
 
+/** Whose it is, when a written object is not the function's own to change. */
+type Owner = { readonly kind: 'parameter'; readonly name: string } | { readonly kind: 'this' } | { readonly kind: 'giver'; readonly call: Node };
+
 /**
- * The read-only parameter an object belongs to: `p`, `p.x`, `p[0].y`, and the same through a local name made from
- * it. `steps` counts how far below its name the object is: a new container of what a parameter holds may be
- * written itself, and not what it holds.
+ * The owner of an object the function did not make and was not given to change: a read-only parameter (`p`,
+ * `p.x`, `p[0].y`), `this` where it may not be written, a call of the project that gave it back; and the same
+ * through a local name made from one. `below` counts how far under its name the object is: a new container of what
+ * a parameter holds may be written itself, and not what it holds. `gives` says whether a call hands out something
+ * its caller may write.
  */
-const parameterOf = (object: Node, depth = 0, below = 0): string | undefined => {
+const ownerOf = (object: Node, gives: (call: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
   const { root, steps } = rootOf(object);
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
-  if (root.kind === 'this') return root.receiver === 'readonly' ? 'this' : undefined;
+  if (root.kind === 'this') return root.receiver === 'readonly' ? { kind: 'this' } : undefined;
   if (root.kind !== 'identifier' || depth > DEPTH) return undefined;
-  if (root.parameter === 'readonly') return root.text;
+  if (root.parameter === 'readonly') return { kind: 'parameter', name: root.text };
   if (root.parameter === 'mutable') return undefined;
   for (const alias of root.aliasOf) {
     if (alias.as === 'copy' && steps + below === 0) continue;
-    const found = parameterOf(alias.place, depth + 1, steps + below + (alias.as === 'part' ? 1 : 0));
+    if (alias.as === 'result') {
+      if (!gives(alias.place)) return { kind: 'giver', call: alias.place };
+      continue;
+    }
+    const found = ownerOf(alias.place, gives, depth + 1, steps + below + (alias.as === 'part' ? 1 : 0));
     if (found !== undefined) return found;
   }
   return undefined;
@@ -58,16 +67,33 @@ export const noParamMutation: Rule = {
   name: 'no-param-mutation',
   guarantee: 'mutability',
   description:
-    'A function does not change what it receives unless the parameter asks for it with `Mut<T>`, Rust\'s `&mut`: not by its name, not by another name for it or for a part of it, not by a function of the platform. The object a method is called on is one of the things it receives: a method that changes it says `this: Mut<…>`.',
+    'A function changes only what it made, or what says it may be changed. Not a parameter, unless it asks for it with `Mut<T>`, Rust\'s `&mut`: by its name, by another name for it or for a part of it, by a function of the platform. Not the object a method is called on, unless the method says `this: Mut<…>`. Not what a function of the project gave back, unless its return type says `Mut<…>`.',
   scope: 'safe',
-  visit(node, { typeOf, report }) {
+  visit(node, { typeOf, calleeOf, report }) {
     const help = 'Return a new value instead, or type the parameter `Mut<…>` so that callers see it is changed.';
+    // A function of the project hands out something its caller may write only if its return type says `Mut<…>`.
+    // What a library gives back is taken on trust: its types say nothing either way.
+    const gives = (call: Node): boolean => {
+      if (call.kind !== 'call') return true;
+      const callee = calleeOf(call);
+      return callee === undefined || callee.origin.kind !== 'project' || typeOf(call.callee).mutableReturn;
+    };
     const refuse = (at: Node, object: Node, how: string): boolean => {
-      const parameter = parameterOf(object);
-      if (parameter === undefined) return false;
+      const owner = ownerOf(object, gives);
+      if (owner === undefined) return false;
       const { root } = rootOf(object);
-      const through = root.kind === 'identifier' && root.text !== parameter ? `, through \`${root.text}\`` : '';
-      if (parameter === 'this') {
+      const name = root.kind === 'identifier' ? root.text : '';
+      if (owner.kind === 'giver') {
+        const giver = (calleeOf(owner.call)?.name ?? '').replace(/\.$/, '');
+        report(
+          at,
+          `\`${name}\` is mutated${how}, and ${giver === '' ? 'the function' : `\`${giver}\``} that gave it does not say it may be: its return type has no \`Mut<…>\`.`,
+          'Write `Mut<…>` in the return type of the function, so that it says it hands out something to change; or change a copy.',
+        );
+        return true;
+      }
+      const through = owner.kind === 'parameter' && name !== owner.name ? `, through \`${name}\`` : owner.kind === 'this' && name !== '' ? `, through \`${name}\`` : '';
+      if (owner.kind === 'this') {
         report(
           at,
           `\`this\` is mutated${how}${through}, in a function that does not say \`this: Mut<…>\`.`,
@@ -75,7 +101,7 @@ export const noParamMutation: Rule = {
         );
         return true;
       }
-      report(at, `Parameter \`${parameter}\` is mutated${how}${through}.`, help);
+      report(at, `Parameter \`${owner.name}\` is mutated${how}${through}.`, help);
       return true;
     };
     const lefts =

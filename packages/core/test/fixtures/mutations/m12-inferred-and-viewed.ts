@@ -1,4 +1,5 @@
-// A local with no written type is mutable, and a read-only view of it changes under its holder.
+// What made a value changes it while someone else holds it as read-only. Outside guarantee 4: it is aliasing,
+// which Rust refuses with its borrow checker and strict-ts leaves to guarantee 5.
 const list = [1, 2];
 const view: readonly number[] = list;
 const before = view.length;
