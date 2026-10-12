@@ -2,8 +2,8 @@ import { Err, Ok } from './result.js';
 
 /**
  * How a test runner compares two Results. A Result is iterable (that is what `yield*` uses), and vitest and jest
- * compare iterables by iterating them: two Ok are then always equal, and an Err throws. Given to the runner once,
- * this makes `toEqual` compare the variant and what it holds:
+ * compare iterables by iterating them: an Err on either side then throws « an Err must never be resumed ». Given
+ * to the runner once, this makes `toEqual` compare the variant and what it holds:
  *
  *   import { expect } from 'vitest';
  *   import { resultEquality } from '@strict-ts/std';
