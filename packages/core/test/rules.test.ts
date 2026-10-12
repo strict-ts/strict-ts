@@ -2899,6 +2899,25 @@ describe('mut-from-readonly', () => {
     ]);
   });
 
+  test('a number, a text or a boolean is copied: given where `Mut<…>` is asked, it is nobody else\'s', () => {
+    expect(
+      said(
+        'export class Clock {',
+        '  now: Mut<number> = 0;',
+        '  label: Mut<string | undefined> = undefined;',
+        '  facing: Mut<"N" | "S"> = "N";',
+        '  tick(this: Mut<Clock>, now: number, label: string, facing: "N" | "S"): void {',
+        '    this.now = now;',
+        '    this.label = label;',
+        '    this.label = now > 0 ? undefined : label;',
+        '    this.facing = facing;',
+        '  }',
+        '}',
+      ),
+    ).toEqual([]);
+    expect(checkSafeEverything([...prelude, 'export class Clock {', '  label: Mut<string | undefined> = undefined;', '  set(this: Mut<Clock>, label: string): void {', '    this.label = label;', '  }', '}', ''].join('\n')).filter((d) => d.rule === 'mut-exact')).toEqual([]);
+  });
+
   test('looks below the first level of what is given', () => {
     expect(
       said(

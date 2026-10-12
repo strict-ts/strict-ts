@@ -1,5 +1,7 @@
 import type { Rule } from '../rule.js';
 
+const PRIMITIVES: readonly string[] = ['string', 'number', 'bigint', 'boolean', 'symbol', 'undefined', 'null'];
+
 export const mutExact: Rule = {
   name: 'mut-exact',
   guarantee: 'typing',
@@ -10,6 +12,8 @@ export const mutExact: Rule = {
     // What can name a value someone else holds: a fresh literal or a `new` cannot.
     if (node.kind !== 'identifier' && node.kind !== 'property-access' && node.kind !== 'element-access') return;
     if (!isWidened(node)) return;
+    // A number, a text, a boolean, nothing: copied when it is given, with nothing in it to write.
+    if (typeOf(node).kinds.every((kind) => PRIMITIVES.includes(kind))) return;
     if (asksForMutation(node)) {
       report(
         node,

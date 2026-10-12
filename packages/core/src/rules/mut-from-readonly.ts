@@ -8,6 +8,13 @@ const rootOf = (node: Node): Node => (node.kind === 'property-access' || node.ki
 /** What can be a value someone else holds: a name, a place, what a call gives back. An object written in place cannot. */
 const mayBeHeld = (node: Node): boolean => node.kind === 'identifier' || node.kind === 'property-access' || node.kind === 'element-access' || node.kind === 'call';
 
+/**
+ * A number, a text, a boolean, nothing: copied when it is given. Nobody else holds what was given, and there is
+ * nothing in it to write: `Mut<number>` on a field says the field is given other numbers.
+ */
+const PRIMITIVES: readonly string[] = ['string', 'number', 'bigint', 'boolean', 'symbol', 'undefined', 'null'];
+const isCopied = (type: Type): boolean => type.kinds.every((kind) => PRIMITIVES.includes(kind));
+
 /** How deep the properties of a type are compared. */
 const DEPTH = 3;
 
@@ -47,6 +54,7 @@ export const mutFromReadonly: Rule = {
   scope: 'safe',
   visit(node, { typeOf, expectedOf, asksForMutation, report }) {
     const frozenIn = (given: Node, wanted: Type, where: string, isReceiver = false): boolean => {
+      if (isCopied(typeOf(given))) return false;
       const root = rootOf(given);
       // A receiver that is a parameter is no-param-mutation's to refuse: it follows other names for it too.
       if (!isReceiver && root.kind === 'identifier' && root.parameter === 'readonly') {
@@ -66,7 +74,7 @@ export const mutFromReadonly: Rule = {
     }
     // A variable with no written type takes the type of its first value: it may be one that can be written.
     // Not a pattern on the left: `[a, b] = pair` copies what the pair holds.
-    if (node.kind === 'binary' && node.operator === '=' && mayBeHeld(node.left) && mayBeHeld(node.right) && !asksForMutation(node.right)) {
+    if (node.kind === 'binary' && node.operator === '=' && mayBeHeld(node.left) && mayBeHeld(node.right) && !asksForMutation(node.right) && !isCopied(typeOf(node.right))) {
       const paths = thawed(typeOf(node.right), typeOf(node.left));
       if (paths.length > 0) {
         report(node.right, `A value typed read-only (${shown(paths)}) is assigned to a place that can be written: a write there would change what its holder was told cannot change.`, HELP);
