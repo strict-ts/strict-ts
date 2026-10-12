@@ -243,6 +243,19 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
 
+  packages/derive:
+    dependencies:
+      '@strict-ts/std':
+        specifier: workspace:*
+        version: link:../std
+      '@typescript/typescript6':
+        specifier: ^6.0.2
+        version: 6.0.2
+    devDependencies:
+      '@strict-ts/cli':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/language-service:
     devDependencies:
       '@strict-ts/cli':

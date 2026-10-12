@@ -1,0 +1,28 @@
+{
+  "name": "@strict-ts/derive",
+  "version": "0.0.0",
+  "description": "Generates the schema of a type from the type itself: the author writes types, and the compiler checks that the generated schema agrees with them.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "strict-ts-derive": "./dist/main.js"
+  },
+  "dependencies": {
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2"
+  },
+  "devDependencies": {
+    "@strict-ts/cli": "workspace:*"
+  }
+}
