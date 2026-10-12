@@ -19,7 +19,6 @@ export const strictOptions = {
   noImplicitReturns: true,
   noFallthroughCasesInSwitch: true,
   noImplicitOverride: true,
-  noPropertyAccessFromIndexSignature: true,
 };
 
 export interface Project {

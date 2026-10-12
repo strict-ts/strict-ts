@@ -1,6 +1,10 @@
 import type { Rule } from '../rule.js';
 
-/** The compiler options without which the other rules prove nothing. */
+/**
+ * The compiler options without which the other rules prove nothing. `noPropertyAccessFromIndexSignature` is not one:
+ * with `noUncheckedIndexedAccess`, a name read from a table already has `undefined` in its type, so writing it
+ * `table['name']` and not `table.name` is a way of writing, which no guarantee stands on.
+ */
 export const requiredCompilerOptions: readonly string[] = [
   'strict',
   'noUncheckedIndexedAccess',
@@ -8,7 +12,6 @@ export const requiredCompilerOptions: readonly string[] = [
   'noImplicitReturns',
   'noFallthroughCasesInSwitch',
   'noImplicitOverride',
-  'noPropertyAccessFromIndexSignature',
 ];
 
 export const strictCompilerOptions: Rule = {

@@ -81,7 +81,7 @@ describe('a conforming project', () => {
 
 describe('one violation per rule', () => {
   const files = fixture('violations');
-  const found = checkFiles(files, { compilerOptions: { noPropertyAccessFromIndexSignature: false } });
+  const found = checkFiles(files, { compilerOptions: { noImplicitOverride: false } });
 
   test('every line marked `// expect:` is refused for its rule, and nothing else is', () => {
     const marked = found.filter((d) => d.rule !== 'no-ts-directive' && d.rule !== 'strict-compiler-options');
@@ -92,7 +92,7 @@ describe('one violation per rule', () => {
   test('the directive and the missing compiler option are refused too', () => {
     expect(found.filter((d) => d.rule === 'no-ts-directive').map((d) => `${d.file}:${d.start.line}`)).toEqual(['src/bad.ts:70']);
     expect(found.filter((d) => d.rule === 'strict-compiler-options').map((d) => d.message)).toEqual([
-      'Required compiler options missing: noPropertyAccessFromIndexSignature.',
+      'Required compiler options missing: noImplicitOverride.',
     ]);
   });
 

@@ -32,7 +32,7 @@ is both, `project` is once for the whole project.
 | `no-ts-directive` | typing | all | No `@ts-ignore`, `@ts-expect-error` or `@ts-nocheck`, unsafe directories included |
 | `unsafe-boundary` | typing | unsafe | The functions an unsafe directory exports return `Result` or `Option`, and leak no `any` |
 | `safety-comment` | typing | unsafe | An `any`, a cast, a `!`, a written predicate or a `declare` has `// SAFETY: <reason>` right above |
-| `strict-compiler-options` | typing | project | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`, `noPropertyAccessFromIndexSignature` |
+| `strict-compiler-options` | typing | project | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride` |
 | `unread-sources` | typing | project | A source the gate does not read (`.vue`, `.svelte`, `.astro`) is refused as a whole: nothing in it is checked |
 | `no-throw` | errors | safe | No `throw`: errors are values (`Result`) |
 | `no-null` | errors | safe | No `null`, as a value or as a type. Comparing with `=== null` stays allowed |
