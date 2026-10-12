@@ -25,6 +25,14 @@ export interface Type {
   readonly isOnce: boolean;
   /** `Promise` or `PromiseLike`. */
   readonly isPromise: boolean;
+  /** An array or a tuple, read-only or not: what an index, and a pattern in brackets, read soundly. */
+  readonly isArray: boolean;
+  /** A tuple: its length is part of its type. */
+  readonly isTuple: boolean;
+  /** Has an index signature (`Record<string, T>`, `{ [key: string]: T }`): any name is one of its keys. */
+  readonly isIndexed: boolean;
+  /** The instances of a class. */
+  readonly isClass: boolean;
   /** The members of a union, or the type itself. */
   readonly members: readonly Type[];
   /** What `await` gives for a promise; the type itself otherwise. */

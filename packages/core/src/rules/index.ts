@@ -14,6 +14,7 @@ import { noMethodSignature } from './no-method-signature.js';
 import { noNumericEnum } from './no-numeric-enum.js';
 import { noUnsetCapture } from './no-unset-capture.js';
 import { noEarlyThis } from './no-early-this.js';
+import { noUnboundMethod } from './no-unbound-method.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
@@ -58,4 +59,5 @@ export const rules: readonly Rule[] = [
   noNumericEnum,
   noUnsetCapture,
   noEarlyThis,
+  noUnboundMethod,
 ];

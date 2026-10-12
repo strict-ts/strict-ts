@@ -182,6 +182,19 @@ export function createTypeScript6Provider(
         return kindsOf(type, 0);
       },
       isPromise,
+      get isArray() {
+        // A union of arrays is one too: each of its members is read the same way.
+        return (type.isUnion() ? type.types : [type]).every((member) => checker.isArrayType(member) || checker.isTupleType(member));
+      },
+      get isTuple() {
+        return checker.isTupleType(type);
+      },
+      get isIndexed() {
+        return checker.getIndexInfosOfType(type).length > 0;
+      },
+      get isClass() {
+        return ((type.getSymbol()?.flags ?? 0) & api.SymbolFlags.Class) !== 0;
+      },
       get members() {
         return type.isUnion() ? type.types.map(wrapType) : [self];
       },
@@ -349,7 +362,19 @@ export function createTypeScript6Provider(
         if (!ambient) return { ...base, kind: 'module-state' };
       }
       if (api.isPropertyAccessExpression(node)) {
-        return { ...base, kind: 'property-access', object: part(unwrapped(node.expression)), name: node.name.text };
+        return {
+          ...base,
+          kind: 'property-access',
+          object: part(unwrapped(node.expression)),
+          name: node.name.text,
+          get method() {
+            const declarations = checker.getSymbolAtLocation(node.name)?.declarations ?? [];
+            const written = declarations.find((declaration) => api.isMethodDeclaration(declaration) || api.isMethodSignature(declaration));
+            if (written === undefined) return undefined;
+            const owner = written.parent;
+            return (api.isClassLike(owner) || api.isInterfaceDeclaration(owner)) && owner.name !== undefined ? owner.name.text : '';
+          },
+        };
       }
       if (api.isElementAccessExpression(node)) return { ...base, kind: 'element-access', object: part(unwrapped(node.expression)) };
       if (api.isPrefixUnaryExpression(node) || api.isPostfixUnaryExpression(node)) {
@@ -554,6 +579,10 @@ export function createTypeScript6Provider(
     isPlain: false,
     kinds: ['object'],
     isPromise: false,
+    isArray: false,
+    isTuple: false,
+    isIndexed: false,
+    isClass: false,
     get members() {
       return [unknownOrigin];
     },

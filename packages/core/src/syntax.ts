@@ -74,7 +74,16 @@ export type Node = NodeBase &
     /** A `let` or `var` statement at the top level of a module: state every importer shares. */
     | { readonly kind: 'module-state' }
     /** `object.name`; parentheses around `object` are looked through. */
-    | { readonly kind: 'property-access'; readonly object: Node; readonly name: string }
+    | {
+        readonly kind: 'property-access';
+        readonly object: Node;
+        readonly name: string;
+        /**
+         * When the property is a method, written with the method syntax in a class, an interface or an object: the
+         * name of what declares it, or an empty text. A method reads `this`, which a call through its object gives.
+         */
+        readonly method: string | undefined;
+      }
     /** `object[…]`. */
     | { readonly kind: 'element-access'; readonly object: Node }
     /** `x++`, `--x`. */
