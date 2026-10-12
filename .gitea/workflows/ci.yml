@@ -39,9 +39,15 @@ jobs:
       - name: Ledger
         run: pnpm ledger
       # A pilot version of std, core and cli for the projects that try strict-ts. Not on a pull request: only what
-      # is on main is published. The token is the one of the run, or PACKAGES_TOKEN when the run's own may not write.
+      # is on main is published. It needs the secret PACKAGES_TOKEN, a token that may write packages: the token of
+      # the run may not (tried: 401). Without the secret the step says so and publishes nothing.
       - name: Publish the pilot packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          NPM_TOKEN: ${{ secrets.PACKAGES_TOKEN || github.token }}
-        run: pnpm publish:pilot
+          NPM_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "The secret PACKAGES_TOKEN is not set: nothing is published."
+          else
+            pnpm publish:pilot
+          fi
