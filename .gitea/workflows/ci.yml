@@ -1,4 +1,5 @@
-# Checks pull requests and main. Nothing is deployed: the packages are published by hand until the first release.
+# Checks pull requests and main. On main, once everything passed, the packages a project installs are published
+# on the npm registry of the Gitea under a pilot version named after the commit. Nothing is a release.
 name: CI
 
 on:
@@ -37,3 +38,10 @@ jobs:
       # The generated part of the effects ledger is what the generator gives: every function run again.
       - name: Ledger
         run: pnpm ledger
+      # A pilot version of std, core and cli for the projects that try strict-ts. Not on a pull request: only what
+      # is on main is published. The token is the one of the run, or PACKAGES_TOKEN when the run's own may not write.
+      - name: Publish the pilot packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          NPM_TOKEN: ${{ secrets.PACKAGES_TOKEN || github.token }}
+        run: pnpm publish:pilot

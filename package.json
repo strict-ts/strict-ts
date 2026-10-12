@@ -17,7 +17,8 @@
     "check": "node packages/cli/dist/main.js --strict-baseline -p packages/core && node packages/cli/dist/main.js --strict-baseline -p packages/std && node packages/cli/dist/main.js --strict-baseline -p packages/cli && node packages/cli/dist/main.js --strict-baseline -p packages/playground && node packages/cli/dist/main.js --strict-baseline -p packages/language-service && node packages/cli/dist/main.js --strict-baseline -p packages/wrap && node packages/cli/dist/main.js --strict-baseline -p packages/codemod && node packages/cli/dist/main.js --strict-baseline -p packages/oxlint-plugin && node packages/cli/dist/main.js --strict-baseline -p packages/probe && node packages/cli/dist/main.js --strict-baseline -p examples/invoice/strict && node packages/cli/dist/main.js --strict-baseline -p examples/report/strict && node packages/cli/dist/main.js --strict-baseline -p examples/cart/strict && node packages/cli/dist/main.js --strict-baseline -p examples/transfer/strict",
     "corpus": "node corpus/run.mjs",
     "probe": "rm -rf .strict-ts-probe && STRICT_TS_PROBE=1 vitest run && node packages/probe/dist/main.js report",
-    "ledger": "node packages/ledger/scripts/build.mjs --check"
+    "ledger": "node packages/ledger/scripts/build.mjs --check",
+    "publish:pilot": "node scripts/publish-pilot.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
