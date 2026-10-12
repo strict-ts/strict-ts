@@ -11,7 +11,7 @@ export const noLooseSpread: Rule = {
   name: 'no-loose-spread',
   guarantee: 'typing',
   description:
-    'A spread does not write a property its type does not name: no property is written before it unless the spread names it, and every optional property of the result is named by the spread or written after it.',
+    'A spread does not write a property its type does not name: no property is written before it unless the spread names it, and every optional property of the result is named by the spread, taken out of it by the pattern that made it, or written after it.',
   scope: 'safe',
   visit(node, { typeOf, expectedOf, report }) {
     if (node.kind !== 'literal') return;
@@ -22,7 +22,8 @@ export const noLooseSpread: Rule = {
       if (spread === undefined || isWritten(spread)) return;
       const type = typeOf(spread);
       if (type.isAny) return;
-      const named = type.propertyNames;
+      // The rest of a pattern holds none of the names the pattern took out: as good as named, for what it cannot fill.
+      const named = [...type.propertyNames, ...(spread.kind === 'identifier' ? spread.leftOut : [])];
       const before = node.entries.slice(0, index).flatMap((earlier) => (earlier.name === undefined ? [] : [earlier.name]));
       const after = node.entries.slice(index + 1).flatMap((later) => (later.name === undefined ? [] : [later.name]));
       const covered = before.filter((name) => !named.includes(name) && !after.includes(name));

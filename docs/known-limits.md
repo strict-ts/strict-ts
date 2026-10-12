@@ -2,7 +2,7 @@
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- **The two reviews list known ways, and are not proofs.** Of 28 known ways to make a value differ from its type
+- **The two reviews list known ways, and are not proofs.** Of 29 known ways to make a value differ from its type
   with no `any`, cast, `!` or `declare`, and of 27 known ways for safe code to throw or to reject with no `throw`
   written, the rules refuse all but one: a function that calls itself without end, which is outside the guarantee
   as a stack overflow is outside Rust's. Each is a file of `packages/core/test/fixtures/attacks` or

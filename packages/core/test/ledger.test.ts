@@ -49,6 +49,8 @@ describe('the effects ledger', () => {
       'Element.closest',
       'Element.matches',
       'Element.setAttribute',
+      'Headers.get',
+      'Headers.has',
       'ParentNode.querySelector',
       'ParentNode.querySelectorAll',
     ]);

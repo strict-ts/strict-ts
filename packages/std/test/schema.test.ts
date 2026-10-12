@@ -105,6 +105,31 @@ test('a record reads any names, each with a value of the same kind', () => {
   expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
 });
 
+describe('an object whose other keys are kept', () => {
+  const router = s.loose({ rule: s.optional(s.string), service: s.string });
+
+  test('checks the named keys and keeps the others, in the order they came in', () => {
+    const read = router.parse({ priority: 3, service: 'web', rule: 'Host(`a`)', tls: {} });
+    expect(read.ok && Object.entries(read.value)).toEqual([
+      ['priority', 3],
+      ['service', 'web'],
+      ['rule', 'Host(`a`)'],
+      ['tls', {}],
+    ]);
+  });
+
+  test('refuses a named key of another kind, and what is not an object', () => {
+    const refused = router.parse({ service: 1 });
+    expect(refused.ok ? undefined : refused.error).toEqual({ path: '.service', expected: 'string' });
+    expect(router.parse([]).ok).toBe(false);
+  });
+
+  test('leaves out an optional key that is absent and a key named __proto__', () => {
+    const read = router.parse(JSON.parse('{ "service": "web", "__proto__": { "admin": true } }'));
+    expect(read.ok && Object.keys(read.value)).toEqual(['service']);
+  });
+});
+
 describe('a choice, a value that may be missing, a value not known yet', () => {
   const Circle = s.object({ kind: s.literal('circle'), radius: s.number });
   const Square = s.object({ kind: s.literal('square'), side: s.number });

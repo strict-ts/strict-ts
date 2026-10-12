@@ -37,6 +37,8 @@ const TABLE = [
   { name: 'ParentNode.querySelectorAll', shapes: ['selector'], least: 1, on: 'parents', clause: 'DOM standard, querySelectorAll(selectors): throws when selectors does not parse' },
   { name: 'Element.closest', shapes: ['selector'], least: 1, on: 'elements', clause: 'DOM standard, closest(selectors): throws when selectors does not parse' },
   { name: 'Element.matches', shapes: ['selector'], least: 1, on: 'elements', clause: 'DOM standard, matches(selectors): throws when selectors does not parse' },
+  { name: 'Headers.get', shapes: ['header-name'], least: 1, on: 'headers', clause: 'Fetch standard, get(name): throws when name is not a header name' },
+  { name: 'Headers.has', shapes: ['header-name'], least: 1, on: 'headers', clause: 'Fetch standard, has(name): throws when name is not a header name' },
   { name: 'CanvasGradient.addColorStop', shapes: ['unit', 'colour'], least: 2, on: 'gradients', clause: 'HTML standard, addColorStop(offset, color): throws when offset is outside 0 to 1 or color does not parse' },
 ];
 
@@ -77,6 +79,8 @@ function candidates(shape, random) {
       return noise();
     case 'element-name':
       return random.next() < 0.3 ? noise() : random.next() < 0.3 ? random.pick(['div', 'span', 'canvas', 'a', 'button', 'script', 'iframe', 'img', 'template', 'svg', 'html', 'body', 'input', 'object', 'embed', 'style', 'link']) : name();
+    case 'header-name':
+      return random.next() < 0.3 ? noise() : random.next() < 0.3 ? random.pick(['authorization', 'Content-Type', 'ETag', 'x-forwarded-for', 'Set-Cookie', 'cookie', 'host', 'TE', 'X-1']) : `${word([...LETTERS, ...DIGITS]).replace(/^\d+/, 'h')}${random.many(0, 3, () => `-${word([...LETTERS, ...DIGITS])}`).join('')}`;
     case 'attribute-name':
       return random.next() < 0.3 ? noise() : random.next() < 0.1 ? 'role' : `${random.pick(['aria', 'data'])}-${name()}`;
     case 'selector': {
@@ -142,6 +146,7 @@ const RECEIVERS = {
     fragment.append(document.createElement('i'));
     return [document, root, fragment, document.createElement('template').content, new DOMParser().parseFromString('<a><b/></a>', 'application/xml')];
   },
+  headers: () => [new Headers(), new Headers({ 'content-type': 'text/plain', cookie: 'a=b' }), new Request('https://example.test/', { headers: { authorization: 'Basic eA==' } }).headers, new Response('x').headers, Response.error().headers],
   gradients: () => {
     const context = document.createElement('canvas').getContext('2d');
     return [context.createLinearGradient(0, 0, 1, 1), context.createRadialGradient(0, 0, 1, 2, 2, 3), new OffscreenCanvas(2, 2).getContext('2d').createLinearGradient(0, 0, 1, 0)];

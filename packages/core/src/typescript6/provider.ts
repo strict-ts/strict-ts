@@ -361,6 +361,19 @@ export function createTypeScript6Provider(
           get isNarrowed() {
             return narrowed(node);
           },
+          get leftOut() {
+            const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+            if (declaration === undefined || !api.isBindingElement(declaration) || declaration.dotDotDotToken === undefined) return [];
+            const pattern = declaration.parent;
+            const owner = pattern.parent;
+            // A constant only: a variable may be given another object later.
+            const isConstant = api.isVariableDeclaration(owner) && (api.getCombinedNodeFlags(owner) & api.NodeFlags.Const) !== 0;
+            if (!api.isObjectBindingPattern(pattern) || !isConstant) return [];
+            return pattern.elements.flatMap((element) => {
+              const name = element.propertyName ?? element.name;
+              return element.dotDotDotToken === undefined && (api.isIdentifier(name) || api.isStringLiteral(name)) ? [name.text] : [];
+            });
+          },
           get declaredAt() {
             const owner = node.parent;
             const symbol = api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node);
@@ -481,8 +494,12 @@ export function createTypeScript6Provider(
         // In the order written: a spread writes over what comes before it, and is written over by what comes after.
         const entries = node.properties.map((member) =>
           api.isSpreadAssignment(member)
-            ? { name: undefined, spread: part(unwrapped(member.expression)) }
-            : { name: member.name !== undefined && (api.isIdentifier(member.name) || api.isStringLiteralLike(member.name)) ? member.name.text : undefined, spread: undefined },
+            ? { name: undefined, key: undefined, spread: part(unwrapped(member.expression)) }
+            : {
+                name: member.name !== undefined && (api.isIdentifier(member.name) || api.isStringLiteralLike(member.name)) ? member.name.text : undefined,
+                key: member.name !== undefined && api.isComputedPropertyName(member.name) ? part(unwrapped(member.name.expression)) : undefined,
+                spread: undefined,
+              },
         );
         return { ...base, kind: 'literal', entries };
       }

@@ -15,7 +15,7 @@ An optional `strict-ts.json` beside `tsconfig.json`. Every key is optional; an u
 
 | Key | Default | Meaning |
 |---|---|---|
-| `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json` |
+| `unsafeDirs` | `["src/unsafe"]` | The unsafe directories, relative to the directory of `tsconfig.json`. A single file may be named too, for the one a tool wants at a fixed place (`next-env.d.ts`); so may one in `testDirs` (`vitest.config.ts`) |
 | `allowedImports` | `["@strict-ts/std"]` | The packages safe code may import; their functions are trusted not to throw. `react` covers `@types/react` |
 | `pureDirs` | none | The directories whose code must be pure (rule `pure-domain`) |
 | `testDirs` | `["test", "tests"]` | The directories that hold tests. A file named `*.test.*` or `*.spec.*`, or under `__tests__`, is a test wherever it is. A test is checked like any code, except that it may throw, call what throws and import what it needs |

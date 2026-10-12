@@ -18,7 +18,8 @@ const refusedBy = (name: string): readonly string[] => {
 describe('the attacks on errors in the types', () => {
   test('each one compiles', () => {
     for (const name of attacks) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
-  });
+    // Every file is compiled here, one program each: long on a busy machine.
+  }, 180_000);
 
   test('the ledger and the operators refuse those that call or use what throws', () => {
     const byLedger = ['e03-promise-reject', 'e08-proxy', 'e09-define-property', 'e11-reduce-of-nothing', 'e12-number-to-bigint', 'e13-repeat', 'e20-normalize', 'e22-structured-clone', 'e27-with-resolvers'];

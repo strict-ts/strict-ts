@@ -5,7 +5,8 @@ export type Assumption = (typeof assumptions)[number];
 export interface Config {
   /**
    * The directories where unchecked code may live, relative to the project root: the equivalent of Rust's `unsafe`.
-   * A file is unsafe when its path starts with one of them.
+   * A file is unsafe when its path starts with one of them. A single file may be named too, for the one a tool
+   * wants at a fixed place: the configuration of a bundler, a declaration file a framework generates.
    */
   readonly unsafeDirs: readonly string[];
   /** The packages safe code may import; everything else is imported from an unsafe directory only. */
@@ -45,7 +46,7 @@ export const defaultConfig: Config = {
 const normalised = (dirs: readonly string[]): readonly string[] =>
   dirs.map((dir) => dir.trim().replace(/^\.?\/+/, '').replace(/\/+$/, '')).filter((dir) => dir.length > 0);
 
-const isUnder = (fileName: string, dirs: readonly string[]): boolean => normalised(dirs).some((dir) => fileName.startsWith(`${dir}/`));
+const isUnder = (fileName: string, dirs: readonly string[]): boolean => normalised(dirs).some((dir) => fileName === dir || fileName.startsWith(`${dir}/`));
 
 export function isUnsafe(fileName: string, config: Config): boolean {
   return isUnder(fileName, config.unsafeDirs);

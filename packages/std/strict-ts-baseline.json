@@ -15,7 +15,7 @@
       "no-throw": 1
     },
     "src/schema.ts": {
-      "no-cast": 8,
+      "no-cast": 10,
       "no-type-predicate": 4
     }
   }

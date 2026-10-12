@@ -122,6 +122,35 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
 }
 
 /**
+ * An object whose named keys are checked and whose other keys are kept as they are, as `unknown`: for a document
+ * a program edits in part and must give back whole, like the configuration of another tool. The keys keep their
+ * order. A key `__proto__` is left out: as a property it would change what the object is.
+ */
+export function loose<S extends Shape>(shape: S): Schema<Prettify<ObjectOf<S> & { readonly [key: string]: unknown }>> {
+  return {
+    parse: (input) => {
+      if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
+      const given = input as Readonly<Record<string, unknown>>;
+      const out: Mut<Record<string, unknown>> = {};
+      // The keys stay in the order they came in: what is given back reads like what was taken.
+      const names = [...Object.keys(given), ...Object.keys(shape).filter((key) => !Object.hasOwn(given, key))];
+      for (const key of names) {
+        if (key === '__proto__') continue;
+        const schema = Object.hasOwn(shape, key) ? shape[key] : undefined;
+        if (schema === undefined) {
+          out[key] = given[key];
+          continue;
+        }
+        const r = schema.parse(given[key]);
+        if (!r.ok) return new Err({ path: `.${key}${r.error.path}`, expected: r.error.expected });
+        if (r.value !== undefined || !('optional' in schema)) out[key] = r.value;
+      }
+      return new Ok(out as Prettify<ObjectOf<S> & { readonly [key: string]: unknown }>);
+    },
+  };
+}
+
+/**
  * An object used as a table: any names, each with a value of the same kind. `s.record(s.number)` reads
  * `{ "spam": 0.9, "promo": 0.1 }`. A name `__proto__` is left out: as a property it would change what the object is.
  */
