@@ -31,18 +31,17 @@ describe('the attacks on errors in the types', () => {
     for (const name of ['e02-rejected-by-the-callback', 'e16-dropped-rejection', 'e17-await-of-a-thenable', 'e21-async-function']) expect(refusedBy(`${name}.ts`), name).toEqual(['no-reject']);
   });
 
-  test('seven are accepted: the holes of guarantee 3', () => {
+  test('from safe code, only what says its failure is taken from an unsafe directory', () => {
+    for (const name of ['e23-unsafe-object', 'e24-unsafe-class', 'e25-unsafe-returned-function', 'e26-unsafe-getter']) expect(refusedBy(`${name}.ts`), name).toEqual(['no-throwing-call']);
+  });
+
+  test('three are accepted: two holes of guarantee 3, and a stack that overflows', () => {
     const accepted = attacks.filter((name) => refusedBy(name).length === 0).toSorted();
     expect(accepted).toEqual([
       // Read before the line that gives it a value, in one file and across two.
       'e01-read-before-declaration.ts',
       // A function that calls itself without end: the stack overflows. Not closed, and said as a limit.
       'e14-recursion.ts',
-      // What an unsafe directory hands over besides a function that returns a Result.
-      'e23-unsafe-object.ts',
-      'e24-unsafe-class.ts',
-      'e25-unsafe-returned-function.ts',
-      'e26-unsafe-getter.ts',
       'e28-import-cycle.ts',
     ]);
   });

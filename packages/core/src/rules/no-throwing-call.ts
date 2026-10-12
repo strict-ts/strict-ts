@@ -1,10 +1,11 @@
-import type { Config } from '../config.js';
+import { type Config, isUnsafe } from '../config.js';
 import type { Callee } from '../provider.js';
 import type { Rule } from '../rule.js';
 import { quietAsWritten, threatOf } from '../effects/ledger.js';
 import { ledger } from '../effects/index.js';
 import { runs } from '../unsafe/run.js';
 import { isCaught, isTrusted } from './caught.js';
+import { isOption, isResult } from './types.js';
 
 
 /** What makes a call a possible exception, or undefined when nothing is known against it. */
@@ -54,10 +55,32 @@ export const noThrowingCall: Rule = {
     'A call that may throw without its type saying so is caught where it is made: inside `attempt`, or in a `try` with a `catch`.',
   scope: 'all',
   inTests: false,
-  visit(node, { config, calleeOf, typeOf, valuesOf, report }, _parent, ancestors) {
+  visit(node, { file, config, calleeOf, typeOf, valuesOf, report }, _parent, ancestors) {
+    // What an unsafe directory holds is not read by the rules: from safe code, only what says its failure is taken.
+    const fromSafe = !isUnsafe(file.name, config);
+    if (node.kind === 'property-access' && fromSafe && node.getterIn !== undefined && isUnsafe(node.getterIn, config)) {
+      if (!isCaught(node, ancestors, calleeOf, config)) {
+        report(node, `The getter \`${node.name}\` is written in an unsafe directory: reading it runs code that may throw.`, 'Export a function that returns a Result or an Option.');
+      }
+      return;
+    }
     if (node.kind !== 'call' && node.kind !== 'new') return;
     const callee = calleeOf(node);
     if (callee === undefined) return;
+    if (callee.origin.kind === 'project' && fromSafe && callee.declaredIn !== undefined && isUnsafe(callee.declaredIn, config)) {
+      const given = typeOf(node).awaited;
+      const says = node.kind === 'call' && (isResult(given) || isOption(given));
+      if (says || isCaught(node, ancestors, calleeOf, config)) return;
+      const shown = callee.name === '' ? 'This function' : `\`${callee.name}\``;
+      report(
+        node,
+        node.kind === 'new'
+          ? `${shown} builds a class written in an unsafe directory: its constructor may throw, and has no type to say so.`
+          : `${shown} is written in an unsafe directory and does not return a Result or an Option: it may throw.`,
+        node.kind === 'new' ? 'Export a function that builds it and returns a Result.' : 'Make it return a Result or an Option: it is the only way for a failure to cross the boundary.',
+      );
+      return;
+    }
     // Whether everything the call is given is a plain value by its type: its receiver, and each of its arguments.
     const plain = (): boolean => {
       if (node.kind !== 'call') return false;
