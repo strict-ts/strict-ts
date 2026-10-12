@@ -87,6 +87,7 @@ describe('check', () => {
         },
       ],
       declarationFiles: [],
+      imports: {},
       compilerOptions: {},
       compilerDiagnostics: [],
       typeOf: () => expect.unreachable('the spy asks for no type'),
@@ -130,7 +131,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the thirty-eight rules, each with a guarantee and a description', () => {
+  test('holds the thirty-nine rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'freeze-fresh',
@@ -141,6 +142,7 @@ describe('the catalogue of rules', () => {
       'no-any',
       'no-cast',
       'no-class-lookalike',
+      'no-early-read',
       'no-early-this',
       'no-external-import',
       'no-in-narrowing',
