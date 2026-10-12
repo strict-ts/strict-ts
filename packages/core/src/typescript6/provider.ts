@@ -705,7 +705,10 @@ export function createTypeScript6Provider(
             }
             if (owner === undefined || !api.isParameter(owner)) return 'none';
             // `Mut<Cart>`, or a name the project gives to a type that is one: `type Store = Mut<Map<…>>`.
-            return isMutNamed(owner.type) ? 'mutable' : 'readonly';
+            if (owner.type !== undefined) return isMutNamed(owner.type) ? 'mutable' : 'readonly';
+            // With no written type, a parameter has the type of where its function is given: what that place says.
+            const given = expectedParameters(owner).map((symbol) => symbol.valueDeclaration);
+            return given.length > 0 && given.every((declaration) => declaration !== undefined && api.isParameter(declaration) && isMutNamed(declaration.type)) ? 'mutable' : 'readonly';
           },
           get isNarrowed() {
             return narrowed(node);
