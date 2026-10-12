@@ -225,12 +225,35 @@ export function createTypeScript6Provider(
   };
 
   /** Whether a written type says `Mut<…>`, itself or anywhere inside: `Mut<Order> | undefined`, `readonly Mut<Line>[]`. */
-  const mentionsMut = (written: ts.Node | undefined): boolean => written !== undefined && ((api.isTypeNode(written) && isMut(written)) || (api.forEachChild(written, mentionsMut) ?? false));
+  const mentionsMut = (written: ts.Node | undefined, depth = 0): boolean => {
+    if (written === undefined) return false;
+    if (api.isTypeNode(written) && isMut(written)) return true;
+    // A name the project gives to a type says what that type says.
+    const named = depth < 4 && api.isTypeReferenceNode(written) ? aliasOf(written) : undefined;
+    if (named !== undefined && mentionsMut(named, depth + 1)) return true;
+    // What the properties of an object type say is about them, and what a function type says is about its call.
+    if (api.isTypeLiteralNode(written) || api.isFunctionTypeNode(written) || api.isConstructorTypeNode(written) || api.isMappedTypeNode(written)) return false;
+    return api.forEachChild(written, (inner) => mentionsMut(inner, depth)) ?? false;
+  };
+  /** `Mut<…>` itself, or a name of the project for it. */
+  const isMutNamed = (written: ts.TypeNode | undefined, depth = 0): boolean => {
+    if (written === undefined) return false;
+    if (isMut(written)) return true;
+    const named = depth < 4 && api.isTypeReferenceNode(written) ? aliasOf(written) : undefined;
+    return named !== undefined && isMutNamed(named, depth + 1);
+  };
+  /** The type a name of the project stands for, when it is one: `type Store = Mut<Map<…>>`. */
+  const aliasOf = (written: ts.TypeReferenceNode): ts.TypeNode | undefined => {
+    const declaration = (checker.getSymbolAtLocation(written.typeName)?.declarations ?? []).find((one) => api.isTypeAliasDeclaration(one));
+    return declaration !== undefined && api.isTypeAliasDeclaration(declaration) && isChecked(declaration.getSourceFile()) ? declaration.type : undefined;
+  };
   /** A written type without the `Mut<…>`, the `readonly` and the `| undefined` around it. */
   const peeled = (written: ts.TypeNode): ts.TypeNode => {
     if (isMut(written) && api.isTypeReferenceNode(written) && written.typeArguments?.[0] !== undefined) return peeled(written.typeArguments[0]);
     if (api.isTypeOperatorNode(written) && written.operator === api.SyntaxKind.ReadonlyKeyword) return peeled(written.type);
     if (api.isParenthesizedTypeNode(written)) return peeled(written.type);
+    const named = api.isTypeReferenceNode(written) ? aliasOf(written) : undefined;
+    if (named !== undefined) return peeled(named);
     if (api.isUnionTypeNode(written)) {
       const kept = written.types.filter((member) => member.kind !== api.SyntaxKind.UndefinedKeyword);
       return kept.length === 1 && kept[0] !== undefined ? peeled(kept[0]) : written;
@@ -428,6 +451,12 @@ export function createTypeScript6Provider(
       get undefinedParameters() {
         return (type.getCallSignatures()[0]?.getParameters() ?? []).flatMap((parameter, index) => (takesUndefined(parameter) ? [index] : []));
       },
+      get isImplemented() {
+        const declaration = type.getCallSignatures()[0]?.getDeclaration();
+        if (declaration === undefined || !isChecked(declaration.getSourceFile())) return false;
+        const written = api.isFunctionDeclaration(declaration) || api.isMethodDeclaration(declaration) || api.isFunctionExpression(declaration) || api.isArrowFunction(declaration) || api.isAccessor(declaration);
+        return written && declaration.body !== undefined;
+      },
       get mutableReturn() {
         const written = type.getCallSignatures()[0]?.getDeclaration()?.type;
         // `Mut<Order>`, and `Promise<Mut<Order>>` or `Result<Mut<Order>, E>` as well: the word is there.
@@ -531,7 +560,7 @@ export function createTypeScript6Provider(
       }
       if (api.isCallExpression(expression)) {
         const callee = expression.expression;
-        if (api.isPropertyAccessExpression(callee)) {
+        if (api.isPropertyAccessExpression(callee) && isCollection(callee.expression)) {
           const name = callee.name.text;
           // What a method of a place gives back may be a part of it, or a new container of what it holds.
           if (GIVES_A_PART.includes(name)) return sourcesOf(callee.expression, 'element');
@@ -554,6 +583,15 @@ export function createTypeScript6Provider(
         return [{ place: part(expression), as: as === 'same' ? 'result' : as }];
       }
       return [];
+    };
+    /** An array, a map or a set of the library: what `find`, `get`, `filter` mean there is known. A class of the project says what its own give. */
+    const isCollection = (holder: ts.Expression): boolean => {
+      const type = checker.getNonNullableType(checker.getTypeAtLocation(holder));
+      return (type.isUnion() ? type.types : [type]).every((member) => {
+        if (checker.isArrayType(member) || checker.isTupleType(member)) return true;
+        const declarations = member.getSymbol()?.getDeclarations() ?? [];
+        return declarations.length > 0 && declarations.every((declaration) => program.isSourceFileDefaultLibrary(declaration.getSourceFile()));
+      });
     };
     const assignedTo = new Map<ts.Symbol, readonly ts.Expression[]>();
     /** What is assigned to a variable after its declaration, in the function that declares it. */
@@ -666,10 +704,8 @@ export function createTypeScript6Provider(
               owner = owner.parent;
             }
             if (owner === undefined || !api.isParameter(owner)) return 'none';
-            const written = owner.type;
-            const asksForMutation =
-              written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
-            return asksForMutation ? 'mutable' : 'readonly';
+            // `Mut<Cart>`, or a name the project gives to a type that is one: `type Store = Mut<Map<…>>`.
+            return isMutNamed(owner.type) ? 'mutable' : 'readonly';
           },
           get isNarrowed() {
             return narrowed(node);
@@ -1048,6 +1084,7 @@ export function createTypeScript6Provider(
     mutableParameters: [],
     defaultedParameters: [],
     undefinedParameters: [],
+    isImplemented: false,
     mutableReturn: false,
     mutableReceiver: undefined,
   };

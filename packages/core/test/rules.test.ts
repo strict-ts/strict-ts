@@ -934,6 +934,47 @@ describe('no-param-mutation', () => {
     expect(checkSafeEverything([...lines.slice(0, 21).map((line) => line.replace('this.open.push(mine)', 'this.open.push(given)')), '  }', '}', ''].join('\n')).filter((d) => d.rule === 'mut-from-readonly').map((d) => d.start.line)).toEqual([21]);
   });
 
+  test('a name of the project for a type is read through, and a class of the project is not a list', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'type Line = { quantity: number };',
+      'type Store = Mut<Map<string, Mut<Line>>>;',
+      'type Plain = Mut<Map<string, Line>>;',
+      'export class Shelf {',
+      '  private readonly lines: Mut<Mut<Line>[]> = [];',
+      '  get(at: number): Mut<Line> | undefined {',
+      '    return this.lines[at];',
+      '  }',
+      '  find(at: number): Line | undefined {',
+      '    return this.lines[at];',
+      '  }',
+      '  add(line: Line): number {',
+      '    return this.lines.length + line.quantity;',
+      '  }',
+      '}',
+      'interface Sink { readonly add: (line: Line) => void }',
+      'export function a(store: Store, plain: Plain, shelf: Shelf, sink: Sink): void {',
+      '  const named = store.get("a");',
+      '  if (named !== undefined) named.quantity = 1;',
+      '  const other = plain.get("a");',
+      '  if (other !== undefined) other.quantity = 1;',
+      '  const first = shelf.get(0);',
+      '  if (first !== undefined) first.quantity = 1;',
+      '  const found = shelf.find(0);',
+      '  if (found !== undefined) found.quantity = 1;',
+      '  shelf.add({ quantity: 1 });',
+      '  sink.add({ quantity: 1 });',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      // `Store` is a name for a `Mut<…>` that says it inside too; `Plain` says it around the map only.
+      '22 What `plain` holds is mutated, and its type says the container may be written, not what it holds.',
+      '26 `found` is mutated, and `Shelf.find` that gave it does not say it may be: its return type has no `Mut<…>`.',
+      // `Sink` only declares `add`: nothing says what stands behind it, so its name is what is read.
+      '28 Parameter `sink` is mutated by `add`.',
+    ]);
+  });
+
   test('a function kept by a constructor does not write the object later, and `call` gives a receiver', () => {
     const lines = [
       'import type { Mut } from "@strict-ts/std";',

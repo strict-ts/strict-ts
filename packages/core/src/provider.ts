@@ -63,6 +63,8 @@ export interface Type {
    */
   readonly defaultedParameters: readonly number[];
   readonly undefinedParameters: readonly number[];
+  /** For a function: whether its first signature is written with a body, in the checked files: what it does can be read. */
+  readonly isImplemented: boolean;
   /** For a function: whether the return type written for its first signature says `Mut<…>` somewhere. */
   readonly mutableReturn: boolean;
   /** For a function whose first signature says `this: Mut<…>`: the type it asks its receiver to have. */
