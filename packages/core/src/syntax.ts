@@ -43,6 +43,11 @@ export type Node = NodeBase &
         readonly text: string;
         readonly declaredOutside: boolean;
         /**
+         * For a name of a value another file of the project made at its top level: whether its declaration says
+         * `Mut<…>`. Absent for anything else: a name of this file, a function, a class.
+         */
+        readonly fromModule: 'mutable' | 'readonly' | undefined;
+        /**
          * Whether the name refers to a parameter of a function (or to a piece destructured from one), and whether
          * that parameter's type asks for mutation with `Mut<…>`.
          */
@@ -113,7 +118,20 @@ export type Node = NodeBase &
      * other than `undefined` while their type lets a caller give `undefined` on purpose. The default runs then, and
      * what was given never arrives. A place that is only optional (`name?: T`) is not one: nothing is given there.
      */
-    | { readonly kind: 'function'; readonly hiddenDefaults: readonly Node[]; readonly parameters: readonly Node[]; readonly body: Node | undefined; readonly isOverload: boolean; readonly isConstructor: boolean; readonly name: string | undefined }
+    | {
+        readonly kind: 'function';
+        readonly hiddenDefaults: readonly Node[];
+        readonly parameters: readonly Node[];
+        readonly body: Node | undefined;
+        readonly isOverload: boolean;
+        readonly isConstructor: boolean;
+        readonly name: string | undefined;
+        /**
+         * For a method of a class: what the members of the same name say of `Mut<…>` in the classes it extends and
+         * the interfaces it implements. A caller that holds the object under one of those types sees only that.
+         */
+        readonly overridden: readonly { readonly mutableReceiver: boolean; readonly mutableParameters: readonly number[] }[];
+      }
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }

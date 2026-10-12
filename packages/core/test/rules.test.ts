@@ -2658,6 +2658,24 @@ describe('explicit mutability: what stays accepted', () => {
   });
 });
 
+describe('explicit mutability: what another module made', () => {
+  const state = 'import type { Mut } from "@strict-ts/std";\nexport const settings = { level: 1, tags: ["a"] };\nexport const open: Mut<{ level: number }> = { level: 1 };\nexport const raise = (): void => {\n  settings.level += 1;\n};\n';
+  const user = 'import { open, settings } from "./state.js";\nexport function a(): void {\n  settings.level += 1;\n  settings.tags.push("b");\n}\nexport function b(): void {\n  open.level += 1;\n}\n';
+  const found = checkFiles({ 'src/state.ts': state, 'src/a.ts': user })
+    .filter((d) => d.rule === 'no-param-mutation')
+    .map((d) => `${d.file}:${d.start.line}`);
+
+  test('is not changed by who imports it, unless it says `Mut<…>` where it is exported; the module that made it may', () => {
+    expect(found).toEqual(['src/a.ts:3', 'src/a.ts:4']);
+  });
+
+  test('a new list of its texts is nobody else\'s', () => {
+    const names = 'export const NAMES: readonly string[] = ["a", "b"];\n';
+    const taker = 'import type { Mut } from "@strict-ts/std";\nimport { NAMES } from "./names.js";\ntype Meta = { readonly names: Mut<string[]>; count: Mut<number> };\nconst grow = (meta: Mut<Meta>): void => {\n  meta.names.push("c");\n  meta.count += 1;\n};\nexport function make(): number {\n  const meta = { names: [...NAMES], count: 0 };\n  grow(meta);\n  return meta.count;\n}\n';
+    expect(checkFiles({ 'src/names.ts': names, 'src/a.ts': taker }).filter((d) => d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
