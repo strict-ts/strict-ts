@@ -2506,6 +2506,52 @@ describe('the last known ways around guarantees 2 and 3', () => {
   });
 });
 
+describe('no-stale-narrowing: a read that is a test, and one that relies on nothing', () => {
+  const at = (lines: readonly string[], file = 'src/a.ts') =>
+    checkFiles({ [file]: [...lines, ''].join('\n') })
+      .filter((d) => d.rule === 'no-stale-narrowing')
+      .map((d) => d.start.line);
+  const lines = [
+    'import type { Mut } from "@strict-ts/std";',
+    'type Kind = "archer" | "shade" | "boss";',
+    'const foe: Mut<{ kind: Kind; awake: boolean }> = { kind: "archer", awake: false };',
+    'const turn = (): void => { foe.kind = "boss"; foe.awake = true; };',
+    'const name = (kind: Kind): string => kind;',
+    'const only = (kind: "archer" | "shade"): string => kind;',
+    'export function a(): string {',
+    '  if (foe.kind === "boss") return "";',
+    '  turn();',
+    '  if (foe.kind === "shade") return "shade";',
+    '  if (!foe.awake && foe.kind !== "archer") return "asleep";',
+    '  const whole: Kind = foe.kind;',
+    '  const told = name(foe.kind);',
+    '  const narrowed = only(foe.kind);',
+    '  const kept = foe.kind;',
+    '  return `${whole}${told}${narrowed}${kept}`;',
+    '}',
+    'export function b(): string {',
+    '  if (foe.kind === "boss") return "";',
+    '  const size = Math.max(1, 2);',
+    '  const still: "archer" | "shade" = foe.kind;',
+    '  return `${size}${still}`;',
+    '}',
+  ];
+
+  test('a comparison, a read for its truth and a place that takes the whole type are accepted; what relies on the narrowing is not', () => {
+    // Line 15 relies on it as well; the refusal of line 14 is said once.
+    expect(at(lines)).toEqual([14]);
+  });
+
+  test('a test that was accepted after a call does not make what follows it fresh', () => {
+    const after = [...lines.slice(0, 6), 'export function c(): string {', '  if (foe.kind === "boss") return "";', '  turn();', '  if (foe.kind === "shade") return "";', '  const left: "archer" = foe.kind;', '  return left;', '}'];
+    expect(at(after)).toEqual([11]);
+  });
+
+  test('a test file reads a value after the call that changes it', () => {
+    expect(at(lines, 'src/a.test.ts')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

@@ -490,6 +490,17 @@ export function createTypeScript6Provider(
     return !checker.isTypeAssignableTo(declared, checker.getTypeAtLocation(access));
   };
 
+  /** Whether the place a name is given to takes the whole of the type the name is declared with. */
+  const takesDeclared = (name: ts.Node): boolean => {
+    const symbol = checker.getSymbolAtLocation(name);
+    const access = api.isPropertyAccessExpression(name.parent) && name.parent.name === name ? name.parent : name;
+    if (symbol === undefined || !api.isExpression(access)) return false;
+    const expected = checker.getContextualType(access);
+    // A place whose type is still to be inferred takes the type of what it is given: the narrowed one.
+    if (expected === undefined || (expected.flags & api.TypeFlags.Instantiable) !== 0) return false;
+    return checker.isTypeAssignableTo(checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration ?? name), expected);
+  };
+
   /** The name of a member of an object written in place (`name: value`): it is no value, and nothing is expected of it. */
   const isNameOfMember = (node: ts.Node): boolean => {
     const owner = node.parent;
@@ -713,6 +724,9 @@ export function createTypeScript6Provider(
           get isNarrowed() {
             return narrowed(node);
           },
+          get takesDeclared() {
+            return takesDeclared(node);
+          },
           get aliasOf() {
             return aliasesOf(node);
           },
@@ -784,6 +798,9 @@ export function createTypeScript6Provider(
           name: node.name.text,
           get isNarrowed() {
             return narrowed(node.name);
+          },
+          get takesDeclared() {
+            return takesDeclared(node.name);
           },
           get isGetter() {
             return ((checker.getSymbolAtLocation(node.name)?.flags ?? 0) & api.SymbolFlags.GetAccessor) !== 0;

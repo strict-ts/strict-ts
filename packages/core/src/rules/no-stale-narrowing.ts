@@ -5,6 +5,10 @@ import type { Node } from '../syntax.js';
 /** The operators that write their left side. */
 const WRITES = ['=', '+=', '-=', '*=', '/=', '%=', '**=', '<<=', '>>=', '>>>=', '&=', '|=', '^=', '&&=', '||=', '??='];
 
+/** The operators that compare, and those that read their left side for its truth. */
+const COMPARES = ['===', '!==', '==', '!='];
+const CHOOSES = ['&&', '||', '??'];
+
 /** `a.b.c` for a chain of names: what a test narrows and a later read relies on. Nothing for anything else. */
 const pathOf = (node: Node): string | undefined => {
   if (node.kind === 'identifier') return node.declaredAt === undefined ? undefined : `${node.text}@${node.declaredAt}`;
@@ -24,7 +28,10 @@ export const noStaleNarrowing: Rule = {
   description:
     'What a test narrowed is not relied on after something else could change it: a call or an `await` before the read of a variable another function writes or of a property that can be written, and any read of a getter.',
   scope: 'safe',
-  file({ file, typeOf, report }) {
+  // A test reads a value after the call that changes it: that is what it is for, and no type of the program
+  // comes out of it.
+  inTests: false,
+  file({ file, typeOf, calleeOf, report }) {
     // The variables a function other than the one that declares them writes: a call can change them.
     const written: Mut<Set<number>> = new Set();
     const targets = (node: Node): readonly Node[] => (node.kind === 'binary' && WRITES.includes(node.operator) ? [node.left] : node.kind === 'update' ? [node.operand] : []);
@@ -44,6 +51,26 @@ export const noStaleNarrowing: Rule = {
       return node.kind === 'property-access' && !typeOf(node.object).readonlyProperties.includes(node.name);
     };
 
+    /**
+     * A call that cannot run code of the project: a function of the library given nothing but plain values. No
+     * callback, no object whose conversion or getter could run. It changes nothing a test narrowed.
+     */
+    const keepsOut = (node: Node): boolean => {
+      if (node.kind !== 'call') return false;
+      const callee = calleeOf(node);
+      if (callee === undefined || callee.origin.kind !== 'library') return false;
+      const receiver = node.callee.kind === 'property-access' ? [node.callee.object] : [];
+      return [...receiver, ...node.arguments].every((given) => (given.kind === 'identifier' && given.declaredOutside) || typeOf(given).isPlain);
+    };
+    /** Whether a child of a node is read there for a test: compared, read for its truth, chosen on. */
+    const testsIt = (node: Node, child: Node, isTest: boolean): boolean => {
+      if (node.kind === 'binary') return COMPARES.includes(node.operator) || (CHOOSES.includes(node.operator) && (isTest || child === node.left));
+      if (node.kind === 'unary') return node.operator === '!';
+      if (node.kind === 'if') return child === node.condition;
+      if (node.kind === 'conditional') return child !== node.whenTrue && child !== node.whenFalse;
+      if (node.kind === 'switch') return child === node.expression;
+      return node.kind === 'sequence' && isTest;
+    };
     /** Whether a loop makes a call, in its own turns: not in a function written in it. */
     const callsIn = (node: Node): boolean =>
       node.kind !== 'function' && (node.kind === 'call' || node.kind === 'new' || node.kind === 'await' || node.children.some(callsIn));
@@ -54,7 +81,7 @@ export const noStaleNarrowing: Rule = {
       const calls: Mut<Node[]> = [];
       // The loops around what is being read whose turns make a call: what a turn does comes before the next one.
       const turning: Mut<Node[]> = [];
-      const visit = (node: Node, isTarget: boolean): void => {
+      const visit = (node: Node, isTarget: boolean, isTest: boolean): void => {
         if (node.kind === 'function') {
           walk(node);
           return;
@@ -65,10 +92,10 @@ export const noStaleNarrowing: Rule = {
         const once = node.kind === 'loop' ? node.once : undefined;
         for (const child of node.children) {
           if (turns && child !== once) turning.push(node);
-          visit(child, writes.includes(child));
+          visit(child, writes.includes(child), testsIt(node, child, isTest));
           if (turns && child !== once) turning.pop();
         }
-        if (node.kind === 'call' || node.kind === 'new' || node.kind === 'await') calls.push(node);
+        if ((node.kind === 'call' || node.kind === 'new' || node.kind === 'await') && !keepsOut(node)) calls.push(node);
         // A write happens once its right side is computed: `cached = load()` is looked at after `load()` returns.
         for (const target of writes) {
           const path = pathOf(target);
@@ -80,6 +107,13 @@ export const noStaleNarrowing: Rule = {
         const last = seen.get(path);
         seen.set(path, node.end);
         if (isTarget || !node.isNarrowed) return;
+        // A read that is a test reads the value as it is; so does one given where the whole declared type is
+        // taken. Neither relies on what was said before, and neither says it again: what the compiler believes
+        // after them still holds the old narrowing, so the look that counts stays the old one.
+        if (isTest || node.takesDeclared) {
+          if (last !== undefined) seen.set(path, last);
+          return;
+        }
         if (node.kind === 'property-access' && node.isGetter) {
           report(node, 'A getter is read as narrowed by a test: it is computed again at each read, and may answer something else.', 'Read it once into a constant, and test the constant.');
           return;
@@ -94,7 +128,7 @@ export const noStaleNarrowing: Rule = {
           'Read it into a constant before the call and use the constant, or test it again after the call.',
         );
       };
-      for (const child of body.children) visit(child, false);
+      for (const child of body.children) visit(child, false, false);
     };
     walk(file.root);
   },
