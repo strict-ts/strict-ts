@@ -2582,6 +2582,23 @@ describe('no-unbound-method: a method that is written', () => {
   });
 });
 
+describe('a parameter that is Mut, or nothing', () => {
+  const found = (type: string) =>
+    checkSafe(`import type { Mut } from "@strict-ts/std";\ntype Cart = { total: number };\ntype Note = { text: string };\nexport function add(cart: ${type}): void {\n  if (cart !== undefined && "total" in cart) cart.total += 1;\n}\nexport type { Note };\n`)
+      .filter((d) => d.rule === 'no-param-mutation')
+      .map((d) => d.start.line);
+
+  test('may be changed when there is one', () => {
+    expect(found('Mut<Cart> | undefined')).toEqual([]);
+    expect(found('(Mut<Cart>) | undefined')).toEqual([]);
+  });
+
+  test('a union with a member that does not say Mut is still read-only', () => {
+    expect(found('Mut<Cart> | Cart')).toEqual([5]);
+    expect(found('Cart | undefined')).toEqual([5]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

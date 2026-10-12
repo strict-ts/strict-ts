@@ -239,6 +239,12 @@ export function createTypeScript6Provider(
   const isMutNamed = (written: ts.TypeNode | undefined, depth = 0): boolean => {
     if (written === undefined) return false;
     if (isMut(written)) return true;
+    if (api.isParenthesizedTypeNode(written)) return isMutNamed(written.type, depth);
+    // `Mut<Cart> | undefined`: when there is one, it may be changed. Every member that is something has to say so.
+    if (api.isUnionTypeNode(written)) {
+      const some = written.types.filter((member) => member.kind !== api.SyntaxKind.UndefinedKeyword && !(api.isLiteralTypeNode(member) && member.literal.kind === api.SyntaxKind.NullKeyword));
+      return some.length > 0 && some.length < written.types.length && some.every((member) => isMutNamed(member, depth));
+    }
     const named = depth < 4 && api.isTypeReferenceNode(written) ? aliasOf(written) : undefined;
     return named !== undefined && isMutNamed(named, depth + 1);
   };
