@@ -423,6 +423,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
+- **Most of what TypeScript itself lets through.** strict-ts closes the doors a programmer opens on purpose (`any`,
+  a cast, `!`, `declare`, a written predicate). Of 23 known ways to make a value differ from its type without any
+  of them, it refuses 2: an overload that is a cast with no `as`, the method syntax, numeric enums, a value read
+  before it has one, `Object.values` and `in` on a value that holds more than its type says, a narrowing that
+  outlives a change, all pass. Each is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it
+  is run, and `packages/core/test/attacks.test.ts` records which ones are refused.
+
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused
