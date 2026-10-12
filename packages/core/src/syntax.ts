@@ -166,7 +166,11 @@ export type Node = NodeBase &
     /** `<T>x`. */
     | { readonly kind: 'type-assertion' }
     /** `operator` is the token as written: `===`, `+`, `??`… */
-    | { readonly kind: 'binary'; readonly operator: string; readonly left: Node; readonly right: Node }
+    /**
+     * `left operator right`. `hiddenDefaults`: for an assignment by a pattern (`({ a = 1 } = value)`), the names
+     * whose default hides an `undefined`, as for a declared variable.
+     */
+    | { readonly kind: 'binary'; readonly operator: string; readonly left: Node; readonly right: Node; readonly hiddenDefaults: readonly Node[] }
     /** `+x`, `-x`, `~x`, `!x`. */
     | { readonly kind: 'unary'; readonly operator: string; readonly operand: Node }
     /** A template with substitutions, not handed to a tag: each `parts` is converted to text. */

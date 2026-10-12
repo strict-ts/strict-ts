@@ -55,6 +55,12 @@ export interface Type {
    * it says it writes into.
    */
   readonly mutableParameters: readonly number[];
+  /**
+   * For a function: the positions of the parameters of its first signature that are declared with a default, and
+   * of those that may be given `undefined` on purpose (their type says so, and they are not merely optional).
+   */
+  readonly defaultedParameters: readonly number[];
+  readonly undefinedParameters: readonly number[];
   /** For a function: whether the return type written for its first signature says `Mut<…>` somewhere. */
   readonly mutableReturn: boolean;
   /** For a function whose first signature says `this: Mut<…>`: the type it asks its receiver to have. */

@@ -1,4 +1,4 @@
-import { getters, gettersWhenDetached, operandClasses, operators } from '../effects/index.js';
+import { getters, gettersWhenDetached, operandClasses, operators, platformGetters, platformGlobals } from '../effects/index.js';
 import type { Type } from '../provider.js';
 import type { Rule } from '../rule.js';
 import { isCaught } from './caught.js';
@@ -7,7 +7,8 @@ import { isCaught } from './caught.js';
 const COMPOUND = /^(\+|-|\*\*?|\/|%|<<|>>>?|&|\||\^)=$/;
 /** The operators the table has something against: the others need no type. */
 const listed = new Set(Object.keys(operators).map((combination) => combination.slice(0, combination.indexOf(' '))));
-const getterNames = new Set([...Object.keys(getters), ...gettersWhenDetached].map((name) => name.slice(name.indexOf('.') + 1)));
+const getterNames = new Set([...Object.keys(getters), ...gettersWhenDetached, ...Object.keys(platformGetters)].map((name) => name.slice(name.indexOf('.') + 1)));
+const HELP_READ = 'Read it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.';
 const sameClass: Readonly<Record<string, string>> = { ReadonlyMap: 'Map', ReadonlySet: 'Set' };
 
 /** The kinds of a type as the table names them: a class it did not run is an object like any other. */
@@ -45,7 +46,7 @@ export const noThrowingOperator: Rule = {
     'An operator or a read that may throw on what its operands may be is caught where it is written: a bigint division, the conversion of a value that may not convert, a property that runs code.',
   scope: 'all',
   inTests: false,
-  visit(node, { config, calleeOf, typeOf, report }, _parent, ancestors) {
+  visit(node, { config, calleeOf, typeOf, report }, parent, ancestors) {
     const caught = (): boolean => isCaught(node, ancestors, calleeOf, config);
     if (node.kind === 'binary') {
       const operator = COMPOUND.test(node.operator) ? node.operator.slice(0, -1) : node.operator;
@@ -78,6 +79,18 @@ export const noThrowingOperator: Rule = {
       }
       return;
     }
+    // A name of the page itself that runs code when read: `localStorage`, alone or after `window.`.
+    const global = node.kind === 'identifier' ? node.text : node.kind === 'property-access' ? node.name : undefined;
+    const named = global === undefined || !Object.hasOwn(platformGlobals, global) ? undefined : platformGlobals[global];
+    if (named !== undefined) {
+      // Not the name written after a dot, which is read with the access; not a name of the project.
+      const isMember = node.kind === 'identifier' && parent?.kind === 'property-access' && parent.object !== node;
+      const isOurs = node.kind === 'identifier' && !node.declaredOutside;
+      if (!isMember && !isOurs && typeOf(node).kinds.includes('Storage') && !caught()) {
+        report(node, `Reading \`${named}\` ${platformGetters[named] ?? 'may throw'}.`, HELP_READ);
+      }
+      return;
+    }
     if (node.kind !== 'property-access') return;
     // In a module every function is strict, and reading these two on a strict function throws.
     if (node.name === 'caller' || node.name === 'arguments') {
@@ -91,7 +104,7 @@ export const noThrowingOperator: Rule = {
     for (const kind of typeOf(node.object).kinds) {
       const attached = config.assume?.includes('attached-buffers') === true;
       const whenDetached = !attached && gettersWhenDetached.includes(`${kind}.${node.name}`);
-      const why = getters[`${kind}.${node.name}`] ?? (whenDetached ? 'throws a TypeError on a buffer that was detached' : undefined);
+      const why = getters[`${kind}.${node.name}`] ?? platformGetters[`${kind}.${node.name}`] ?? (whenDetached ? 'throws a TypeError on a buffer that was detached' : undefined);
       if (why === undefined || caught()) continue;
       report(node, `Reading \`${kind}.${node.name}\` ${why}.`, 'Read it inside `attempt(() => …, onError)` in an unsafe directory, so that the failure becomes a Result.');
       return;

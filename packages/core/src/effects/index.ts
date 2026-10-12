@@ -3,6 +3,7 @@ import { domWritten } from './dom-shapes.js';
 import { generated, observed } from './generated.js';
 
 export { getters, gettersWhenDetached, operandClasses, operators } from './generated.js';
+export { platformGetters, platformGlobals } from './platform-getters.js';
 import type { Effect, Ledger } from './ledger.js';
 import { record } from '../record.js';
 import { seed } from './seed.js';

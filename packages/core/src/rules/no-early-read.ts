@@ -19,7 +19,8 @@ export const noEarlyRead: Rule = {
     const functions: Mut<Map<number, Node>> = new Map();
     const statements: Mut<Node[]> = [];
     const top = (node: Node): void => {
-      if (node.kind === 'sequence' || node.kind === 'block') for (const child of node.children) top(child);
+      // A `let` at the top of a file is a statement of its own kind: what it declares is read as early as a constant.
+      if (node.kind === 'sequence' || node.kind === 'block' || node.kind === 'module-state') for (const child of node.children) top(child);
       else if (node.kind === 'variable' && node.name.kind === 'identifier') {
         variables.set(node.start, node.name.text);
         if (node.initializer?.kind === 'function') functions.set(node.start, node.initializer);
