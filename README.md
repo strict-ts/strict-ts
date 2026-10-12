@@ -429,7 +429,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   unless the project writes `"assume": ["attached-buffers"]`.
 - A single-file component (`.vue`, `.svelte`, `.astro`) is not read. `unread-sources` refuses each one, so that a
   project does not pass with code nobody checked; accepting them in the baseline is saying so in writing. The CLI
-  finds them by listing the project; the editor plugin and the playground do not look for them.
+  finds those the project's `include` and `exclude` would take if the compiler read them; the editor plugin and
+  the playground do not look for them.
 - A call that is run because its arguments are written is run in the gate's engine. The code may run in another,
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
