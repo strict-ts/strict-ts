@@ -493,18 +493,18 @@ export function createTypeScript6Provider(
       }
       if (api.isStringLiteralLike(node)) return { ...base, kind: 'string-literal', text: node.text };
       if (api.isCallExpression(node)) {
-        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part) };
+        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part), hasSpread: node.arguments.some(api.isSpreadElement) };
       }
       if (api.isTaggedTemplateExpression(node)) {
         const template = node.template;
         const substitutions = api.isTemplateExpression(template) ? template.templateSpans.map((span) => part(span.expression)) : [];
-        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions] };
+        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions], hasSpread: false };
       }
       if (api.isTemplateExpression(node) && !api.isTaggedTemplateExpression(node.parent)) {
         return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
       }
       if (api.isNewExpression(node)) {
-        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part) };
+        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part), hasSpread: (node.arguments ?? []).some(api.isSpreadElement) };
       }
       if (api.isVariableStatement(node) && api.isSourceFile(node.parent) && (node.declarationList.flags & api.NodeFlags.Const) === 0) {
         const ambient = (api.getModifiers(node) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword);

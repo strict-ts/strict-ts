@@ -29,13 +29,27 @@ The DOM has no specification that can be read that way, so its functions are onl
 to throw (`querySelector("")`, `createElement` on a name that is not one), and are refused like any other. 700 never
 threw: that is not a proof, so they are refused too, unless the project writes `"assume": ["dom-as-observed"]`.
 With that line, a function seen to throw is also accepted on arguments that are written in the call and have a
-shape that was run in a browser: `classList.add("hidden")`, `querySelector("#menu")`, `createElement("canvas")`.
+shape that was run in a browser: `classList.add("hidden")`, `querySelector("#menu")`, `createElement("canvas")`,
+`new Response(text, { status: 404 })`. Where the shape is « any text », the argument need not be written: its type
+is enough (`setAttribute("data-count", value)`).
 
 **Arguments written in the call.** `new RegExp('^a+$')`, `BigInt('12')` and `JSON.parse('{}')` throw on some
 arguments, and not on these. When the compiler knows every argument (a literal, a constant, an object of those), the
 gate runs the call and accepts it if it does not throw. A method on a receiver that is not written, `price.toFixed(2)`
 or `date.toLocaleDateString('fr-FR')`, is run on a list of receivers of its class: that is accepted only when the
 project writes `"assume": ["generated-receivers"]`.
+
+An argument that is not written is run the same way when its type is a text, a number or a boolean: on a list of
+them, which holds the values functions are known to throw on (an empty text, half a character, `(`, -1, `NaN`, an
+infinity). `name.localeCompare(other, 'fr')` never throws on the list and is accepted; `text.repeat(count)` throws
+on -1 and is refused. A list is not every value, so this counts only for a project that writes
+`"assume": ["generated-arguments"]`. An argument whose type admits an object has no list.
+
+An argument written `...list` is none or several: the call is judged as if it had any number of them, nothing is
+run, and it is accepted only where the function does not throw whatever it is given.
+
+Some functions throw on a value no type tells apart: `format.format(date)` of an `Intl.DateTimeFormat` throws on a
+date that is not one (`new Date('nope')`), so it is refused with an argument and accepted without one.
 
 A function that is not in the ledger is refused: Node, the parts of the DOM a bare page cannot run (audio, WebGL,
 service workers), a package that is not in `allowedImports`.

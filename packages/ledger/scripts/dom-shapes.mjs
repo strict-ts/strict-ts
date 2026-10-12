@@ -24,7 +24,8 @@ if (chrome === undefined) {
 
 /**
  * What a person read. `on` names the objects of the page the function is called on (see `RECEIVERS` in the page);
- * `least` is the fewest arguments the types accept.
+ * `least` is the fewest arguments the types accept; `lists`, how many lists of arguments are made when the default
+ * is too few for what the shape lets through.
  */
 const TABLE = [
   { name: 'DOMTokenList.add', shapes: [], rest: 'token', least: 0, on: 'tokens', clause: 'DOM standard, add(tokens…): throws when a token is empty or contains ASCII whitespace' },
@@ -39,6 +40,7 @@ const TABLE = [
   { name: 'Element.matches', shapes: ['selector'], least: 1, on: 'elements', clause: 'DOM standard, matches(selectors): throws when selectors does not parse' },
   { name: 'Headers.get', shapes: ['header-name'], least: 1, on: 'headers', clause: 'Fetch standard, get(name): throws when name is not a header name' },
   { name: 'Headers.has', shapes: ['header-name'], least: 1, on: 'headers', clause: 'Fetch standard, has(name): throws when name is not a header name' },
+  { name: 'Response.new', shapes: ['text', 'response-init'], least: 0, on: 'none', lists: 3000, clause: 'Fetch standard, new Response(body, init): throws when the status is outside 200 to 599, when it says there is no body and there is one, when the status text or a header is not one' },
   { name: 'CanvasGradient.addColorStop', shapes: ['unit', 'colour'], least: 2, on: 'gradients', clause: 'HTML standard, addColorStop(offset, color): throws when offset is outside 0 to 1 or color does not parse' },
 ];
 
@@ -104,6 +106,16 @@ function candidates(shape, random) {
       return random.pick([0, -0, 1, 0.5, Number.MIN_VALUE, 1 - Number.EPSILON, random.next(), random.next(), -1, 2, Number.NaN, Number.POSITIVE_INFINITY]);
     case 'flag':
       return random.next() < 0.5;
+    case 'response-init': {
+      const status = () => (random.next() < 0.7 ? 200 + random.whole(400) : random.pick([0, 99, 100, 101, 199, 204, 205, 304, 600, 999, 1000, -1, 200.5, Number.NaN, Number.POSITIVE_INFINITY, '200']));
+      const held = () => (random.next() < 0.25 ? noise() : random.many(0, 12, () => String.fromCharCode(0x20 + random.whole(0x5f))).join(''));
+      const headers = () => Object.fromEntries(random.many(0, 3, () => [candidates('header-name', random), held()]));
+      const init = {};
+      if (random.next() < 0.8) init.status = status();
+      if (random.next() < 0.6) init.headers = headers();
+      if (random.next() < 0.1) init.statusText = noise();
+      return init;
+    }
     default:
       return undefined;
   }
@@ -113,7 +125,8 @@ function candidates(shape, random) {
 function listsFor(entry, random) {
   const lists = [];
   let tried = 0;
-  while (lists.length < LISTS && tried++ < LISTS * 200) {
+  const wanted = entry.lists ?? LISTS;
+  while (lists.length < wanted && tried++ < wanted * 200) {
     const most = entry.rest === undefined ? entry.shapes.length : entry.shapes.length + 3;
     const length = entry.least + random.whole(most - entry.least + 1);
     const list = Array.from({ length }, (_, index) => candidates(entry.shapes[index] ?? entry.rest, random));
@@ -147,6 +160,8 @@ const RECEIVERS = {
     return [document, root, fragment, document.createElement('template').content, new DOMParser().parseFromString('<a><b/></a>', 'application/xml')];
   },
   headers: () => [new Headers(), new Headers({ 'content-type': 'text/plain', cookie: 'a=b' }), new Request('https://example.test/', { headers: { authorization: 'Basic eA==' } }).headers, new Response('x').headers, Response.error().headers],
+  // A constructor is called on nothing.
+  none: () => [undefined],
   gradients: () => {
     const context = document.createElement('canvas').getContext('2d');
     return [context.createLinearGradient(0, 0, 1, 1), context.createRadialGradient(0, 0, 1, 2, 2, 3), new OffscreenCanvas(2, 2).getContext('2d').createLinearGradient(0, 0, 1, 0)];
@@ -161,9 +176,10 @@ for (const job of JOBS) {
     for (const receiver of RECEIVERS[job.on]()) {
       result.runs++;
       try {
-        receiver[member](...list.map((value) => (value !== null && typeof value === 'object' ? value.number : value)));
+        if (member === 'new') new globalThis[job.name.slice(0, job.name.indexOf('.'))](...list);
+        else receiver[member](...list);
       } catch (error) {
-        if (result.threw.length < 5) result.threw.push(receiver.constructor.name + ' · ' + JSON.stringify(list) + ' → ' + (error && error.name));
+        if (result.threw.length < 5) result.threw.push((receiver === undefined ? 'new' : receiver.constructor.name) + ' · ' + JSON.stringify(list) + ' → ' + (error && error.name));
       }
     }
     document.body.replaceChildren();
@@ -178,15 +194,18 @@ document.documentElement.appendChild(out);
 `;
 
 const random = sequence(SEED);
-// JSON has no way to write -0, NaN or an infinity: a number travels as text.
+// JSON has no way to write -0, NaN or an infinity: a number travels as text, and an object as its members, so that
+// the two are told apart.
+const packed = (value) =>
+  typeof value === 'number' ? { number: Object.is(value, -0) ? '-0' : String(value) } : value !== null && typeof value === 'object' ? { members: Object.entries(value).map(([name, held]) => [name, packed(held)]) } : value;
 const asked = process.env.SHAPES_ONLY?.split(',');
-const jobs = TABLE.filter((entry) => asked === undefined || asked.includes(entry.name)).map((entry) => ({ name: entry.name, on: entry.on, lists: listsFor(entry, random).map((list) => list.map((value) => (typeof value === 'number' ? { number: Object.is(value, -0) ? '-0' : String(value) } : value))) }));
+const jobs = TABLE.filter((entry) => asked === undefined || asked.includes(entry.name)).map((entry) => ({ name: entry.name, on: entry.on, lists: listsFor(entry, random).map((list) => list.map(packed)) }));
 const work = mkdtempSync(join(tmpdir(), 'strict-ts-dom-shapes-'));
 const file = join(work, 'page.html');
 const data = JSON.stringify(jobs).replaceAll('<', '\\u003c');
 writeFileSync(
   file,
-  `<!doctype html><html><head><meta charset="utf-8"></head><body><script type="module">\nconst JOBS = JSON.parse(${JSON.stringify(data)}, (_key, value) => (value !== null && typeof value === 'object' && typeof value.number === 'string' ? { number: Number(value.number) } : value));\n${PAGE}\n</script></body></html>`,
+  `<!doctype html><html><head><meta charset="utf-8"></head><body><script type="module">\nconst unpacked = (value) => (value === null || typeof value !== 'object' ? value : Array.isArray(value) ? value.map(unpacked) : 'number' in value ? Number(value.number) : 'members' in value ? Object.fromEntries(value.members.map(([name, held]) => [name, unpacked(held)])) : Object.fromEntries(Object.entries(value).map(([name, held]) => [name, unpacked(held)])));\nconst JOBS = unpacked(JSON.parse(${JSON.stringify(data)}));\n${PAGE}\n</script></body></html>`,
 );
 const results = await new Promise((resolve) => {
   execFile(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--virtual-time-budget=60000', '--dump-dom', `file://${file}`], { timeout: 120000, maxBuffer: 256 * 1024 * 1024 }, (_error, stdout) => {

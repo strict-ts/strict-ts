@@ -88,10 +88,13 @@ export type Node = NodeBase &
     /** `if (condition) whenTrue else whenFalse`. */
     | { readonly kind: 'if'; readonly condition: Node; readonly whenTrue: Node; readonly whenFalse: Node | undefined }
     | { readonly kind: 'return'; readonly expression: Node | undefined }
-    /** A call. A tagged template is one too: its arguments are the template, then each substitution. */
-    | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[] }
+    /**
+     * A call. A tagged template is one too: its arguments are the template, then each substitution. `hasSpread`: an
+     * argument is written `...list`, so how many the function receives is not what is counted here.
+     */
+    | { readonly kind: 'call'; readonly callee: Node; readonly arguments: readonly Node[]; readonly hasSpread: boolean }
     /** `new Callee(…)`, with the number of arguments written. */
-    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number; readonly arguments: readonly Node[] }
+    | { readonly kind: 'new'; readonly callee: Node; readonly argumentCount: number; readonly arguments: readonly Node[]; readonly hasSpread: boolean }
     /** A `let` or `var` statement at the top level of a module: state every importer shares. */
     | { readonly kind: 'module-state' }
     /** `object.name`; parentheses around `object` are looked through. */
