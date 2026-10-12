@@ -99,6 +99,36 @@ describe('strict-ts-derive', () => {
     expect(compile(directory, 'types.ts', 'types.schema.ts')).toEqual([]);
   });
 
+  test('a choice between shapes, a value that may be missing, and what is not known yet', () => {
+    const directory = project();
+    writeFileSync(
+      join(directory, 'types.ts'),
+      [
+        'export type Circle = { readonly kind: "circle"; readonly radius: number };',
+        'export type Square = { readonly kind: "square"; readonly side: number };',
+        'export type Drawing = {',
+        '  readonly shape: Circle | Square;',
+        '  readonly label: string | undefined;',
+        '  readonly weight: number | "auto" | "none" | undefined;',
+        '  readonly extra: unknown;',
+        '  readonly tags?: readonly (string | number)[];',
+        '};',
+        '',
+      ].join('\n'),
+    );
+    expect(derive(directory, 'types.ts').code).toBe(0);
+    expect(readFileSync(join(directory, 'types.schema.ts'), 'utf8').split('\n').slice(15, 22)).toEqual([
+      'export const DrawingSchema: s.Schema<Drawing> = s.object({',
+      '  shape: s.union(CircleSchema, SquareSchema),',
+      '  label: s.nullish(s.string),',
+      '  weight: s.nullish(s.union(s.literal("auto", "none"), s.number)),',
+      '  extra: s.unknown,',
+      '  tags: s.optional(s.array(s.union(s.string, s.number))),',
+      '});',
+    ]);
+    expect(compile(directory, 'types.ts', 'types.schema.ts')).toEqual([]);
+  });
+
   test('only the types that are named, with those they name', () => {
     const result = from('export type A = { readonly b: B };\nexport type B = { readonly n: number };\nexport type C = string;\n', 'A');
     expect(result.ok && result.value.types).toEqual(['B', 'A']);
@@ -108,11 +138,11 @@ describe('strict-ts-derive', () => {
     expect(
       problems(
         [
-          'export type Shape = { readonly kind: "circle"; readonly r: number } | { readonly kind: "square"; readonly side: number };',
+          'export type Shape = { readonly kind: "circle"; readonly r: number } | null;',
           'export type Bag = { readonly items: string[] };',
           'export type Tree = { readonly children: readonly Tree[] };',
           'export type Box<T> = { readonly value: T };',
-          'export type Maybe = { readonly value: string | undefined };',
+          'export type Maybe = { readonly value: undefined };',
           'export type Pair = { readonly both: readonly [number, number] };',
           'export type Uses = { readonly other: Elsewhere; readonly hidden: Hidden };',
           'type Hidden = { readonly n: number };',
@@ -121,11 +151,11 @@ describe('strict-ts-derive', () => {
         ].join('\n'),
       ),
     ).toEqual([
-      '1:21 a union that is not made of literals only: the standard library has no schema for a choice between shapes',
+      '1:71 `null`: write `| undefined`, which is read from a `null` as well',
       '2:37 a mutable array: a parsed value is read-only, write `readonly T[]`',
       '3:50 the type `Tree`, which contains itself',
       '4:13 the type `Box` takes parameters',
-      '5:39 a union that is not made of literals only: the standard library has no schema for a choice between shapes',
+      '5:39 a type the standard library has no schema for',
       '6:37 a type the standard library has no schema for',
       '7:38 the type `Elsewhere`: it is not declared in this file, or it takes arguments',
       '8:6 the type `Hidden` is not exported: the generated module cannot name it',

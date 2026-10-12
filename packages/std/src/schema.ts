@@ -66,6 +66,36 @@ export function optional<T>(inner: Schema<T>): OptionalSchema<T> {
   return { optional: true, parse: (input) => (input === undefined ? new Ok(undefined) : inner.parse(input)) };
 }
 
+/**
+ * A value that may be missing: `null` or `undefined` is read as `undefined`. For the `T | undefined` of a type,
+ * where what comes from outside says `null`. In an object the key stays, where `optional` leaves it out.
+ */
+export const nullish = <T>(inner: Schema<T>): Schema<T | undefined> => ({
+  parse: (input) => (input === undefined || input === null ? new Ok(undefined) : inner.parse(input)),
+});
+
+/** Anything: the value is kept as `unknown`, to be proven later. */
+export const unknown: Schema<unknown> = { parse: (input) => new Ok(input) };
+
+/**
+ * A choice between shapes: `s.union(Circle, Square)` → Schema<Circle | Square>. Each is tried in the order written
+ * and the first that reads the value wins, so a shape that holds another comes before it: an object schema drops
+ * the keys it does not name.
+ */
+export function union<const S extends readonly [Schema<unknown>, Schema<unknown>, ...(readonly Schema<unknown>[])]>(...members: S): Schema<Infer<S[number]>> {
+  return {
+    parse: (input) => {
+      const expected: Mut<string[]> = [];
+      for (const member of members) {
+        const r = member.parse(input);
+        if (r.ok) return new Ok(r.value as Infer<S[number]>);
+        expected.push(r.error.path === '' ? r.error.expected : `${r.error.expected} at ${r.error.path}`);
+      }
+      return fail(expected.join(' | '));
+    },
+  };
+}
+
 type Shape = Readonly<Record<string, Schema<unknown>>>;
 type Prettify<T> = { [K in keyof T]: T[K] } & {};
 type RequiredKeys<S extends Shape> = { [K in keyof S]: S[K] extends OptionalSchema<unknown> ? never : K }[keyof S];
@@ -83,7 +113,8 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
       for (const [key, schema] of Object.entries(shape)) {
         const r = schema.parse(record[key]);
         if (!r.ok) return new Err({ path: `.${key}${r.error.path}`, expected: r.error.expected });
-        if (r.value !== undefined) out[key] = r.value;
+        // An optional key that is absent stays absent; any other key is there, even when its value is undefined.
+        if (r.value !== undefined || !('optional' in schema)) out[key] = r.value;
       }
       return new Ok(out as ObjectOf<S>);
     },

@@ -104,3 +104,36 @@ test('a record reads any names, each with a value of the same kind', () => {
   expect(Object.keys(read)).toEqual(['a']);
   expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
 });
+
+describe('a choice, a value that may be missing, a value not known yet', () => {
+  const Circle = s.object({ kind: s.literal('circle'), radius: s.number });
+  const Square = s.object({ kind: s.literal('square'), side: s.number });
+  const Shape = s.union(Circle, Square);
+
+  test('union reads the first shape that fits, and says what each one wanted when none does', () => {
+    expect(Shape.parse({ kind: 'square', side: 2 })).toEqual(ok({ kind: 'square', side: 2 }));
+    expect(Shape.parse({ kind: 'circle', radius: 1 })).toEqual(ok({ kind: 'circle', radius: 1 }));
+    expect(Shape.parse({ kind: 'square' })).toEqual(err({ path: '', expected: '"circle" at .kind | number at .side' }));
+    expect(s.union(s.string, s.number).parse(true)).toEqual(err({ path: '', expected: 'string | number' }));
+  });
+
+  test('union is typed as the choice: what it gives is narrowed by its tag', () => {
+    const area = Shape.parse({ kind: 'square', side: 3 }).map((shape) => (shape.kind === 'circle' ? shape.radius : shape.side));
+    expect(area).toEqual(ok(3));
+  });
+
+  test('nullish reads null and undefined as undefined, and the key stays in an object', () => {
+    const Note = s.object({ text: s.nullish(s.string), by: s.optional(s.string) });
+    expect(Note.parse({ text: null })).toEqual(ok({ text: undefined }));
+    expect(Note.parse({}).map((note) => 'text' in note && !('by' in note))).toEqual(ok(true));
+    expect(Note.parse({ text: 'a', by: 'b' })).toEqual(ok({ text: 'a', by: 'b' }));
+    expect(Note.parse({ text: 1 }).ok).toBe(false);
+    // `optional` does not take a null for an absence.
+    expect(Note.parse({ text: 'a', by: null }).ok).toBe(false);
+  });
+
+  test('unknown keeps anything, as unknown', () => {
+    expect(s.unknown.parse({ any: ['thing'] })).toEqual(ok({ any: ['thing'] }));
+    expect(s.unknown.parse(undefined)).toEqual(ok(undefined));
+  });
+});

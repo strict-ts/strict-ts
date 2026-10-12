@@ -80,10 +80,21 @@ export function deriveSchemas(api: typeof ts, sourceFile: ts.SourceFile, from: s
     if (node.kind === api.SyntaxKind.BooleanKeyword) return 's.boolean';
     const literal = literalOf(node);
     if (literal !== undefined) return `s.literal(${literal})`;
+    if (node.kind === api.SyntaxKind.UnknownKeyword) return 's.unknown';
     if (api.isUnionTypeNode(node)) {
-      const literals = node.types.map(literalOf);
-      if (literals.every((value) => value !== undefined)) return `s.literal(${literals.join(', ')})`;
-      return unfollowed(node, 'a union that is not made of literals only: the standard library has no schema for a choice between shapes');
+      // `| undefined` is a value that may be missing; the literals are one schema; what is left is a choice.
+      const isUndefined = (member: ts.TypeNode): boolean => member.kind === api.SyntaxKind.UndefinedKeyword;
+      const present = node.types.filter((member) => !isUndefined(member));
+      const literals = present.flatMap((member) => literalOf(member) ?? []);
+      const shapes = present.filter((member) => literalOf(member) === undefined).map((member) => schemaOf(member, indent));
+      const members = [...(literals.length === 0 ? [] : [`s.literal(${literals.join(', ')})`]), ...shapes];
+      const [only] = members;
+      if (only === undefined) return unfollowed(node, 'a union of `undefined` alone');
+      const choice = members.length === 1 ? only : `s.union(${members.join(', ')})`;
+      return present.length === node.types.length ? choice : `s.nullish(${choice})`;
+    }
+    if (api.isLiteralTypeNode(node) && node.literal.kind === api.SyntaxKind.NullKeyword) {
+      return unfollowed(node, '`null`: write `| undefined`, which is read from a `null` as well');
     }
     if (api.isTypeOperatorNode(node) && node.operator === api.SyntaxKind.ReadonlyKeyword && api.isArrayTypeNode(node.type)) {
       return `s.array(${schemaOf(node.type.elementType, indent)})`;
