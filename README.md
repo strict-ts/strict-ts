@@ -411,6 +411,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
+| [`@strict-ts/derive`](packages/derive) | Generates the schema of a type from the type: nobody writes a schema | a spike: objects, arrays, literals, records, dates, brands; no choice between shapes |
 | [`@strict-ts/language-service`](packages/language-service) | The refusals in the editor | plugin tried against a real TypeScript server |
 | [`@strict-ts/vscode`](packages/vscode) | The VS Code extension that carries the plugin; not published | builds a VSIX; not opened in an editor yet |
 | [`@strict-ts/oxlint-plugin`](packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |

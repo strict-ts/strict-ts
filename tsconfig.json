@@ -14,6 +14,9 @@
       "path": "packages/wrap"
     },
     {
+      "path": "packages/derive"
+    },
+    {
       "path": "packages/codemod"
     },
     {
