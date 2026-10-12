@@ -67,8 +67,8 @@ describe('--update-baseline', () => {
   test('a source the gate does not read is refused as a whole, until the baseline accepts it in writing', () => {
     const components = project('components');
     writeFileSync(join(components, 'src/Card.vue'), '<script setup lang="ts">\nconst value = JSON.parse("2") as any;\n</script>\n<template><p>{{ value }}</p></template>\n');
-    // What a tool generates and what a dependency ships are not sources of the project.
-    for (const outside of ['.nuxt', 'node_modules/kit']) {
+    // What the configuration leaves out is not the project's: another project beside it, a dependency.
+    for (const outside of ['site/pages', 'src/node_modules/kit']) {
       mkdirSync(join(components, outside), { recursive: true });
       writeFileSync(join(components, outside, 'Other.vue'), '<template />\n');
     }
