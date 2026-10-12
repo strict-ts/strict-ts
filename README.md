@@ -49,7 +49,7 @@ found is a file that fails when it is run, kept in the tests with the rule that 
 for errors in the types. It is a list and not a proof, the lists were written by who wrote the rules, and what is
 taken on trust (the specification as it was read, the browser as it was run, the types of the packages a project
 allows) is in [Known limits](docs/known-limits.md). « Prototype » means the rules exist and are tested, and ways
-around them are still being found: explicit mutability went from 2 known ways refused to 23 in one day.
+around them are still being found: explicit mutability went from 2 known ways refused to 34 in one day, in two rounds.
 
 ## Installation and usage
 

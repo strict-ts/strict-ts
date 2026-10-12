@@ -70,6 +70,26 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m25-handed-out-by-a-function.ts')).toEqual(['no-param-mutation']);
   });
 
+  test('what is kept somewhere is not written from there unless the place says so', () => {
+    // A second round, with the limits the documentation named each written as a file.
+    for (const name of [
+      'm26-arrow-kept-by-the-constructor.ts',
+      'm27-written-straight-into-a-result.ts',
+      'm28-through-map.ts',
+      'm29-copy-of-a-result.ts',
+      'm31-kept-in-a-field.ts',
+      'm32-pushed-into-a-list.ts',
+      'm33-called-with-call.ts',
+      'm34-returned-inside-something-new.ts',
+      'm35-captured-by-a-function-elsewhere.ts',
+    ]) {
+      expect(refusedBy(name), name).toEqual(['no-param-mutation']);
+    }
+    expect(refusedBy('m30-elements-of-a-list.ts')).toEqual(['mut-from-readonly']);
+    // An iterator is used up by being read; and its `next` may throw, which is another rule's.
+    expect(refusedBy('m36-iterator-of-a-parameter.ts')).toContain('no-param-mutation');
+  });
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

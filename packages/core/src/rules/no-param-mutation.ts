@@ -12,6 +12,8 @@ const isAssignment = (operator: string): boolean => operator.endsWith('=') && ![
 const MUTATORS = new Set([
   // Arrays, maps, sets, typed arrays.
   'push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin', 'set', 'add', 'delete', 'clear',
+  // An iterator is used up by being read.
+  'next',
   // The nodes of a page, its lists of classes, its headers and its forms.
   'append', 'prepend', 'appendChild', 'removeChild', 'replaceChildren', 'insertBefore', 'remove', 'toggle', 'removeAttribute',
 ]);
@@ -31,7 +33,31 @@ const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: n
   node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1) : { root: node, steps };
 
 /** Whose it is, when a written object is not the function's own to change. */
-type Owner = { readonly kind: 'parameter'; readonly name: string } | { readonly kind: 'this' } | { readonly kind: 'giver'; readonly call: Node };
+type Owner =
+  | { readonly kind: 'parameter'; readonly name: string }
+  | { readonly kind: 'this' }
+  | { readonly kind: 'giver'; readonly call: Node }
+  | { readonly kind: 'field'; readonly name: string }
+  | { readonly kind: 'elements'; readonly name: string };
+
+/** The name of a list, a map or a set whose written type says the container may be written, and not what it holds. */
+const closedElements = (container: Node): string | undefined =>
+  (container.kind === 'identifier' && container.elements === 'readonly') || (container.kind === 'property-access' && container.elements === 'readonly')
+    ? container.kind === 'identifier'
+      ? container.text
+      : container.name
+    : undefined;
+/** The first list, on the way down to an object, that is read by position and does not say what it holds may be written. */
+const closedList = (object: Node): string | undefined => {
+  if (object.kind === 'element-access') return closedList(object.object) ?? closedElements(object.object);
+  return object.kind === 'property-access' ? closedList(object.object) : undefined;
+};
+
+/** The first field, on the way down to an object, that the project declares and that does not say what it holds may be written. */
+const closedField = (object: Node): string | undefined => {
+  if (object.kind === 'property-access') return closedField(object.object) ?? (object.holds === 'readonly' ? object.name : undefined);
+  return object.kind === 'element-access' ? closedField(object.object) : undefined;
+};
 
 /**
  * The owner of an object the function did not make and was not given to change: a read-only parameter (`p`,
@@ -40,23 +66,43 @@ type Owner = { readonly kind: 'parameter'; readonly name: string } | { readonly 
  * a parameter holds may be written itself, and not what it holds. `gives` says whether a call hands out something
  * its caller may write.
  */
-const ownerOf = (object: Node, gives: (call: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
+const ownerOf = (object: Node, gives: (call: Node) => boolean, isCopied: (node: Node) => boolean, depth = 0, below = 0): Owner | undefined => {
   const { root, steps } = rootOf(object);
+  // A name for a number or a text names nothing that can be written: it was copied when it was given.
+  if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
-  if (root.kind === 'this') return root.receiver === 'readonly' ? { kind: 'this' } : undefined;
-  if (root.kind !== 'identifier' || depth > DEPTH) return undefined;
+  if (root.kind === 'this' && root.receiver === 'readonly') return { kind: 'this' };
+  // What a call gave, written with no name for it.
+  if (root.kind === 'call' && !gives(root)) return { kind: 'giver', call: root };
+  /**
+   * On the way down from a root that may be written: to write into what a field holds, the field says so, and to
+   * write into what a list holds, the list says so inside its `Mut<…>`. What they were given then had to be
+   * something to change. Asked last: whose the object is says more, when it is someone's.
+   */
+  const closed = (): Owner | undefined => {
+    const field = closedField(object);
+    if (field !== undefined) return { kind: 'field', name: field };
+    const list = closedList(object);
+    return list === undefined ? undefined : { kind: 'elements', name: list };
+  };
+  if (root.kind !== 'identifier' || depth > DEPTH) return closed();
   if (root.parameter === 'readonly') return { kind: 'parameter', name: root.text };
-  if (root.parameter === 'mutable') return undefined;
+  if (root.parameter === 'mutable') return closed();
   for (const alias of root.aliasOf) {
+    // A number or a text that was put there is a copy of its own.
+    if (isCopied(alias.place)) continue;
     if (alias.as === 'copy' && steps + below === 0) continue;
     if (alias.as === 'result') {
       if (!gives(alias.place)) return { kind: 'giver', call: alias.place };
       continue;
     }
-    const found = ownerOf(alias.place, gives, depth + 1, steps + below + (alias.as === 'part' ? 1 : 0));
+    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0));
     if (found !== undefined) return found;
+    // One of the things a list holds: the list has to say they may be written.
+    const list = alias.as === 'element' ? closedElements(alias.place) : undefined;
+    if (list !== undefined) return { kind: 'elements', name: list };
   }
-  return undefined;
+  return closed();
 };
 
 /** The places a write changes: one for a plain assignment, each one a pattern names for `[a.b, c] = …`. */
@@ -78,16 +124,33 @@ export const noParamMutation: Rule = {
       const callee = calleeOf(call);
       return callee === undefined || callee.origin.kind !== 'project' || typeOf(call.callee).mutableReturn;
     };
+    const isCopied = (named: Node): boolean => typeOf(named).kinds.every((kind) => PRIMITIVES.includes(kind));
     const refuse = (at: Node, object: Node, how: string): boolean => {
-      const owner = ownerOf(object, gives);
+      const owner = ownerOf(object, gives, isCopied);
       if (owner === undefined) return false;
       const { root } = rootOf(object);
       const name = root.kind === 'identifier' ? root.text : '';
+      if (owner.kind === 'field') {
+        report(
+          at,
+          `What the field \`${owner.name}\` holds is mutated${how}, and the field does not say it may be: its type has no \`Mut<…>\`.`,
+          'Type the field `Mut<…>`: what it is given then has to be something that may be changed. Or change a copy.',
+        );
+        return true;
+      }
+      if (owner.kind === 'elements') {
+        report(
+          at,
+          `What \`${owner.name}\` holds is mutated${how}, and its type says the container may be written, not what it holds.`,
+          'Say it inside the container too (`Mut<Mut<Line>[]>`, `readonly Mut<Line>[]`): what is put in it then has to be something that may be changed. Or change a copy.',
+        );
+        return true;
+      }
       if (owner.kind === 'giver') {
         const giver = (calleeOf(owner.call)?.name ?? '').replace(/\.$/, '');
         report(
           at,
-          `\`${name}\` is mutated${how}, and ${giver === '' ? 'the function' : `\`${giver}\``} that gave it does not say it may be: its return type has no \`Mut<…>\`.`,
+          `${name === '' ? 'What a call gave' : `\`${name}\``} is mutated${how}, and ${giver === '' ? 'the function' : `\`${giver}\``} that gave it does not say it may be: its return type has no \`Mut<…>\`.`,
           'Write `Mut<…>` in the return type of the function, so that it says it hands out something to change; or change a copy.',
         );
         return true;
@@ -122,12 +185,17 @@ export const noParamMutation: Rule = {
     }
     if (node.kind !== 'call' || node.callee.kind !== 'property-access') return;
     const { name, object } = node.callee;
+    const [first] = node.arguments;
+    // `reset.call(given)`: a function that says it writes its object, given its object as an argument.
+    if ((name === 'call' || name === 'apply') && first !== undefined && typeOf(object).mutableReceiver !== undefined) {
+      refuse(node, first, ` by \`${name}\` of a function that says \`this: Mut<…>\``);
+      return;
+    }
     // A method that says it writes its object.
     if (typeOf(node.callee).mutableReceiver !== undefined) {
       refuse(node, object, ` by \`${name}\`, which says \`this: Mut<…>\``);
       return;
     }
-    const [first] = node.arguments;
     if (object.kind === 'identifier' && first !== undefined && (WRITERS[object.text] ?? []).includes(name)) {
       refuse(node, first, ` by \`${object.text}.${name}\``);
       return;

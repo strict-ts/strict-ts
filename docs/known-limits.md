@@ -20,20 +20,23 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- **Explicit mutability is a list of known ways too.** Of 24 known ways to change what a function did not make and
-  that does not say `Mut`, the rules refuse 23. The last is outside the guarantee: whoever made a value may change
+- **Explicit mutability is a list of known ways too.** Of 35 known ways to change what a function did not make and
+  that does not say `Mut`, the rules refuse 34. The last is outside the guarantee: whoever made a value may change
   it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
   list.push(2)`). That is aliasing, which Rust refuses with its borrow checker and strict-ts does not. Each is a
-  file of `packages/core/test/fixtures/mutations`.
-- `no-param-mutation` does not see a write straight into what a call gave back, with no name for it
-  (`current().count += 1`), nor into a new container of what a call gave (`[...current()]`). What a library gives
-  back may be written: its types say nothing either way.
-- A function written with an arrow in a constructor may change the object later, without anything saying so: the
-  constructor may write `this`, and the arrow has its `this`. A getter cannot say `this: Mut<…>`, so a getter that
-  writes (a value computed once and kept) is refused.
-- `mut-from-readonly` compares the properties of what is given with those of what is asked three levels deep, and
-  not the elements of an array that is not written in place.
-- `no-param-mutation` follows a local name made from a parameter, not what `map` gives.
+  file of `packages/core/test/fixtures/mutations`. Two rounds found them, the second as many as the first: this
+  list is younger than the two above.
+- What may be written is followed by what the types written in the project say: a field says `Mut<…>` for what it
+  holds to be written, a list says it inside (`Mut<Mut<Line>[]>`). Where no type is written (an object or an array
+  made in place, `typeof` a value), the rules follow the names instead, up to eight of them, and inside one
+  function: what a helper puts in a list it is given is not followed.
+- A method of a library that changes its object is known by its name (`push`, `set…`, `next`, `appendChild`…). One
+  whose name says nothing is not seen: `pattern.exec(text)` moves the `lastIndex` of a pattern.
+- `reset.bind(given)` makes a function that will write `given`; only `call` and `apply` are read.
+- What a library gives back may be written: its types say nothing either way.
+- A getter cannot say `this: Mut<…>`, nor can a function written with an arrow: one that writes its object (a
+  value computed once and kept, a handler kept in a property) is refused, and becomes a method.
+- `mut-from-readonly` compares what is given with what is asked three levels deep.
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.

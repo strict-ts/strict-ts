@@ -6,6 +6,7 @@
  *   union without losing inference.
  * - Each variant is iterable: `yield*` in `Result.gen` plays the role of the `?` operator.
  */
+import type { Mut } from './mut.js';
 import { panic } from './panic.js';
 import { textOf } from './text.js';
 
@@ -77,7 +78,8 @@ function gen<Y extends Err<unknown> = never, R extends Result<unknown, unknown> 
 function gen<Y extends Err<unknown> = never, R extends Result<unknown, unknown> = never>(
   body: () => Generator<Y, R, unknown>,
 ): Result<ValueOf<R>, ErrorOf<Y> | ErrorOf<R>>;
-function gen(body: () => Generator<unknown, unknown, unknown> | AsyncGenerator<unknown, unknown, unknown>): unknown {
+// What `body` gives is made by the call and is this function's to run: its type says so.
+function gen(body: () => Mut<Generator<unknown, unknown, unknown> | AsyncGenerator<unknown, unknown, unknown>>): unknown {
   const steps = body();
   // `next` throws on a generator that is already running, which one just made is not; the `try` is for the rule.
   const first = (): ReturnType<typeof steps.next> | undefined => {

@@ -19,7 +19,7 @@ code.
 
 **Explicit mutability is a prototype.** Types are read-only unless they say `Mut<T>`; a function changes only what
 it made, or what says `Mut`: a parameter, `this` in a method that says `this: Mut<…>`, what another function hands
-out. 24 known ways, 23 refused. Its rules were widened a great deal just before this release and have been tried
+out. 35 known ways, 34 refused. Its rules were widened a great deal just before this release and have been tried
 on one application: expect them to move, in 2.0.
 
 **Ownership is research**: `use-once`, on a small subset.

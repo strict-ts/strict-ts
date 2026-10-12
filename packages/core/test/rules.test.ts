@@ -852,7 +852,7 @@ describe('no-param-mutation', () => {
   test('what a function of the project gives back is written only if its return type says so', () => {
     const lines = [
       'import type { Mut } from "@strict-ts/std";',
-      'type State = { count: number; readonly tags: string[] };',
+      'type State = { count: number; readonly tags: Mut<string[]> };',
       'const held: State = { count: 0, tags: [] };',
       'const same = <T>(value: T): T => value;',
       'const current = (): State => held;',
@@ -882,9 +882,84 @@ describe('no-param-mutation', () => {
     ]);
   });
 
-  test('known limit: a write straight into what a call gave, with no name for it, is not seen', () => {
+  test('a write straight into what a call gave, with no name for it, is refused as well', () => {
     const code = 'type State = { count: number };\nconst held: State = { count: 0 };\nconst current = (): State => held;\nexport function bump(): void {\n  current().count += 1;\n}\n';
-    expect(checkSafe(code, alone)).toEqual([]);
+    expect(checkSafe(code, alone).map((d) => `${d.start.line} ${d.message}`)).toEqual(['5 What a call gave is mutated, and `current` that gave it does not say it may be: its return type has no `Mut<…>`.']);
+  });
+
+  test('to write into what a field or a list holds, the field or the list says so', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'type Line = { quantity: number };',
+      'export class Cart {',
+      '  readonly kept: Line;',
+      '  readonly owned: Mut<Line>;',
+      '  readonly made = { quantity: 0 };',
+      '  readonly lines: Mut<Line[]> = [];',
+      '  readonly open: Mut<Mut<Line>[]> = [];',
+      '  constructor(kept: Line, owned: Mut<Line>) {',
+      '    this.kept = kept;',
+      '    this.owned = owned;',
+      '  }',
+      '  change(this: Mut<Cart>, given: Line, mine: Mut<Line>): void {',
+      '    this.kept.quantity = 1;',
+      '    this.owned.quantity = 1;',
+      '    this.made.quantity = 1;',
+      '    this.lines.push(given);',
+      '    for (const line of this.lines) line.quantity = 1;',
+      '    const first = this.lines[0];',
+      '    if (first !== undefined) first.quantity = 1;',
+      '    this.open.push(mine);',
+      '    for (const line of this.open) line.quantity = 1;',
+      '  }',
+      '}',
+      'export function collect(given: Line, mine: Mut<Line>): readonly Line[] {',
+      '  const seen: Mut<Line[]> = [];',
+      '  seen.push(given);',
+      '  const loose = [];',
+      '  loose.push(given);',
+      '  for (const line of loose) line.quantity = 1;',
+      '  const own = [mine];',
+      '  for (const line of own) line.quantity = 1;',
+      '  return seen;',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '14 What the field `kept` holds is mutated, and the field does not say it may be: its type has no `Mut<…>`.',
+      '18 What `lines` holds is mutated, and its type says the container may be written, not what it holds.',
+      '20 What `lines` holds is mutated, and its type says the container may be written, not what it holds.',
+      '30 Parameter `given` is mutated, through `line`.',
+    ]);
+    // What is put in a list that says its elements may be written has to be something to change.
+    expect(checkSafeEverything([...lines.slice(0, 21).map((line) => line.replace('this.open.push(mine)', 'this.open.push(given)')), '  }', '}', ''].join('\n')).filter((d) => d.rule === 'mut-from-readonly').map((d) => d.start.line)).toEqual([21]);
+  });
+
+  test('a function kept by a constructor does not write the object later, and `call` gives a receiver', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'export class Counter {',
+      '  value: Mut<number> = 0;',
+      '  readonly bump: () => void;',
+      '  constructor() {',
+      '    this.value = 1;',
+      '    this.bump = () => {',
+      '      this.value += 1;',
+      '    };',
+      '  }',
+      '}',
+      'function reset(this: Mut<Counter>): void {',
+      '  this.value = 0;',
+      '}',
+      'export function touch(given: Counter, steps: Iterator<number>): void {',
+      '  reset.call(given);',
+      '  steps.next();',
+      '}',
+    ];
+    expect(refusedAt(lines)).toEqual([
+      '8 `this` is mutated, in a function that does not say `this: Mut<…>`.',
+      '16 Parameter `given` is mutated by `call` of a function that says `this: Mut<…>`.',
+      '17 Parameter `steps` is mutated by `next`.',
+    ]);
   });
 });
 
