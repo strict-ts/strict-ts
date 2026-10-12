@@ -5,6 +5,9 @@
 - Work, docs and specs are in Plane, project `STS` (`plane next -p STS`, `plane show STS-n`, `plane page list -p STS`).
   This repo holds code, pull requests and CI only: no backlog, roadmap or spec files here. Commits say `Refs STS-n`,
   or `Closes STS-n` when the task is done.
+- The README is the front page: what strict-ts is, the table of guarantees, how to install, and links. How to use
+  it (rules, command line, configuration, adoption, limits) is in `docs/`, one file per subject, changed in the same
+  pull request as the code it describes. `CONTRIBUTING.md` says how to work on the repo.
 - Everything is written in English: code, comments, commits, Plane.
 - Before a push: `pnpm lint && pnpm build && pnpm test && pnpm check && pnpm corpus && pnpm probe &&
   pnpm ledger` (pnpm comes from `corepack enable`; without it, `corepack pnpm …`). One task = one branch = one pull request into `main`.
