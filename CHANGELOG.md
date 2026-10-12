@@ -2,6 +2,35 @@
 
 Semantic versioning from 1.0: a rule that starts refusing code it accepted waits for a major version.
 
+## Unreleased
+
+Not a release yet. The rules of explicit mutability refuse much more than in 1.0.0, so by the line above this is
+a major version when it ships.
+
+**Explicit mutability is still a prototype**, and harder to get around: 56 known ways to change what a function
+did not make and that does not say `Mut`, 55 refused, the last being aliasing, outside the guarantee. Five rounds
+of attacks found them; no round has yet found nothing.
+
+- Giving a value where `Mut<…>` is asked is judged as a write of it: a parameter, `this` or a part of it, what a
+  call gave, a field or a list that does not say so, under any name or none.
+- What a list a function gave back holds is written only if the return type says `Mut<…>` inside. A map says it of
+  its values, a tuple of each element.
+- A method says no more of `Mut` than the member it stands for in a class it extends or an interface it
+  implements, and an object is not given under a type whose members say less.
+- What a function of the library gives back may be what it was given, apart from a short list known to make
+  something new. What another module exports is that module's to change, unless it says `Mut<…>`.
+- `readonly Mut<Line>[]` on a parameter lets the elements be written and not the list.
+- An application written with classes was made to pass (11,000 lines, Three.js): the cost is in
+  [Adopting it](docs/adopting.md).
+
+**Safe typing**: 32 known ways, all refused. `no-stale-narrowing` accepts a value that is tested again after a
+call (a comparison, a value read for its truth, a `switch` that has a `default`), and no longer runs in test files.
+
+**The library**: `setAt(list, index, value)`, a checked write at a position an array has.
+
+**The fixer** writes `this: Mut<…>` where a part of the object is handed out, and `Mut<…>` in return types, down
+into the list a function gives back.
+
 ## 1.0.0
 
 The first release. `@strict-ts/core`, `@strict-ts/cli`, `@strict-ts/std` and `@strict-ts/codemod`.
