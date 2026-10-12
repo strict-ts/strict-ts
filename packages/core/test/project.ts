@@ -27,6 +27,8 @@ export interface Project {
   readonly compilerOptions?: ts.CompilerOptions;
   /** Check these files only, by their name in the project; all of them when absent. */
   readonly only?: readonly string[];
+  /** Sources the compiler does not read, by their name in the project, as a host that lists the directory finds them. */
+  readonly unreadSources?: readonly string[];
 }
 
 // The standard library's declarations are the same in every program: parsed once.
@@ -74,7 +76,8 @@ export function checkFiles(files: Readonly<Record<string, string>>, project: Pro
     only === undefined
       ? { rootDir: ROOT, packageNameOf }
       : { rootDir: ROOT, packageNameOf, only: (fileName: string) => only.includes(fileName.slice(ROOT.length + 1)) };
-  return check(createTypeScript6Provider(ts, program, asked), project.config ?? defaultConfig);
+  const unreadSources = (project.unreadSources ?? []).map((name) => `${ROOT}/${name}`);
+  return check(createTypeScript6Provider(ts, program, { ...asked, unreadSources }), project.config ?? defaultConfig);
 }
 
 /** Checks one safe file, `src/a.ts`. */

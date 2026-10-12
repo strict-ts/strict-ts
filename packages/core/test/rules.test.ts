@@ -1305,6 +1305,31 @@ describe('no-external-import and the path aliases of a project', () => {
   });
 });
 
+describe('unread-sources', () => {
+  const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
+    checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
+      .filter((d) => d.rule === 'unread-sources' || d.rule === 'no-external-import' || d.rule.startsWith('TS'))
+      .map((d) => `${d.file}:${d.start.line} ${d.rule}`)
+      .toSorted();
+
+  test('each source the compiler does not read is refused as a whole', () => {
+    expect(found(['export const a = 1;'], ['src/Card.vue', 'pages/index.vue'])).toEqual(['pages/index.vue:1 unread-sources', 'src/Card.vue:1 unread-sources']);
+    expect(found(['export const a = 1;'], [])).toEqual([]);
+  });
+
+  test('an import of one is not refused again as a dependency, nor as a module that is not found', () => {
+    const lines = ['import Card from "./Card.vue";', 'import List from "@/parts/List.vue";', 'export const a = [Card, List].length;'];
+    const paths = { '@/*': ['/strict-ts-fixture/src/*'] };
+    expect(found(lines, ['src/Card.vue', 'src/parts/List.vue'], paths)).toEqual(['src/Card.vue:1 unread-sources', 'src/parts/List.vue:1 unread-sources']);
+    // Without the files, the same imports are what they were: a dependency, and a module the compiler does not find.
+    expect(found(lines, [], paths)).toEqual(['src/a.ts:1 TS2307', 'src/a.ts:2 TS2307', 'src/a.ts:2 no-external-import']);
+  });
+
+  test('a file that is not there is still not found', () => {
+    expect(found(['import Missing from "./Missing.vue";', 'export const a = [Missing].length;'], ['src/Card.vue'])).toEqual(['src/Card.vue:1 unread-sources', 'src/a.ts:1 TS2307']);
+  });
+});
+
 describe('no-throwing-call on arguments written in the call', () => {
   const said = (lines: readonly string[], assume?: readonly 'generated-receivers'[]) =>
     checkSafeEverything([...lines, ''].join('\n'), { config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], ...(assume === undefined ? {} : { assume }) } })

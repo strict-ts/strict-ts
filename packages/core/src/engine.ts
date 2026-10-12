@@ -23,6 +23,7 @@ export function check(
       config,
       compilerOptions: provider.compilerOptions,
       declarationFiles: provider.declarationFiles,
+      unreadSources: provider.unreadSources,
       report: (message, help, file = PROJECT_FILE) =>
         found.push({ rule: rule.name, file, start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, message, help }),
     });
@@ -42,6 +43,7 @@ export function check(
           typeOf: provider.typeOf,
           calleeOf: provider.calleeOf,
           isOwnModule: provider.isOwnModule,
+          isUnreadSource: provider.isUnreadSource,
           expectedOf: provider.expectedOf,
           asksForMutation: provider.asksForMutation,
           valuesOf: provider.valuesOf,

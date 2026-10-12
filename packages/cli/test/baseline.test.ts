@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,24 @@ describe('--update-baseline', () => {
     const first = read(legacy);
     expect(strictTs(legacy, '--update-baseline').code).toBe(0);
     expect(read(legacy)).toBe(first);
+  });
+
+  test('a source the gate does not read is refused as a whole, until the baseline accepts it in writing', () => {
+    const components = project('components');
+    writeFileSync(join(components, 'src/Card.vue'), '<script setup lang="ts">\nconst value = JSON.parse("2") as any;\n</script>\n<template><p>{{ value }}</p></template>\n');
+    // What a tool generates and what a dependency ships are not sources of the project.
+    for (const outside of ['.nuxt', 'node_modules/kit']) {
+      mkdirSync(join(components, outside), { recursive: true });
+      writeFileSync(join(components, outside, 'Other.vue'), '<template />\n');
+    }
+    const first = strictTs(components);
+    expect(first.code).toBe(1);
+    expect(first.out.filter((line) => line.includes('unread-sources'))).toEqual(['src/Card.vue:1:1 unread-sources This file is not read: nothing in it is checked.']);
+    expect(strictTs(components, '--update-baseline').code).toBe(0);
+    expect(strictTs(components).code).toBe(0);
+    // Another one is new, and refused.
+    writeFileSync(join(components, 'src/List.vue'), '<template />\n');
+    expect(strictTs(components).out.filter((line) => line.includes('unread-sources'))).toEqual(['src/List.vue:1:1 unread-sources This file is not read: nothing in it is checked.']);
   });
 
   test('writes an empty record for a conforming project', () => {
