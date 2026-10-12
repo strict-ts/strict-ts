@@ -1604,6 +1604,18 @@ describe('the rules on mutable collections', () => {
     expect(only('mut-exact', lines)).toEqual(['mut-exact@3', 'mut-exact@7']);
   });
 
+  test('mut-exact compares an optional place without its undefined, and still refuses a wider type there', () => {
+    const lines = [
+      'const note = (seen: Mut<string[]> = []): number => seen.push("a");',
+      'const any = (seen?: Mut<(string | number)[]>): number => (seen === undefined ? 0 : seen.push(1));',
+      'const names: Mut<string[]> = ["a"];',
+      'export const same = note(names);',
+      'export const wider = any(names);',
+      'export const maybe: Mut<string[]> | undefined = names;',
+    ];
+    expect(only('mut-exact', lines)).toEqual(['mut-exact@6']);
+  });
+
   test('mut-exact says nothing where no mutation is asked: read-only, a wider type is sound', () => {
     expect(only('mut-exact', ['const names: readonly string[] = ["a"];', 'export const wider: readonly (string | number)[] = names;'])).toEqual([]);
   });
