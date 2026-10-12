@@ -89,7 +89,7 @@ export function loadProject(cwd: string, project: string | undefined): Result<Pr
       rootDir,
       files: [...checked].map(relative),
       provider: (only) => {
-        const names = (fileName: string): string | undefined => packageNameOf(ts.sys.readFile, fileName).unwrapOr(undefined);
+        const names = (fileName: string): string | undefined => packageNameOf((path) => ts.sys.readFile(path), fileName).unwrapOr(undefined);
         const asked = only === undefined ? {} : { only: (fileName: string) => only.has(relative(fileName)) };
         return createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, unreadSources, ...asked });
       },

@@ -62,7 +62,7 @@ export function openInstrumenter(cwd: string, project: string | undefined, event
     };
     const program = ts.createProgram({ rootNames: parsed.fileNames, options });
     const checker = program.getTypeChecker();
-    const calleeOf = calleeReader(ts, program, rootDir, (fileName) => packageNameOf(ts.sys.readFile, fileName).unwrapOr(undefined));
+    const calleeOf = calleeReader(ts, program, rootDir, (fileName) => packageNameOf((path) => ts.sys.readFile(path), fileName).unwrapOr(undefined));
     const files = checkedFileNames(program, rootDir);
     const runtime = `const ${PROBE} = (${install.toString()})(${JSON.stringify(events)});\n`;
 

@@ -1549,6 +1549,43 @@ describe('no-early-this', () => {
   });
 });
 
+describe('no-unbound-method', () => {
+  const only = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-unbound-method'));
+  const meter = ['class Meter {', '  readonly unit = "m";', '  show(): string {', '    return this.unit;', '  }', '}', 'const meter = new Meter();'];
+
+  test('refuses a method taken off its object: of a class, of an object, of the language', () => {
+    const code = [
+      ...meter,
+      'export const show = meter.show;',
+      'export const shown = ["a"].map(meter.show);',
+      'const box = { size: 1, read() { return this.size; } };',
+      'export const read = box.read;',
+      'export const trim = "a".trim;',
+      'export const settle = Promise.resolve;',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual(['no-unbound-method@8', 'no-unbound-method@9', 'no-unbound-method@11', 'no-unbound-method@12', 'no-unbound-method@13']);
+  });
+
+  test('accepts a method that is called, bound, or wrapped, and a property that holds a function', () => {
+    const code = [
+      ...meter,
+      'const holder = { read: (): number => 1 };',
+      'export const a = meter.show();',
+      'export const b = meter.show.bind(meter);',
+      'export const c = (): string => meter.show();',
+      'export const d = holder.read;',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual([]);
+  });
+
+  test('accepts the functions that do not read `this`: those of a namespace, those held by a constructor', () => {
+    const code = ['export const a = [1.5].map(Math.floor);', 'export const b = [1].filter(Number.isInteger);', 'export const c = Object.keys;', 'export const d = JSON.stringify;', ''].join('\n');
+    expect(only(code)).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

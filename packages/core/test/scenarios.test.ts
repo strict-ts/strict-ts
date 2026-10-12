@@ -118,6 +118,7 @@ describe('one violation per rule', () => {
       'no-throwing-operator',
       'no-ts-directive',
       'no-type-predicate',
+      'no-unbound-method',
       'no-unset-capture',
       'readonly-types',
       'safety-comment',

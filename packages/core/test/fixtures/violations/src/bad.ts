@@ -115,3 +115,5 @@ export class Gauge {
     return this.unit;
   }
 }
+
+export const renderLater = new Gauge().render; // expect: no-unbound-method
