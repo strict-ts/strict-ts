@@ -41,6 +41,12 @@ describe('the attacks on errors in the types', () => {
   test('a value is not read before the line that gives it one, in one file or across two', () => {
     expect(refusedBy('e01-read-before-declaration.ts')).toEqual(['no-early-read']);
     expect(refusedBy('e28-import-cycle.ts')).toEqual(['no-early-read']);
+    // A `let` as a constant: found when the limits of the documentation were each written as a file.
+    expect(refusedBy('e29-let-before-its-line.ts')).toEqual(['no-early-read']);
+  });
+
+  test('a property of the page that throws when it is read is read where that is caught', () => {
+    expect(refusedBy('e30-storage-denied.ts')).toEqual(['no-throwing-operator']);
   });
 
   test('one is accepted, and is outside the guarantee: a stack that overflows', () => {

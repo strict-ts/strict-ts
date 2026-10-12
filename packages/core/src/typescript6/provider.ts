@@ -114,6 +114,42 @@ export function createTypeScript6Provider(
     while (api.isParenthesizedExpression(expression)) expression = expression.expression;
     return (api.isIdentifier(expression) && expression.text === 'undefined') || api.isVoidExpression(expression);
   };
+  /**
+   * The same as `hiddenDefaults`, for an assignment by a pattern: `({ a = 1, b: [c = 2] } = value)`. The pattern
+   * is written as an object or an array, and each default as an assignment inside it.
+   */
+  const assignedDefaults = (pattern: ts.Expression, given: ts.Type): readonly ts.Node[] => {
+    const holder = checker.getNonNullableType(given);
+    const hides = (key: string | undefined, byPosition: boolean, written: ts.Expression): boolean => {
+      if (isUndefinedWritten(written)) return false;
+      // A name that is computed: which property it is is not known.
+      if (key === undefined) return true;
+      const property = checker.getPropertyOfType(holder, key);
+      const indexed = property === undefined ? checker.getIndexTypeOfType(holder, byPosition ? api.IndexKind.Number : api.IndexKind.String) : undefined;
+      return property !== undefined ? takesUndefined(property) : indexed !== undefined && admitsUndefined(indexed);
+    };
+    const inside = (key: string | undefined, byPosition: boolean, target: ts.Expression): readonly ts.Node[] => {
+      // `target = default`, or a pattern of its own.
+      const assigned = api.isBinaryExpression(target) && target.operatorToken.kind === api.SyntaxKind.EqualsToken ? target : undefined;
+      const place = assigned?.left ?? target;
+      const property = key === undefined ? undefined : checker.getPropertyOfType(holder, key);
+      const held = property !== undefined ? checker.getTypeOfSymbol(property) : checker.getIndexTypeOfType(holder, byPosition ? api.IndexKind.Number : api.IndexKind.String);
+      const deeper = held !== undefined && (api.isObjectLiteralExpression(place) || api.isArrayLiteralExpression(place)) ? assignedDefaults(place, held) : [];
+      return [...(assigned !== undefined && hides(key, byPosition, assigned.right) ? [assigned] : []), ...deeper];
+    };
+    if (api.isArrayLiteralExpression(pattern)) {
+      return pattern.elements.flatMap((element, index) => (api.isOmittedExpression(element) || api.isSpreadElement(element) ? [] : inside(String(index), true, element)));
+    }
+    if (!api.isObjectLiteralExpression(pattern)) return [];
+    return pattern.properties.flatMap((member) => {
+      if (api.isShorthandPropertyAssignment(member)) {
+        return member.objectAssignmentInitializer !== undefined && hides(member.name.text, false, member.objectAssignmentInitializer) ? [member] : [];
+      }
+      if (!api.isPropertyAssignment(member)) return [];
+      const named = member.name;
+      return inside(api.isIdentifier(named) || api.isStringLiteralLike(named) || api.isNumericLiteral(named) ? named.text : undefined, false, member.initializer);
+    });
+  };
   /** What a caller may give a parameter that has no written type: by each type the function is expected to have. */
   const expectedParameters = (parameter: ts.ParameterDeclaration): readonly ts.Symbol[] => {
     const owner = parameter.parent;
@@ -340,6 +376,13 @@ export function createTypeScript6Provider(
         const declaration = type.getCallSignatures()[0]?.getDeclaration();
         const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
         return written.flatMap((parameter, index) => (isMut(parameter.type) ? [index] : []));
+      },
+      get defaultedParameters() {
+        const written = (type.getCallSignatures()[0]?.getDeclaration()?.parameters ?? []).filter((parameter) => !isThis(parameter));
+        return written.flatMap((parameter, index) => (parameter.initializer !== undefined && !isUndefinedWritten(parameter.initializer) ? [index] : []));
+      },
+      get undefinedParameters() {
+        return (type.getCallSignatures()[0]?.getParameters() ?? []).flatMap((parameter, index) => (takesUndefined(parameter) ? [index] : []));
       },
       get mutableReturn() {
         const written = type.getCallSignatures()[0]?.getDeclaration()?.type;
@@ -658,7 +701,17 @@ export function createTypeScript6Provider(
       }
       if (api.isTypeAssertionExpression(node)) return { ...base, kind: 'type-assertion' };
       if (api.isBinaryExpression(node)) {
-        return { ...base, kind: 'binary', operator: api.tokenToString(node.operatorToken.kind) ?? '', left: part(unwrapped(node.left)), right: part(unwrapped(node.right)) };
+        const isPattern = node.operatorToken.kind === api.SyntaxKind.EqualsToken && (api.isObjectLiteralExpression(node.left) || api.isArrayLiteralExpression(node.left));
+        return {
+          ...base,
+          kind: 'binary',
+          operator: api.tokenToString(node.operatorToken.kind) ?? '',
+          left: part(unwrapped(node.left)),
+          right: part(unwrapped(node.right)),
+          get hiddenDefaults() {
+            return isPattern ? assignedDefaults(node.left, checker.getTypeAtLocation(node.right)).map(part) : [];
+          },
+        };
       }
       if (api.isThrowStatement(node)) return { ...base, kind: 'throw' };
       if (api.isTryStatement(node)) return { ...base, kind: 'try', block: part(node.tryBlock), hasCatch: node.catchClause !== undefined };
@@ -896,6 +949,8 @@ export function createTypeScript6Provider(
     properties: [],
     returns: [],
     mutableParameters: [],
+    defaultedParameters: [],
+    undefinedParameters: [],
     mutableReturn: false,
     mutableReceiver: undefined,
   };

@@ -52,6 +52,9 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('c06-narrowed-before-a-loop.ts')).toEqual(['no-stale-narrowing']);
     // Found while an application of the pilot was made to conform.
     expect(refusedBy('c07-computed-key.ts')).toEqual(['no-keyed-write']);
+    // Two limits the documentation named, each written as a file before v1.0.
+    expect(refusedBy('c08-default-through-a-function-type.ts')).toEqual(['no-default-on-undefined']);
+    expect(refusedBy('c09-default-in-an-assignment.ts')).toEqual(['no-default-on-undefined']);
     // A value that holds more than its type names: read whole, narrowed by `in`, spread, taken for a class.
     expect(refusedBy('a02-object-values.ts')).toEqual(['no-open-read']);
     expect(refusedBy('a03-in-narrowing.ts')).toEqual(['no-in-narrowing']);

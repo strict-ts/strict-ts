@@ -2313,6 +2313,64 @@ describe('what no-early-this and no-stale-narrowing had left open', () => {
   });
 });
 
+describe('the last known ways around guarantees 2 and 3', () => {
+  const by = (rule: string, lines: readonly string[], options = {}) =>
+    checkSafeEverything([...lines, ''].join('\n'), options)
+      .filter((d) => d.rule === rule)
+      .map((d) => d.start.line);
+
+  test('no-early-read follows a `let` of the top of a file as it follows a constant', () => {
+    expect(by('no-early-read', ['const read = (): number => later;', 'export const early = read();', 'let later = 1;', 'later += 1;'])).toEqual([2]);
+  });
+
+  test('no-default-on-undefined: a function with a default, given where undefined may be passed on purpose', () => {
+    const lines = [
+      'type Topic = "news" | "sport";',
+      'const correct = (topic: Topic = "news"): Topic => topic;',
+      'const plain = (topic: Topic | undefined): Topic => topic ?? "sport";',
+      'export const a: (topic: Topic | undefined) => Topic = correct;',
+      'export const b: (topic?: Topic) => Topic = correct;',
+      'export const c: (topic: Topic | undefined) => Topic = plain;',
+      'export const d = [undefined, "news" as const].map(correct);',
+    ];
+    expect(by('no-default-on-undefined', lines)).toEqual([4, 7]);
+  });
+
+  test('no-default-on-undefined: a default in an assignment by a pattern', () => {
+    const lines = [
+      'declare const given: { readonly topic: "news" | undefined; readonly size?: number; readonly inner: { readonly deep: string | undefined } };',
+      'declare const list: readonly (number | undefined)[];',
+      'let topic: "news" | undefined;',
+      'let size: number;',
+      'let deep: string;',
+      'let first: number;',
+      '({ topic = "news", size = 1 } = given);',
+      '({ inner: { deep = "x" } } = given);',
+      '[first = 0] = list;',
+      'export const all = [topic, size, deep, first];',
+    ];
+    expect(by('no-default-on-undefined', lines)).toEqual([7, 8, 9]);
+  });
+
+  test('no-throwing-operator: a property of the page that throws when read, unless that is caught', () => {
+    const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
+    const lines = [
+      'export const a = (): number => localStorage.length;',
+      'export const b = (): boolean => typeof window.sessionStorage === "object";',
+      'export const c = (): string => document.cookie;',
+      'export const d = (): number => {',
+      '  try {',
+      '    return localStorage.length;',
+      '  } catch {',
+      '    return 0;',
+      '  }',
+      '};',
+      'export const e = (localStorage: { readonly length: number }): number => localStorage.length;',
+    ];
+    expect(by('no-throwing-operator', lines, page)).toEqual([1, 2, 3]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

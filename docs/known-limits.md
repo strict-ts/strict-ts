@@ -2,10 +2,10 @@
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- **The two reviews list known ways, and are not proofs.** Of 29 known ways to make a value differ from its type
-  with no `any`, cast, `!` or `declare`, and of 27 known ways for safe code to throw or to reject with no `throw`
+- **The two reviews list known ways, and are not proofs.** Of 31 known ways to make a value differ from its type
+  with no `any`, cast, `!` or `declare`, and of 29 known ways for safe code to throw or to reject with no `throw`
   written, the rules refuse all but one: a function that calls itself without end, which is outside the guarantee
-  as a stack overflow is outside Rust's. Each is a file of `packages/core/test/fixtures/attacks` or
+  as a stack overflow is outside Rust's. They were written by who wrote the rules. Each is a file of `packages/core/test/fixtures/attacks` or
   `fixtures/escapes` that fails when it is run, and a test records which rule refuses it. What nobody thought of
   is not in the list.
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
@@ -20,10 +20,6 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- A default that hides an `undefined` is refused where it is declared (`no-default-on-undefined`), and not where a
-  function is given: `const clear: (topic: Topic | undefined) => void = correct`, with `correct` declared with a
-  default, is accepted, and `clear(undefined)` runs the default. A default in an assignment by a pattern
-  (`({ a = 1 } = value)`) is not read either.
 - **Explicit mutability is a list of known ways too.** Of 24 known ways to change what a function did not make and
   that does not say `Mut`, the rules refuse 23. The last is outside the guarantee: whoever made a value may change
   it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
@@ -41,10 +37,11 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 - `use-once` proves a small subset: a value given away in plain sequence or in both branches of an `if`. It trusts
   the methods of the value not to keep it, and the function that returns a `Once<T>` not to hand the same object out
   twice. A helper that only reads the value cannot borrow it: it takes it and gives it back.
-- `no-throwing-operator` knows the operators and the accessors of ECMAScript. A property of the DOM that throws when
-  read (`localStorage` where storage is denied) is not seen, nor a variable read before its `let` has run. Running out of stack or of memory is outside what any rule covers, as in Rust.
-- `unsafe-boundary` checks exported functions, not the methods of an exported object or class.
+- `no-throwing-operator` knows the operators and the accessors of ECMAScript, which were all read. Of the
+  properties of the web platform that throw when they are read, it knows a list written by hand from the standards:
+  `localStorage`, `sessionStorage`, `document.cookie`, the `result` and `error` of an `IDBRequest`, the
+  `responseText` and `responseXML` of an `XMLHttpRequest`. Another one is not seen. Running out of stack or of
+  memory is outside what any rule covers, as in Rust.
 - Inferred types are not read by `readonly-types`: `const xs = [1, 2]` is a mutable local.
-- A source file of the program outside the directory of `tsconfig.json` is compiled but not checked.
 - A declaration file inside an unsafe directory is accepted whole.
 - Only the TypeScript 6 API is supported.
