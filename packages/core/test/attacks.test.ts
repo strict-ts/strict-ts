@@ -50,6 +50,8 @@ describe('the attacks on safe typing', () => {
     // Two ways the rules had said they left open.
     expect(refusedBy('c05-callback-in-constructor.ts')).toEqual(['no-early-this']);
     expect(refusedBy('c06-narrowed-before-a-loop.ts')).toEqual(['no-stale-narrowing']);
+    // A switch is a test only when a value that was not expected has somewhere to go.
+    expect(refusedBy('c10-switch-after-a-stale-test.ts')).toEqual(['no-stale-narrowing']);
     // Found while an application of the pilot was made to conform.
     expect(refusedBy('c07-computed-key.ts')).toEqual(['no-keyed-write']);
     // Two limits the documentation named, each written as a file before v1.0.

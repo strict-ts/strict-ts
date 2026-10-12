@@ -2547,6 +2547,12 @@ describe('no-stale-narrowing: a read that is a test, and one that relies on noth
     expect(at(after)).toEqual([11]);
   });
 
+  test('a switch is a test when it has a default, and not when the compiler takes it for exhaustive', () => {
+    const head = [...lines.slice(0, 6), 'export function d(): number {', '  if (foe.kind === "boss") return 0;', '  turn();', '  switch (foe.kind) {', '    case "archer":', '      return 1;', '    case "shade":', '      return 2;'];
+    expect(at([...head, '  }', '}'])).toEqual([10]);
+    expect(at([...head, '    default:', '      return 3;', '  }', '}'])).toEqual([]);
+  });
+
   test('a test file reads a value after the call that changes it', () => {
     expect(at(lines, 'src/a.test.ts')).toEqual([]);
   });
