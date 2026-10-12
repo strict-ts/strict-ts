@@ -16,16 +16,18 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('four are refused', () => {
+  test('five are refused', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
     // An overload is a promise nobody checks; the second one was a cast with no `as`.
     expect(refusedBy('a31-overload-that-lies.ts')).toEqual(['no-overload']);
     expect(refusedBy('a32-overload-as-a-cast.ts')).toEqual(['no-overload']);
+    // Written as a property with a function type, the member of the interface is compared soundly.
+    expect(refusedBy('a04-method-bivariance.ts')).toEqual(['no-method-signature']);
   });
 
-  test('nineteen are accepted: the holes of guarantee 2, to close one by one', () => {
+  test('eighteen are accepted: the holes of guarantee 2, to close one by one', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
@@ -33,7 +35,6 @@ describe('the attacks on safe typing', () => {
     expect(accepted).toEqual([
       'a02-object-values.ts',
       'a03-in-narrowing.ts',
-      'a04-method-bivariance.ts',
       'a05-constructor-order.ts',
       'a06-closure-before-assignment.ts',
       'a07-number-to-enum.ts',

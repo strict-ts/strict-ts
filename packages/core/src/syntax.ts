@@ -89,6 +89,8 @@ export type Node = NodeBase &
      * that declares a property. `asksForMutation` when its type is written `Mut<…>`.
      */
     | { readonly kind: 'property'; readonly name: string; readonly isReadonly: boolean; readonly asksForMutation: boolean }
+    /** A member of an interface or of a type literal written with the method syntax: `name(x: T): R`. */
+    | { readonly kind: 'method-signature' }
     /** A declaration under `declare`: it states a type for something defined elsewhere. */
     | { readonly kind: 'ambient-declaration' }
     /** `x as T`; `isConst` for `x as const`. */

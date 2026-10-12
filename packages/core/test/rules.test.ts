@@ -1357,6 +1357,54 @@ describe('no-overload', () => {
   });
 });
 
+describe('no-method-signature', () => {
+  const only = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-method-signature'));
+
+  test('refuses the method syntax in an interface and in a type, optional and generic ones too', () => {
+    const code = [
+      'export interface Handler {',
+      '  handle(animal: string): number;',
+      '  close?(): void;',
+      '  map<T>(value: T): T;',
+      '}',
+      'export type Reader = { read(): string };',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual(['no-method-signature@2', 'no-method-signature@3', 'no-method-signature@4', 'no-method-signature@6']);
+  });
+
+  test('accepts a property with a function type, a call signature, and the methods of a class', () => {
+    const code = [
+      'export interface Handler {',
+      '  readonly handle: (animal: string) => number;',
+      '  (direct: string): number;',
+      '}',
+      'export class Counter {',
+      '  count(): number {',
+      '    return 1;',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual([]);
+  });
+
+  test('written as a property, a narrower implementation is refused by the compiler', () => {
+    const lines = (member: string) =>
+      [
+        'interface Animal { readonly name: string }',
+        'interface Dog extends Animal { readonly tricks: readonly string[] }',
+        `interface Handler { ${member} }`,
+        'const dogsOnly = { handle: (dog: Dog): number => dog.tricks.length };',
+        'export const handler: Handler = dogsOnly;',
+        '',
+      ].join('\n');
+    const compiler = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('TS'));
+    expect(compiler(lines('handle(animal: Animal): number;'))).toEqual([]);
+    expect(compiler(lines('readonly handle: (animal: Animal) => number;'))).toEqual(['TS2322@5']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

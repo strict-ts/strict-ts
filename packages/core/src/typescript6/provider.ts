@@ -403,6 +403,7 @@ export function createTypeScript6Provider(
         const isConst = api.isVariableDeclarationList(list) && (list.flags & api.NodeFlags.Const) !== 0;
         return { ...base, kind: 'variable', name: part(node.name), isConst, initializer: node.initializer === undefined ? undefined : part(node.initializer) };
       }
+      if (api.isMethodSignature(node)) return { ...base, kind: 'method-signature' };
       if (api.isFunctionLike(node) && !api.isTypeNode(node) && !api.isTypeElement(node)) {
         const body = 'body' in node ? node.body : undefined;
         const declares = api.isFunctionDeclaration(node) || api.isMethodDeclaration(node) || api.isConstructorDeclaration(node);
