@@ -20,6 +20,7 @@ export interface FileContext {
   readonly expectedOf: (node: Node) => Type | undefined;
   readonly isWidened: (node: Node) => boolean;
   readonly asksForMutation: (node: Node) => boolean;
+  readonly asksForMutationInside: (node: Node) => boolean;
   readonly valuesOf: (node: Node) => readonly unknown[] | undefined;
   readonly exports: () => readonly ExportedValue[];
   readonly report: Report;

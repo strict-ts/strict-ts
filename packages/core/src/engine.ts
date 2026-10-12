@@ -48,6 +48,7 @@ export function check(
           expectedOf: provider.expectedOf,
           isWidened: provider.isWidened,
           asksForMutation: provider.asksForMutation,
+          asksForMutationInside: provider.asksForMutationInside,
           valuesOf: provider.valuesOf,
           exports: () => provider.exportsOf(file),
           report: (span, message, help) => found.push(diagnosticAt(rule.name, file.name, locate, span, message, help)),

@@ -50,7 +50,7 @@ let checkTimer = 0;
 // ── State ────────────────────────────────────────────
 const scenarioById = (id: string): Scenario | undefined => DATA.scenarios.find((scenario) => scenario.id === id);
 
-function freshWorkspace(scenario: Scenario | undefined): Workspace {
+function freshWorkspace(scenario: Scenario | undefined): Mut<Workspace> {
   const files = { ...scenario?.files };
   const depth = (path: string): number => path.split('/').length;
   const first = Object.keys(files).toSorted((a, b) => depth(a) - depth(b) || a.localeCompare(b))[0] ?? '';

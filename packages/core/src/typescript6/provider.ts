@@ -9,6 +9,12 @@ import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../p
 import type { Alias, Node } from '../syntax.js';
 
 /** The methods that give back something their receiver holds. */
+/** The collections of the library, and which of the types they are given is the type of what they hold. */
+const HOLDS: Readonly<Record<string, number>> = { Array: 0, ReadonlyArray: 0, Set: 0, ReadonlySet: 0, WeakSet: 0, Map: 1, ReadonlyMap: 1, WeakMap: 1, Record: 1 };
+/** The types of the library that are another view of the one they are given. */
+const SEEN_AS: readonly string[] = ['Partial', 'Readonly', 'Required', 'NonNullable'];
+/** The functions of the library that make something new, holding nothing of what they were given. */
+const MAKES_NEW: readonly string[] = ['structuredClone', 'parse', 'stringify', 'createElement', 'createElementNS', 'createTextNode', 'cloneNode', 'keys', 'getOwnPropertyNames', 'getBoundingClientRect', 'getImageData', 'createImageData', 'fetch', 'now', 'toISOString'];
 const GIVES_A_PART: readonly string[] = ['find', 'findLast', 'at', 'get', 'pop', 'shift'];
 /** The methods that put what they are given into their receiver. */
 const STORES: readonly string[] = ['push', 'unshift', 'splice', 'fill', 'set', 'add', 'append', 'prepend'];
@@ -278,8 +284,38 @@ export function createTypeScript6Provider(
    * Whether what a list, a map or a set holds may be written into, by the type written for it: `Mut<…>` around the
    * container says the container, `Mut<…>` inside says what it holds.
    */
-  const elementsOf = (written: ts.TypeNode | undefined): 'writable' | 'readonly' | 'unknown' =>
-    written === undefined ? 'unknown' : mentionsMut(peeled(written)) || isUnderMut(written) ? 'writable' : 'readonly';
+  const elementsOf = (written: ts.TypeNode | undefined): 'writable' | 'readonly' | 'unknown' => {
+    if (written === undefined) return 'unknown';
+    const inner = peeled(written);
+    // A tuple says it of each thing it holds: one that does not is not written.
+    if (api.isTupleTypeNode(inner)) return (inner.elements.length > 0 && inner.elements.every((element) => mentionsMut(element))) || isUnderMut(written) ? 'writable' : 'readonly';
+    const name = api.isTypeReferenceNode(inner) && api.isIdentifier(inner.typeName) && !isMut(inner) ? inner.typeName.text : undefined;
+    // `Partial<…>`, `Readonly<…>`: the same thing, seen another way.
+    const [first] = api.isTypeReferenceNode(inner) ? (inner.typeArguments ?? []) : [];
+    if (name !== undefined && SEEN_AS.includes(name) && first !== undefined) return elementsOf(first) === 'writable' || isUnderMut(written) ? 'writable' : 'readonly';
+    // A list says it of what it holds; a map, of its values, which is what `get` and a loop over it hand out.
+    const held = api.isArrayTypeNode(inner) ? inner.elementType : name !== undefined && api.isTypeReferenceNode(inner) ? inner.typeArguments?.[HOLDS[name] ?? -1] : undefined;
+    const says = held !== undefined ? mentionsMut(held) : name !== undefined && HOLDS[name] !== undefined ? false : mentionsMut(inner);
+    return says || isUnderMut(written) ? 'writable' : 'readonly';
+  };
+  /** A number, a text, a boolean, nothing: there is nothing in it to write. */
+  const isPlainValue = (type: ts.Type): boolean =>
+    (type.isUnion() ? type.types : [type]).every((member) => (member.flags & (api.TypeFlags.StringLike | api.TypeFlags.NumberLike | api.TypeFlags.BooleanLike | api.TypeFlags.BigIntLike | api.TypeFlags.ESSymbolLike | api.TypeFlags.Undefined | api.TypeFlags.Null | api.TypeFlags.EnumLike)) !== 0);
+  /**
+   * Whether a written type says `Mut<…>` below its top: of what a list, a map or a set holds, or of an object one
+   * of its properties holds. A new container of the same things, given there, hands those things over.
+   */
+  const saysMutInside = (written: ts.TypeNode | undefined): boolean => {
+    if (written === undefined) return false;
+    const inner = peeled(written);
+    if (mentionsMut(inner)) return true;
+    const symbol = api.isTypeReferenceNode(inner) ? checker.getSymbolAtLocation(inner.typeName) : undefined;
+    const target = symbol === undefined || (symbol.flags & api.SymbolFlags.Alias) === 0 ? symbol : checker.getAliasedSymbol(symbol);
+    const members: readonly ts.Node[] = api.isTypeLiteralNode(inner)
+      ? inner.members
+      : (target?.declarations ?? []).flatMap((declaration): readonly ts.Node[] => (api.isInterfaceDeclaration(declaration) || api.isClassDeclaration(declaration) ? declaration.members : []));
+    return members.some((member) => (api.isPropertySignature(member) || api.isPropertyDeclaration(member)) && member.type !== undefined && mentionsMut(member.type) && !isPlainValue(checker.getTypeFromTypeNode(member.type)));
+  };
   /** Written inside a `Mut<…>`: `Mut<{ lines: Line[] }>` has asked for the whole of what it wraps. */
   const isUnderMut = (written: ts.Node): boolean => {
     for (let outer: ts.Node | undefined = written.parent; outer !== undefined && (api.isTypeNode(outer) || api.isTypeElement(outer)); outer = outer.parent) {
@@ -470,7 +506,8 @@ export function createTypeScript6Provider(
         const written = type.getCallSignatures()[0]?.getDeclaration()?.type;
         // `Mut<Order>`, and `Promise<Mut<Order>>` or `Result<Mut<Order>, E>` as well: the word is there.
         const says = (inner: ts.Node): boolean => (api.isTypeNode(inner) && isMut(inner)) || (api.forEachChild(inner, says) ?? false);
-        return written !== undefined && says(written);
+        // Or a name the project gives to a type that says it: `type Store = Mut<Map<…>>`.
+        return written !== undefined && (says(written) || mentionsMut(written));
       },
       get mutableReceiver() {
         const self = type.getCallSignatures()[0]?.getDeclaration()?.parameters.find(isThis);
@@ -560,6 +597,13 @@ export function createTypeScript6Provider(
       // A part of a copy is a part; a copy of a part is a copy.
       const under = (inner: Alias['as']): Alias['as'] => (as === 'part' || as === 'element' ? as : inner === 'same' ? as : inner);
       if (api.isIdentifier(expression) || api.isPropertyAccessExpression(expression) || api.isElementAccessExpression(expression)) return [{ place: part(expression), as }];
+      // `const self = this`: another name for the object.
+      if (expression.kind === api.SyntaxKind.ThisKeyword) return [{ place: part(expression), as }];
+      // `new Map(other)`, `new Set(list)`: a new collection of the same things.
+      if (api.isNewExpression(expression)) {
+        const [first] = expression.arguments ?? [];
+        return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy')) : [];
+      }
       if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as), ...sourcesOf(expression.whenFalse, as)];
       if (api.isBinaryExpression(expression)) {
         const operator = expression.operatorToken.kind;
@@ -582,6 +626,12 @@ export function createTypeScript6Provider(
         const callee = expression.expression;
         if (api.isPropertyAccessExpression(callee) && isCollection(callee.expression)) {
           const name = callee.name.text;
+          const holder = callee.expression;
+          const [first] = expression.arguments;
+          // `Object.values(place)`, `Array.from(place)`: asked first, `Object` and `Array` hold nothing themselves.
+          if (first !== undefined && api.isIdentifier(holder) && ((holder.text === 'Object' && ['values', 'entries'].includes(name)) || (holder.text === 'Array' && name === 'from'))) {
+            return sourcesOf(first, under('copy'));
+          }
           // What a method of a place gives back may be a part of it, or a new container of what it holds.
           if (GIVES_A_PART.includes(name)) return sourcesOf(callee.expression, 'element');
           if (GIVES_A_COPY.includes(name)) return sourcesOf(callee.expression, under('copy'));
@@ -591,16 +641,29 @@ export function createTypeScript6Provider(
             const makes = each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body);
             return makes ? [] : sourcesOf(callee.expression, under('copy'));
           }
-          const holder = callee.expression;
-          const [first] = expression.arguments;
-          // `Object.values(place)`, `Array.from(place)`.
-          if (first !== undefined && api.isIdentifier(holder) && ((holder.text === 'Object' && ['values', 'entries'].includes(name)) || (holder.text === 'Array' && name === 'from'))) {
-            return sourcesOf(first, under('copy'));
-          }
         }
-        // What any other call gives back is the callee's to say.
+        // What a function of the project gives back is the callee's to say: its return type does.
         // A part of it is the callee's too; so is what a new container of what it gave holds.
-        return [{ place: part(expression), as: as === 'same' ? 'result' : as }];
+        const declaration = checker.getResolvedSignature(expression)?.getDeclaration();
+        if (declaration === undefined || isChecked(declaration.getSourceFile())) return [{ place: part(expression), as: as === 'same' ? 'result' : as }];
+        // A function of the library says nothing. What it gives back may be what it was given, or a part of it
+        // (`Promise.resolve(value)`, `Array.of(value)`, `weak.deref()`): unless it is a number or a text, or a
+        // function known to make something new.
+        const result = checker.getTypeAtLocation(expression);
+        if (isPlainValue(result) || (api.isIdentifier(callee) && MAKES_NEW.includes(callee.text)) || (api.isPropertyAccessExpression(callee) && MAKES_NEW.includes(callee.name.text))) return [];
+        // A new list of numbers or texts holds nothing of anyone.
+        const listed = checker.isArrayType(result) ? checker.getIndexTypeOfType(result, api.IndexKind.Number) : undefined;
+        if (listed !== undefined && isPlainValue(listed)) return [];
+        // Its object too, unless that is a name of the library itself (`Object`, `Promise`, `document`).
+        const isOfLibrary = (named: ts.Expression): boolean =>
+          api.isIdentifier(named) && (checker.getSymbolAtLocation(named)?.declarations ?? []).every((one) => !isChecked(one.getSourceFile()));
+        const given = [...(api.isPropertyAccessExpression(callee) && !isOfLibrary(callee.expression) ? [callee.expression] : []), ...expression.arguments.filter((argument) => !api.isSpreadElement(argument))];
+        // One of the things a list holds, when it is given a list; a part of anything else.
+        const holds = (one: ts.Expression): boolean => {
+          const type = checker.getNonNullableType(checker.getTypeAtLocation(one));
+          return checker.isArrayType(type) || checker.isTupleType(type) || HOLDS[type.getSymbol()?.getName() ?? ''] !== undefined;
+        };
+        return given.flatMap((one) => (isPlainValue(checker.getTypeAtLocation(one)) || api.isFunctionLike(one) ? [] : sourcesOf(one, holds(one) ? 'element' : 'part')));
       }
       return [];
     };
@@ -641,7 +704,11 @@ export function createTypeScript6Provider(
       const isIt = (name: ts.Node): boolean => api.isIdentifier(name) && checker.getSymbolAtLocation(name) === symbol;
       const look = (inner: ts.Node): void => {
         if (api.isCallExpression(inner) && api.isPropertyAccessExpression(inner.expression) && STORES.includes(inner.expression.name.text) && isIt(inner.expression.expression)) {
-          found.push(...inner.arguments.map((argument) => (api.isSpreadElement(argument) ? argument.expression : argument)));
+          // A method the project wrote keeps only what its parameter says may be written: the rest it cannot put
+          // anywhere that says so. A method of the library keeps what it is given.
+          const declaration = checker.getResolvedSignature(inner)?.getDeclaration();
+          const own = declaration !== undefined && isChecked(declaration.getSourceFile()) ? declaration.parameters.filter((parameter) => !isThis(parameter)) : undefined;
+          found.push(...inner.arguments.flatMap((argument, index) => (own !== undefined && !mentionsMut(own[Math.min(index, own.length - 1)]?.type) ? [] : [api.isSpreadElement(argument) ? argument.expression : argument])));
         }
         if (api.isBinaryExpression(inner) && inner.operatorToken.kind === api.SyntaxKind.EqualsToken && (api.isPropertyAccessExpression(inner.left) || api.isElementAccessExpression(inner.left)) && isIt(inner.left.expression)) {
           found.push(inner.right);
@@ -670,6 +737,16 @@ export function createTypeScript6Provider(
       const loop = holder.parent.parent;
       const first = api.isForOfStatement(loop) ? sourcesOf(loop.expression, 'element') : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as);
       return [...first, ...laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same')), ...storedIn(symbol, holder).flatMap((value) => sourcesOf(value, 'copy'))];
+    };
+
+    /** What the return type of the function a call runs says of what the collection it gives holds. */
+    const resultElements = (call: ts.CallExpression): 'writable' | 'readonly' | 'unknown' => {
+      const declaration = checker.getResolvedSignature(call)?.getDeclaration();
+      if (declaration === undefined || !isChecked(declaration.getSourceFile()) || declaration.type === undefined) return 'unknown';
+      // `Promise<readonly Mut<Line>[]>`: what is awaited.
+      const written = declaration.type;
+      const promised = api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Promise' ? written.typeArguments?.[0] : undefined;
+      return elementsOf(promised ?? written);
     };
 
     const shape = (): Node => {
@@ -782,18 +859,18 @@ export function createTypeScript6Provider(
       }
       if (api.isStringLiteralLike(node)) return { ...base, kind: 'string-literal', text: node.text };
       if (api.isCallExpression(node)) {
-        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part), hasSpread: node.arguments.some(api.isSpreadElement) };
+        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part), hasSpread: node.arguments.some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same').filter((alias) => alias.as !== 'result'); }, get elements() { return resultElements(node); } };
       }
       if (api.isTaggedTemplateExpression(node)) {
         const template = node.template;
         const substitutions = api.isTemplateExpression(template) ? template.templateSpans.map((span) => part(span.expression)) : [];
-        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions], hasSpread: false };
+        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions], hasSpread: false, madeFrom: [], elements: 'unknown' };
       }
       if (api.isTemplateExpression(node) && !api.isTaggedTemplateExpression(node.parent)) {
         return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
       }
       if (api.isNewExpression(node)) {
-        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part), hasSpread: (node.arguments ?? []).some(api.isSpreadElement) };
+        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part), hasSpread: (node.arguments ?? []).some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same'); } };
       }
       if (api.isVariableStatement(node) && api.isSourceFile(node.parent) && (node.declarationList.flags & api.NodeFlags.Const) === 0) {
         const ambient = (api.getModifiers(node) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword);
@@ -908,9 +985,9 @@ export function createTypeScript6Provider(
                 spread: undefined,
               },
         );
-        return { ...base, kind: 'literal', entries };
+        return { ...base, kind: 'literal', entries, get madeFrom() { return sourcesOf(node, 'same'); }, get spreadFrom() { return node.properties.flatMap((member) => (api.isSpreadAssignment(member) ? sourcesOf(member.expression, 'copy') : [])); } };
       }
-      if (api.isArrayLiteralExpression(node)) return { ...base, kind: 'literal', entries: [] };
+      if (api.isArrayLiteralExpression(node)) return { ...base, kind: 'literal', entries: [], get madeFrom() { return sourcesOf(node, 'same'); }, get spreadFrom() { return node.elements.flatMap((element) => (api.isSpreadElement(element) ? sourcesOf(element.expression, 'copy') : [])); } };
       if (api.isBlock(node) || api.isSourceFile(node) || api.isModuleBlock(node)) return { ...base, kind: 'block' };
       if (api.isVariableStatement(node) || api.isVariableDeclarationList(node) || api.isParenthesizedExpression(node)) return { ...base, kind: 'sequence' };
       if (api.isVariableDeclaration(node)) {
@@ -1187,6 +1264,16 @@ export function createTypeScript6Provider(
    * its kin are given.
    */
   const asksOf = (source: ts.Expression): boolean => {
+    // What is spread is copied, one level: it is the object or the array written around it that is given.
+    let spread: ts.Node = source;
+    for (;;) {
+      const outer: ts.Node = spread.parent;
+      const chooses = api.isBinaryExpression(outer) && [api.SyntaxKind.QuestionQuestionToken, api.SyntaxKind.BarBarToken, api.SyntaxKind.AmpersandAmpersandToken].includes(outer.operatorToken.kind);
+      const branch = api.isConditionalExpression(outer) && outer.condition !== spread;
+      if (!api.isParenthesizedExpression(outer) && !api.isNonNullExpression(outer) && !chooses && !branch) break;
+      spread = outer;
+    }
+    if (api.isSpreadAssignment(spread.parent) || api.isSpreadElement(spread.parent)) return false;
     if (mentionsMut(wantedOf(source))) return true;
     let place: ts.Node = source;
     while (api.isParenthesizedExpression(place.parent) || api.isNonNullExpression(place.parent)) place = place.parent;
@@ -1283,6 +1370,10 @@ export function createTypeScript6Provider(
     asksForMutation: (node) => {
       const source = origin.get(node);
       return source !== undefined && api.isExpression(source) && asksOf(source);
+    },
+    asksForMutationInside: (node) => {
+      const source = origin.get(node);
+      return source !== undefined && api.isExpression(source) && saysMutInside(wantedOf(source));
     },
 
     exportsOf: (file) => {

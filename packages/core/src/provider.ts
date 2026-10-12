@@ -172,4 +172,9 @@ export interface TypeProvider {
    * it initializes, the return type of the function it is returned from.
    */
   readonly asksForMutation: (node: Node) => boolean;
+  /**
+   * Whether the place a value is given to says `Mut<…>` of what the value holds, and not only of the value: the
+   * elements of a list (`readonly Mut<Line>[]`), a property that holds an object (`{ cart: Mut<Cart> }`).
+   */
+  readonly asksForMutationInside: (node: Node) => boolean;
 }

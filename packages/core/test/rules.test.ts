@@ -2605,6 +2605,59 @@ describe('a parameter that is Mut, or nothing', () => {
   });
 });
 
+describe('explicit mutability: what stays accepted', () => {
+  const head = [
+    'import type { Mut } from "@strict-ts/std";',
+    'type Cart = { total: Mut<number> };',
+    'const bump = (cart: Mut<Cart>): void => { cart.total += 1; };',
+    'const reverse = <T>(list: Mut<T[]>): void => { list.reverse(); };',
+  ];
+  const found = (...lines: readonly string[]) =>
+    checkSafe([...head, ...lines, ''].join('\n'))
+      .filter((d) => d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')
+      .map((d) => `${d.start.line} ${d.rule}`);
+
+  test('what a function made, under a name or in a list of its own', () => {
+    expect(found('export function mine(): Mut<Cart> {', '  const cart = { total: 1 };', '  bump(cart);', '  const list = [cart];', '  for (const one of list) bump(one);', '  list.forEach((one: Mut<Cart>) => { one.total = 0; });', '  return cart;', '}')).toEqual([]);
+  });
+
+  test('a new list of what a parameter holds, where `Mut<…>` is asked of the list only', () => {
+    expect(found('export function sorted(carts: readonly Cart[]): readonly Cart[] {', '  const copy = [...carts];', '  reverse(copy);', '  copy.sort((x, y) => x.total - y.total);', '  return copy;', '}')).toEqual([]);
+  });
+
+  test('a list that says `Mut<…>` of what it holds: the elements are written, the list is not', () => {
+    expect(found('export function zero(list: readonly Mut<Cart>[], carts: ReadonlyMap<string, Mut<Cart>>): void {', '  for (const cart of list) cart.total = 0;', '  for (const cart of carts.values()) bump(cart);', '}')).toEqual([]);
+    expect(found('export function grow(list: readonly Mut<Cart>[]): void {', '  list.at(0);', '  const same: Mut<Cart[]> = [];', '  same.push(...list);', '}')).toEqual([]);
+  });
+
+  test('what the library makes new: a list of texts, a clone', () => {
+    expect(found('export function words(text: string, cart: Cart): readonly string[] {', '  const list = text.split(" ");', '  list.sort();', '  const keys = Object.keys(cart);', '  keys.reverse();', '  const copy = structuredClone(cart);', '  copy.total = 2;', '  return [...list, ...keys];', '}')).toEqual([]);
+  });
+
+  test('a method of the project keeps only what its parameter says may be written', () => {
+    expect(
+      found(
+        'class Grid {',
+        '  kinds: Mut<string[]> = [];',
+        '  set(this: Mut<Grid>, tile: { readonly kind: string }): void { this.kinds.push(tile.kind); }',
+        '  get(): { readonly kind: string } { return { kind: this.kinds[0] ?? "" }; }',
+        '}',
+        'const fill = (grid: Mut<Grid>): void => { grid.set({ kind: "x" }); };',
+        'export function make(): number {',
+        '  const grid = new Grid();',
+        '  grid.set({ ...grid.get(), kind: "y" });',
+        '  fill(grid);',
+        '  return grid.kinds.length;',
+        '}',
+      ),
+    ).toEqual([]);
+  });
+
+  test('a method that says `this: Mut<…>` hands out its parts', () => {
+    expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
