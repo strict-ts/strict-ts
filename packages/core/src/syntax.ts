@@ -49,7 +49,14 @@ export type Node = NodeBase &
     /** Parentheses, a `const`/`let` statement and its list of declarations: children that run one after the other, each once. */
     | { readonly kind: 'sequence' }
     /** One declared variable: `name = initializer`. `name` is an identifier, or a pattern (`other`). */
-    | { readonly kind: 'variable'; readonly name: Node; readonly isConst: boolean; readonly initializer: Node | undefined }
+    | {
+        readonly kind: 'variable';
+        readonly name: Node;
+        readonly isConst: boolean;
+        readonly initializer: Node | undefined;
+        /** A `let` or a `var` of a statement, declared with no value: it gets one later, by an assignment. */
+        readonly waitsForValue: boolean;
+      }
     /**
      * A function, an arrow, a method, a constructor or an accessor. `parameters` are their names (or patterns).
      * `isOverload` for a signature with no body that an implementation follows: not an abstract method, and not a

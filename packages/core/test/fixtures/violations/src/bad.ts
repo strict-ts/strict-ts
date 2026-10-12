@@ -99,3 +99,7 @@ export interface Listener {
 }
 
 export enum Priority { Low, High } // expect: no-numeric-enum
+
+let pending: string; // expect: no-unset-capture
+export const waitFor = (): string => pending;
+pending = "done";
