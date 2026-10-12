@@ -6,7 +6,12 @@ import type { Mut } from '../mut.js';
 import { pattern, wholeNumber } from '../unsafe/run.js';
 import { record } from '../record.js';
 import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
-import type { Node } from '../syntax.js';
+import type { Alias, Node } from '../syntax.js';
+
+/** The methods that give back something their receiver holds. */
+const GIVES_A_PART: readonly string[] = ['find', 'findLast', 'at', 'get', 'pop', 'shift'];
+/** The methods that give back a new container of what their receiver holds. */
+const GIVES_A_COPY: readonly string[] = ['slice', 'filter', 'concat', 'flat', 'toSorted', 'toReversed', 'toSpliced', 'with', 'values', 'entries'];
 
 export interface TypeScript6Options {
   /** The project root, absolute. Only files under it are checked, and diagnostics show paths relative to it. */
@@ -301,6 +306,79 @@ export function createTypeScript6Provider(
     };
     const base = { start: node.getStart(sourceFile), end: node.getEnd(), children, isUnit: isUnit(node) };
 
+    /** The places an expression may be, or hold a part or a copy of. */
+    const sourcesOf = (given: ts.Expression, as: Alias['as']): readonly Alias[] => {
+      let expression = given;
+      while (api.isParenthesizedExpression(expression) || api.isNonNullExpression(expression) || api.isAsExpression(expression) || api.isSatisfiesExpression(expression) || api.isAwaitExpression(expression)) {
+        expression = expression.expression;
+      }
+      // A part of a copy is a part; a copy of a part is a copy.
+      const under = (inner: Alias['as']): Alias['as'] => (as === 'part' ? 'part' : inner === 'same' ? as : inner);
+      if (api.isIdentifier(expression) || api.isPropertyAccessExpression(expression) || api.isElementAccessExpression(expression)) return [{ place: part(expression), as }];
+      if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as), ...sourcesOf(expression.whenFalse, as)];
+      if (api.isBinaryExpression(expression)) {
+        const operator = expression.operatorToken.kind;
+        if (operator === api.SyntaxKind.CommaToken) return sourcesOf(expression.right, as);
+        const chooses = operator === api.SyntaxKind.QuestionQuestionToken || operator === api.SyntaxKind.BarBarToken || operator === api.SyntaxKind.AmpersandAmpersandToken;
+        return chooses ? [...sourcesOf(expression.left, as), ...sourcesOf(expression.right, as)] : [];
+      }
+      if (api.isArrayLiteralExpression(expression)) return expression.elements.flatMap((element) => (api.isSpreadElement(element) ? sourcesOf(element.expression, under('copy')) : sourcesOf(element, under('copy'))));
+      if (api.isObjectLiteralExpression(expression)) {
+        return expression.properties.flatMap((member) =>
+          api.isSpreadAssignment(member) ? sourcesOf(member.expression, under('copy')) : api.isPropertyAssignment(member) ? sourcesOf(member.initializer, under('copy')) : api.isShorthandPropertyAssignment(member) ? sourcesOf(member.name, under('copy')) : [],
+        );
+      }
+      if (api.isCallExpression(expression)) {
+        const callee = expression.expression;
+        if (api.isPropertyAccessExpression(callee)) {
+          const name = callee.name.text;
+          // What a method of a place gives back may be a part of it, or a new container of what it holds.
+          if (GIVES_A_PART.includes(name)) return sourcesOf(callee.expression, 'part');
+          if (GIVES_A_COPY.includes(name)) return sourcesOf(callee.expression, under('copy'));
+          const holder = callee.expression;
+          const [first] = expression.arguments;
+          // `Object.values(place)`, `Array.from(place)`.
+          if (first !== undefined && api.isIdentifier(holder) && ((holder.text === 'Object' && ['values', 'entries'].includes(name)) || (holder.text === 'Array' && name === 'from'))) {
+            return sourcesOf(first, under('copy'));
+          }
+        }
+      }
+      return [];
+    };
+    const assignedTo = new Map<ts.Symbol, readonly ts.Expression[]>();
+    /** What is assigned to a variable after its declaration, in the function that declares it. */
+    const laterValues = (symbol: ts.Symbol, declaration: ts.Node): readonly ts.Expression[] => {
+      const known = assignedTo.get(symbol);
+      if (known !== undefined) return known;
+      let scope: ts.Node = declaration;
+      while (!api.isSourceFile(scope) && !api.isFunctionLike(scope)) scope = scope.parent;
+      const found: Mut<ts.Expression[]> = [];
+      const look = (inner: ts.Node): void => {
+        if (api.isBinaryExpression(inner) && inner.operatorToken.kind === api.SyntaxKind.EqualsToken && api.isIdentifier(inner.left) && checker.getSymbolAtLocation(inner.left) === symbol) found.push(inner.right);
+        api.forEachChild(inner, look);
+      };
+      look(scope);
+      assignedTo.set(symbol, found);
+      return found;
+    };
+    const aliasesOf = (name: ts.Identifier): readonly Alias[] => {
+      const owner = name.parent;
+      const symbol = api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(name);
+      const declaration = symbol?.valueDeclaration;
+      if (symbol === undefined || declaration === undefined) return [];
+      // A piece taken out by a pattern is a part of what the pattern is given; its rest is a copy.
+      let holder: ts.Node = declaration;
+      let as: Alias['as'] = 'same';
+      while (api.isBindingElement(holder) || api.isObjectBindingPattern(holder) || api.isArrayBindingPattern(holder)) {
+        if (api.isBindingElement(holder)) as = holder.dotDotDotToken !== undefined && as === 'same' ? 'copy' : 'part';
+        holder = holder.parent;
+      }
+      if (!api.isVariableDeclaration(holder)) return [];
+      const loop = holder.parent.parent;
+      const first = api.isForOfStatement(loop) ? sourcesOf(loop.expression, 'part') : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as);
+      return [...first, ...laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same'))];
+    };
+
     const shape = (): Node => {
       if (node.kind === api.SyntaxKind.AnyKeyword) return { ...base, kind: 'any-keyword' };
       if (node.kind === api.SyntaxKind.NullKeyword) return { ...base, kind: 'null-keyword' };
@@ -360,6 +438,9 @@ export function createTypeScript6Provider(
           },
           get isNarrowed() {
             return narrowed(node);
+          },
+          get aliasOf() {
+            return aliasesOf(node);
           },
           get leftOut() {
             const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
@@ -517,7 +598,8 @@ export function createTypeScript6Provider(
       if (node.kind === api.SyntaxKind.ThisKeyword) return { ...base, kind: 'this' };
       if (api.isIterationStatement(node, false)) {
         const once = api.isForOfStatement(node) || api.isForInStatement(node) ? node.expression : api.isForStatement(node) ? node.initializer : undefined;
-        return { ...base, kind: 'loop', once: once === undefined ? undefined : part(once) };
+        const written = (api.isForOfStatement(node) || api.isForInStatement(node)) && !api.isVariableDeclarationList(node.initializer) ? node.initializer : undefined;
+        return { ...base, kind: 'loop', once: once === undefined ? undefined : part(once), target: written === undefined ? undefined : part(unwrapped(written)) };
       }
       if (api.isMethodSignature(node)) return { ...base, kind: 'method-signature' };
       if (api.isEnumDeclaration(node)) {

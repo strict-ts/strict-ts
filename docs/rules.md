@@ -42,7 +42,7 @@ is both, `project` is once for the whole project.
 | `no-throwing-operator` | errors | all | An operator or a read that may throw on what its operands may be (a bigint `/`, `%` or `**`, the conversion of a value that is not plain in a template, a `+` or a comparison, an array length that is not a literal, a property of the library that runs code) is written in a `try` with a `catch` |
 | `freeze-fresh` | errors | all | `Object.freeze`, `seal` and `preventExtensions` are given a value where it is made (a literal, a `new`), so that no name still says it can be changed |
 | `use-once` | ownership | all | A value typed `Once<…>` has one owner: it is used through its members, given away exactly once (to a parameter or a return type that is `Once<…>`), and never lost. Giving it away in a loop, a `try`, a condition inside an expression or a closure is refused |
-| `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>` |
+| `no-param-mutation` | mutability | safe | A function does not change a parameter unless it is typed `Mut<T>`: not by its name, not by another name for it or for a part of it, not by a function of the platform |
 | `mut-from-readonly` | mutability | safe | What is given where `Mut<…>` is asked for (an argument, an initializer, a returned value) is the giver's to change: not a parameter that does not ask for mutation itself, not a value typed read-only |
 | `readonly-types` | mutability | safe | A written type is read-only (`readonly T[]`, `ReadonlyMap`, `readonly` properties) unless under `Mut<…>` |
 | `pure-domain` | mutability | safe | In a directory listed in `pureDirs`: no clock, randomness, console, network or module-level state, and no import from outside the pure directories |

@@ -29,35 +29,41 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m17-captured.ts')).toEqual(['no-param-mutation']);
   });
 
-  test('eighteen are accepted: the holes of guarantee 4, by family', () => {
+  test('a parameter is not changed through another name, a pattern, a loop or a function of the platform', () => {
+    for (const name of [
+      'm01-alias-of-a-parameter.ts',
+      'm02-loop-variable.ts',
+      'm03-destructured-local.ts',
+      'm05-pattern-assignment.ts',
+      'm06-loop-target.ts',
+      'm07-reflect-set.ts',
+      'm08-object-assign.ts',
+      'm19-setter-of-the-platform.ts',
+      'm20-found-in-a-parameter.ts',
+      'm21-reassigned-alias.ts',
+    ]) {
+      expect(refusedBy(name), name).toEqual(['no-param-mutation']);
+    }
+  });
+
+  test('eight are accepted: the holes of guarantee 4, by family', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
     // The Plane page « Review · guarantee 4, explicit mutability » has the task that is to close each.
     expect(accepted).toEqual([
-      // A parameter changed through another name for it, or for a part of it.
-      'm01-alias-of-a-parameter.ts',
-      'm02-loop-variable.ts',
-      'm03-destructured-local.ts',
       // A parameter changed by its own method.
       'm04-mutating-method.ts',
-      // A parameter written by something that is not a plain assignment.
-      'm05-pattern-assignment.ts',
-      'm06-loop-target.ts',
-      'm07-reflect-set.ts',
-      'm08-object-assign.ts',
       // A value typed read-only that reaches a type that can be written.
       'm09-mut-through-a-property.ts',
       'm10-mut-through-an-assignment.ts',
       'm11-mut-through-an-element.ts',
       // A local with no written type, seen read-only by someone else.
       'm12-inferred-and-viewed.ts',
+      // A value typed read-only that reaches a type that can be written, again: through a function.
       'm14-callback-parameter.ts',
       'm15-returned-as-mut.ts',
       'm16-this-parameter.ts',
-      'm19-setter-of-the-platform.ts',
-      'm20-found-in-a-parameter.ts',
-      'm21-reassigned-alias.ts',
     ]);
   });
 });

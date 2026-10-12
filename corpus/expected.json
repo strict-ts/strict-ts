@@ -1,6 +1,6 @@
 {
   "examples/cart/classic": {
-    "no-param-mutation": 3,
+    "no-param-mutation": 4,
     "readonly-types": 8
   },
   "examples/cart/strict": {},
