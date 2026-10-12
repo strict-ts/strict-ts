@@ -129,7 +129,7 @@ describe('checking some files only', () => {
 });
 
 describe('the catalogue of rules', () => {
-  test('holds the twenty-seven rules, each with a guarantee and a description', () => {
+  test('holds the twenty-eight rules, each with a guarantee and a description', () => {
     expect(rules.map((rule) => rule.name).toSorted()).toEqual([
       'exhaustive-switch',
       'freeze-fresh',
@@ -138,6 +138,7 @@ describe('the catalogue of rules', () => {
       'no-ambient',
       'no-any',
       'no-cast',
+      'no-early-this',
       'no-external-import',
       'no-method-signature',
       'no-non-null',

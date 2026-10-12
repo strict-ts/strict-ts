@@ -133,6 +133,7 @@ is both, `project` is once for the whole project.
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
 | `no-unset-capture` | typing | all | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
+| `no-early-this` | typing | all | In a constructor or in the value of a property, no method of `this` is called and `this` is not handed over: the object is not complete |
 | `no-ambient` | typing | safe | No `declare`, and no declaration file of the project outside an unsafe directory |
 | `no-external-import` | typing | safe | Dependencies (npm, `node:*`) are imported from an unsafe directory only |
 | `no-ts-directive` | typing | all | No `@ts-ignore`, `@ts-expect-error` or `@ts-nocheck`, unsafe directories included |
@@ -410,7 +411,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 27 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 28 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -430,8 +431,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
 
 - **Most of what TypeScript itself lets through.** strict-ts closes the doors a programmer opens on purpose (`any`,
   a cast, `!`, `declare`, a written predicate). Of 23 known ways to make a value differ from its type without any
-  of them, it refuses 7: a property read in a constructor before it is assigned, `Object.values` and `in` on a
-  value that holds more than its type says, a narrowing that outlives a change, all pass. Each is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it
+  of them, it refuses 8: `Object.values` and `in` on a value that holds more than its type says, a narrowing that
+  outlives a change, a mutable array seen under a wider type, all pass. Each is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it
   is run, and `packages/core/test/attacks.test.ts` records which ones are refused.
 
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw

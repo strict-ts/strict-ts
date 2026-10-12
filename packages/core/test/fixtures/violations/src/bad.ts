@@ -103,3 +103,15 @@ export enum Priority { Low, High } // expect: no-numeric-enum
 let pending: string; // expect: no-unset-capture
 export const waitFor = (): string => pending;
 pending = "done";
+
+export class Gauge {
+  readonly shown: string;
+  readonly unit: string;
+  constructor() {
+    this.shown = this.render(); // expect: no-early-this
+    this.unit = "m";
+  }
+  render(): string {
+    return this.unit;
+  }
+}
