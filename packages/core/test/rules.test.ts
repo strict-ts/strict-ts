@@ -1961,6 +1961,50 @@ describe('no-early-read', () => {
   });
 });
 
+describe('what no-early-this and no-stale-narrowing had left open', () => {
+  test('a function given to a call in a constructor is refused when it uses `this`; one that is kept is not', () => {
+    const code = [
+      'export class Total {',
+      '  readonly seen: readonly string[];',
+      '  readonly later: () => string;',
+      '  readonly unit: string;',
+      '  constructor(parts: readonly number[]) {',
+      '    this.seen = parts.map(() => typeof this.unit);',
+      '    this.later = () => this.unit;',
+      '    this.unit = "m";',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    expect(refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-early-this'))).toEqual(['no-early-this@6']);
+  });
+
+  test('a narrowing made before a loop is not relied on in it when a turn makes a call', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'const box: Mut<{ value: string | undefined }> = { value: "x" };',
+      'const clear = (): void => { box.value = undefined; };',
+      'export const a = (): number => {',
+      '  let total = 0;',
+      '  if (box.value === undefined) return 0;',
+      '  for (const turn of [1, 2]) {',
+      '    total += box.value.length + turn;',
+      '    clear();',
+      '  }',
+      '  return total;',
+      '};',
+      'export const b = (): number => {',
+      '  let total = 0;',
+      '  if (box.value === undefined) return 0;',
+      '  for (const letter of box.value) total += letter.length;',
+      '  return total;',
+      '};',
+      '',
+    ];
+    expect(refusals(checkSafe(lines.join('\n'))).filter((refusal) => refusal.startsWith('no-stale-narrowing'))).toEqual(['no-stale-narrowing@8']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })
