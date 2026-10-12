@@ -1877,6 +1877,27 @@ describe('the rules on mutable collections', () => {
     expect(only('no-resize', lines)).toEqual([]);
   });
 
+  test('mut-exact: a type that names fewer properties is not a wider one; a property that takes more is', () => {
+    const lines = [
+      'type Player = { hp: number; name: string; readonly bag: { gold: number; note: string }; tags: { id: string }[] };',
+      'declare const player: Mut<Player>;',
+      'declare const squad: Mut<Player[]>;',
+      'const heal = (blob: Mut<{ hp: number }>): void => { blob.hp = 1; };',
+      'const rename = (blob: Mut<{ name: string | number }>): void => { blob.name = 1; };',
+      'const pay = (blob: Mut<{ readonly bag: { gold: number } }>): void => { blob.bag.gold = 1; };',
+      'const swap = (blob: Mut<{ bag: { gold: number } }>): void => { blob.bag = { gold: 1 }; };',
+      'const each = (list: Mut<readonly { hp: number }[]>): void => { for (const one of list) one.hp = 1; };',
+      'const fill = (list: Mut<{ hp: number }[]>): void => { list.push({ hp: 1 }); };',
+      'heal(player);',
+      'rename(player);',
+      'pay(player);',
+      'swap(player);',
+      'each(squad);',
+      'fill(squad);',
+    ];
+    expect(only('mut-exact', lines)).toEqual(['mut-exact@12', 'mut-exact@14', 'mut-exact@16']);
+  });
+
   test('mut-exact refuses a property that can be written, asked for with a wider type, and accepts one that is read-only there', () => {
     const lines = [
       'class Cell<T> {',

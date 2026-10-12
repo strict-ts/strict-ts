@@ -153,6 +153,39 @@ export function createTypeScript6Provider(
   const isMut = (written: ts.TypeNode | undefined): boolean =>
     written !== undefined && api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Mut';
 
+  /**
+   * Whether a write through a place of type `wanted` could put in a value of type `given` something `given` does
+   * not allow. Not the same as `wanted` being a wider type: one that names fewer properties is wider, and nothing
+   * is written to a property it does not name. What can be replaced whole is compared whole: a property that can
+   * be written, an element of an array that is not read-only. What cannot (the object itself, what a read-only
+   * property holds, an element of a read-only array) is compared property by property.
+   */
+  const widens = (wanted: ts.Type, given: ts.Type, depth: number): boolean => {
+    const whole = (): boolean => !checker.isTypeAssignableTo(wanted, given);
+    if (depth > 3 || wanted.isUnion() || given.isUnion()) return whole();
+    const isList = (type: ts.Type): boolean => checker.isArrayType(type) || checker.isTupleType(type);
+    if (isList(wanted) || isList(given)) {
+      const elements = [wanted, given].map((type) => checker.getIndexTypeOfType(type, api.IndexKind.Number));
+      const [asked, held] = elements;
+      const readOnly = checker.typeToString(wanted).startsWith('readonly ');
+      return readOnly && isList(wanted) && isList(given) && asked !== undefined && held !== undefined ? widens(asked, held, depth + 1) : whole();
+    }
+    const isObject = (type: ts.Type): boolean => (type.flags & api.TypeFlags.Object) !== 0 && type.getCallSignatures().length === 0;
+    const isTable = (type: ts.Type): boolean => checker.getIndexTypeOfType(type, api.IndexKind.String) !== undefined;
+    if (!isObject(wanted) || !isObject(given) || isTable(wanted) || isTable(given) || wanted.getProperties().length === 0) return whole();
+    return wanted.getProperties().some((property) => {
+      const counterpart = given.getProperty(property.getName());
+      if (counterpart === undefined) return false;
+      const asked = checker.getTypeOfSymbol(property);
+      const held = checker.getTypeOfSymbol(counterpart);
+      // A method is not written; what it takes and gives is the compiler's to compare.
+      if (asked.getCallSignatures().length > 0) return false;
+      if (!isReadonlySymbol(property)) return !checker.isTypeAssignableTo(asked, held);
+      // It cannot be given another value, and what it holds can be written into.
+      return (isObject(asked) || isList(asked)) && widens(asked, held, depth + 1);
+    });
+  };
+
   /** The `this` a function declares as its first parameter. */
   const isThis = (parameter: ts.ParameterDeclaration): boolean => api.isIdentifier(parameter.name) && parameter.name.text === 'this';
 
@@ -926,7 +959,7 @@ export function createTypeScript6Provider(
       if (source === undefined || !api.isExpression(source) || isNameOfMember(source)) return false;
       const expected = checker.getContextualType(source);
       // Without the `undefined` of an optional place: nothing is written through it, and the value given is not it.
-      return expected !== undefined && !checker.isTypeAssignableTo(checker.getNonNullableType(expected), checker.getTypeAtLocation(source));
+      return expected !== undefined && widens(checker.getNonNullableType(expected), checker.getTypeAtLocation(source), 0);
     },
     valuesOf: (node) => {
       const source = origin.get(node);
