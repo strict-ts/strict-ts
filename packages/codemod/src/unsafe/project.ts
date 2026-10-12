@@ -1,6 +1,7 @@
 // unsafe/: the file system and the compiler. Everything that may throw leaves here as a Result.
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { packageNameOf } from '@strict-ts/cli/package-name';
 import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
 import { check, type Config, isUnsafe } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
@@ -8,11 +9,15 @@ import { attempt, err, type Mut, none, ok, type Option, type Result, some, textO
 import ts from '@typescript/typescript6';
 import { blamedFixes } from '../blame.js';
 import { applyEdits, type Fix, keepUnblamed, type Placed, placesAfter, type Trial } from '../fix.js';
+import { mutFixes } from '../fixes/mut-types.js';
+import { nonNullFixes } from '../fixes/non-null.js';
 import { readonlyFixes } from '../fixes/readonly-types.js';
 import { typePredicateFixes } from '../fixes/type-predicate.js';
 
 /** The rules this package can fix. */
-export const FIXABLE = ['readonly-types', 'no-type-predicate', 'no-param-mutation'] as const;
+export const FIXABLE = ['readonly-types', 'no-type-predicate', 'no-non-null', 'no-param-mutation'] as const;
+/** The fixes that are run only when their rule is named: they write names of the library, or are judged as a whole. */
+export const ON_REQUEST: readonly string[] = ['no-non-null', 'no-param-mutation'];
 
 export interface Outcome {
   /** The fixes kept, with the file they are in (relative to the project) and their place there. */
@@ -106,7 +111,10 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
 
     // What the gate refuses, by place and rule. A fix must add nothing to it: one that compiles can still let an
     // `any` in (`Array.isArray` on a read-only array gives `any[]`).
-    const refusals = (program: ts.Program) => check(createTypeScript6Provider(ts, program, { rootDir, compilerDiagnostics: false }), config);
+    // As the gate does: with the name of the package each file of a dependency belongs to. Without it a call into
+    // an allowed package is not known to be one, and a fix would be judged by a stricter gate than the real one.
+    const names = (fileName: string): string | undefined => packageNameOf((path) => ts.sys.readFile(path), fileName).unwrapOr(undefined);
+    const refusals = (program: ts.Program) => check(createTypeScript6Provider(ts, program, { rootDir, packageNameOf: names, compilerDiagnostics: false }), config);
     const named = (refusal: { readonly file: string; readonly start: { readonly line: number }; readonly rule: string }): string =>
       `${refusal.file}:${refusal.start.line} ${refusal.rule}`;
     const refusedBefore = new Map<string, number>();
@@ -127,23 +135,63 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     const found = sources.flatMap((sourceFile) => [
       ...(rules.includes('readonly-types') ? readonlyFixes(ts, sourceFile, sourceFile.fileName) : []),
       ...(rules.includes('no-type-predicate') ? typePredicateFixes(ts, sourceFile, sourceFile.fileName) : []),
+      ...(rules.includes('no-non-null') ? nonNullFixes(ts, sourceFile, sourceFile.fileName) : []),
     ]);
 
+    // Where a name of the library goes in each file, and which it has: a fix that writes `Mut` or `panic` needs it.
+    const importsOf = new Map(
+      sources.map((sourceFile) => {
+        const imports = sourceFile.statements.filter(ts.isImportDeclaration);
+        const has = imports.flatMap((declaration) => {
+          const bindings = declaration.importClause?.namedBindings;
+          return bindings !== undefined && ts.isNamedImports(bindings) ? bindings.elements.map((element) => element.name.text) : [];
+        });
+        // After the imports there are; or after the directives a file starts with (`"use client"`).
+        const directives = sourceFile.statements.filter((statement, index) => ts.isExpressionStatement(statement) && ts.isStringLiteral(statement.expression) && sourceFile.statements.slice(0, index).every(ts.isExpressionStatement));
+        const after = imports.at(-1)?.getEnd() ?? directives.at(-1)?.getEnd();
+        // The line an import is written under, counted from 1; 0 at the top of the file.
+        const line = after === undefined ? 0 : ts.getLineAndCharacterOfPosition(sourceFile, after).line + 1;
+        return [sourceFile.fileName, { has, after, line }] as const;
+      }),
+    );
+    /** The fixes, and one more for each file that has to import what they write. */
+    const withImports = (fixes: readonly Fix[]): readonly Fix[] => {
+      const added: Mut<Fix[]> = [];
+      for (const [fileName, { has, after }] of importsOf) {
+        const names = [...new Set(fixes.flatMap((fix) => (fix.file === fileName && fix.needs !== undefined && !has.includes(fix.needs) ? [fix.needs] : [])))].toSorted();
+        if (names.length === 0) continue;
+        const lines = names.map((name) => (name === 'Mut' ? `import type { Mut } from '${STD}';` : `import { ${name} } from '${STD}';`));
+        const at = after ?? 0;
+        added.push({ rule: 'import', file: fileName, at, edits: [{ start: at, end: at, text: after === undefined ? `${lines.join('\n')}\n` : `\n${lines.join('\n')}` }] });
+      }
+      return [...fixes, ...added];
+    };
     const rewrite = (kept: readonly Fix[]): void => {
       changed.clear();
+      const all = withImports(kept);
       for (const [fileName, text] of texts) {
-        const here = kept.filter((fix) => fix.file === fileName);
+        const here = all.filter((fix) => fix.file === fileName);
         if (here.length > 0) changed.set(fileName, applyEdits(text, here));
       }
     };
-    const kept = keepUnblamed(found, (candidates, thorough = false): Trial => {
-      rewrite(candidates);
+    const judge = (settled: readonly Fix[]) => (candidates: readonly Fix[], thorough = false): Trial => {
+      const tried = [...settled, ...candidates];
+      rewrite(tried);
+      // A fix adds no line, so the line of an error names it from one compilation to the next; an import does add
+      // one, and what is under it is named by the line it had.
+      const addedIn = new Map(withImports(tried).flatMap((fix) => (fix.rule === 'import' ? [[fix.file, (fix.edits[0]?.text.match(/import /g) ?? []).length] as const] : [])));
+      const lineBefore = (fileName: string, line: number): number => {
+        const added = addedIn.get(fileName) ?? 0;
+        const under = importsOf.get(fileName)?.line ?? 0;
+        return line > under + added ? line - added : line <= under ? line : -line;
+      };
       const program = compile();
       const errors = ts.getPreEmitDiagnostics(program);
       const compiles = errors.length <= before;
       const places = new Map<string, readonly Placed[]>();
       const placedIn = (fileName: string): readonly Placed[] => {
-        const placed = places.get(fileName) ?? placesAfter(candidates.filter((fix) => fix.file === fileName));
+        // Among everything written in the file, so that each place is right; only the candidates are to blame.
+        const placed = places.get(fileName) ?? placesAfter(withImports(tried).filter((fix) => fix.file === fileName)).filter((one) => candidates.includes(one.fix));
         places.set(fileName, placed);
         return placed;
       };
@@ -152,13 +200,13 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
       const hint = (error: Parameters<typeof blamedFixes>[2]): readonly Fix[] => attempt(() => blamedFixes(ts, checker, error, placedIn), describe).unwrapOr([]);
       // Fixes add no line: the line of an error names it from one compilation to the next.
       const where = (error: ts.Diagnostic): string =>
-        `${error.file?.fileName ?? ''}:${error.file === undefined ? 0 : ts.getLineAndCharacterOfPosition(error.file, error.start ?? 0).line} ${error.code}`;
+        `${error.file?.fileName ?? ''}:${error.file === undefined ? 0 : lineBefore(error.file.fileName, ts.getLineAndCharacterOfPosition(error.file, error.start ?? 0).line + 1) - 1} ${error.code}`;
       const fromCompiler = compiles ? [] : errors.filter((error) => !known.has(said(error))).map((error) => ({ where: where(error), fixes: hint(error) }));
       // The gate is the slower check: it is asked when the project compiles, or when every check is wanted.
       if (!compiles && !thorough) return { holds: false, errors: fromCompiler };
       const seen = new Map<string, number>();
       const fromGate = refusals(program).flatMap((refusal) => {
-        const name = named(refusal);
+        const name = named({ ...refusal, start: { line: lineBefore(`${rootDir}/${refusal.file}`, refusal.start.line) } });
         seen.set(name, (seen.get(name) ?? 0) + 1);
         if ((seen.get(name) ?? 0) <= (refusedBefore.get(name) ?? 0)) return [];
         const file = program.getSourceFile(`${rootDir}/${refusal.file}`);
@@ -168,7 +216,17 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         return [{ where: name, fixes }];
       });
       return { holds: compiles && fromGate.length === 0, errors: [...fromCompiler, ...fromGate] };
+    };
+    const first = keepUnblamed(found, judge([]));
+    // What could not be made read-only is written: the second chance of each such place is to say so.
+    const dropped = new Set(found.filter((fix) => fix.rule === 'readonly-types' && !first.includes(fix)).map((fix) => `${fix.file} ${fix.at}`));
+    const second = sources.flatMap((sourceFile) => {
+      const wanted = new Set(found.flatMap((fix) => (fix.file === sourceFile.fileName && dropped.has(`${fix.file} ${fix.at}`) ? [fix.at] : [])));
+      return wanted.size === 0 ? [] : mutFixes(ts, sourceFile, sourceFile.fileName, wanted);
     });
+    const announced = second.length === 0 ? [] : keepUnblamed(second, judge(first));
+    const kept = [...first, ...announced];
+    const saidAt = new Set(announced.map((fix) => `${fix.file} ${fix.at}`));
     rewrite(kept);
 
     /**
@@ -307,7 +365,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     if (!dryRun) for (const [fileName, text] of changed) writeFileSync(fileName, text);
     return ok({
       applied: [...kept.map(place), ...receivers.applied],
-      left: [...found.filter((fix) => !kept.includes(fix)).map(place), ...receivers.left],
+      left: [...found.filter((fix) => !kept.includes(fix) && !saidAt.has(`${fix.file} ${fix.at}`)).map(place), ...receivers.left],
       written: dryRun ? [] : [...changed.keys()].map(relative).toSorted(),
     });
   }, describe);

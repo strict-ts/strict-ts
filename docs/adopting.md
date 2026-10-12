@@ -79,7 +79,20 @@ It adds `readonly` to arrays and properties, writes `ReadonlyMap`, `ReadonlySet`
 a written type predicate where the compiler infers it. Each fix is kept only if the project still compiles: what the
 code really changes is left as it is, and listed.
 
-One fix is not run unless it is asked for, because it is not judged one place at a time:
+Where `readonly` does not hold because the value is written, the fixer writes `Mut<…>` around the type in its
+place: the write is real, and now the type says so. And one fix is run when its rule is named:
+
+```sh
+node packages/codemod/dist/main.js -p . --rule no-non-null
+```
+
+It turns `value!` into `(value ?? panic("value is missing"))`. What `!` claimed is then checked: where the value is
+missing after all, the program stops there and says so, in place of going on with `undefined`. It is not the end of
+the work, it is a place to look at: many of them are an array read by position, where a `for … of` needs no check.
+
+Both write a name of `@strict-ts/std`, which has to be installed.
+
+One more fix is not run unless it is asked for, because it is not judged one place at a time:
 
 ```sh
 node packages/codemod/dist/main.js -p . --rule no-param-mutation

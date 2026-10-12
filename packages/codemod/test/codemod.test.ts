@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -149,7 +149,7 @@ describe('strict-ts-fix', () => {
 
   test('says what it cannot do, with exit code 2', () => {
     const directory = project();
-    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate, no-param-mutation\)/);
+    expect(fix(directory, '--rule', 'no-throw').err[0]).toMatch(/^strict-ts-fix: no automatic fix for the rule no-throw \(readonly-types, no-type-predicate, no-non-null, no-param-mutation\)/);
     expect(fix(directory, '--force').code).toBe(2);
     expect(fix(directory, '-p', 'missing').err.join('\n')).toMatch(/missing does not exist$/);
   });
@@ -355,5 +355,43 @@ describe('strict-ts-fix --rule no-param-mutation', () => {
       '0 files written',
     ]);
     expect(read(directory, 'src/use.ts')).toBe(after);
+  });
+});
+
+describe('the fixes that write a name of the library', () => {
+  /** A copy of a fixture that has the library installed, as a project that uses these fixes has. */
+  const withLibrary = (name: string): string => {
+    const directory = project(name);
+    mkdirSync(join(directory, 'node_modules/@strict-ts'), { recursive: true });
+    symlinkSync(fileURLToPath(new URL('../../std/', import.meta.url)), join(directory, 'node_modules/@strict-ts/std'));
+    return directory;
+  };
+
+  test('what cannot be made read-only because it is written says `Mut<…>`', () => {
+    const directory = withLibrary('asserts');
+    expect(fix(directory).out).toEqual(['readonly-types: 3 fixes applied, 0 left', 'no-type-predicate: 0 fixes applied, 0 left', '1 file written']);
+    const text = read(directory, 'src/a.ts');
+    expect(text.startsWith("import type { Mut } from '@strict-ts/std';\n")).toBe(true);
+    expect(text).toContain('export function collect(limit: number): readonly number[] {');
+    expect(text).toContain('  const seen: Mut<number[]> = [];');
+    expect(text).toContain('  title: Mut<string>;');
+    expect(refused(directory)).toEqual({ 'src/a.ts no-non-null': 3 });
+  });
+
+  test('`x!` becomes a check that stops the program, when the rule is named', () => {
+    const directory = withLibrary('asserts');
+    expect(fix(directory, '--rule', 'no-non-null').out).toEqual(['no-non-null: 3 fixes applied, 0 left', '1 file written']);
+    const text = read(directory, 'src/a.ts');
+    expect(text.startsWith("import { panic } from '@strict-ts/std';\n")).toBe(true);
+    expect(text).toContain('=> (xs[0] ?? panic("xs[0] is missing"));');
+    // One inside another: each keeps its own check.
+    expect(text).toContain(`=> ((table.get('a') ?? panic("table.get('a') is missing"))[0] ?? panic("table.get('a')[0] is missing")) + 1;`);
+    expect(Object.keys(refused(directory))).toEqual(['src/a.ts readonly-types']);
+  });
+
+  test('without the library installed, nothing that needs it is kept', () => {
+    const directory = project('asserts');
+    expect(fix(directory, '--rule', 'no-non-null').out[0]).toBe('no-non-null: 0 fixes applied, 3 left');
+    expect(read(directory, 'src/a.ts')).not.toContain('panic');
   });
 });
