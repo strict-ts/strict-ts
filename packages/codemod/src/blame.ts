@@ -98,7 +98,7 @@ export function blamedFixes(
     } else if (api.isFunctionLike(declaration)) {
       // What a function gives is its return type: a predicate that was removed stood between the parameters and
       // the body, and with no written type, what is returned is read in the body.
-      const body = 'body' in declaration ? declaration.body : undefined;
+      const body = api.isFunctionDeclaration(declaration) || api.isMethodDeclaration(declaration) || api.isConstructorDeclaration(declaration) || api.isAccessor(declaration) || api.isFunctionExpression(declaration) || api.isArrowFunction(declaration) ? declaration.body : undefined;
       take(sourceFile, declaration.parameters.end, body?.getStart(sourceFile) ?? declaration.getEnd());
       if (declaration.type !== undefined) ofTypes(declaration.type, depth);
       else if (body !== undefined) ofExpression(body, depth + 1);

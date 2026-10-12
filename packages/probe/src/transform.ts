@@ -117,7 +117,7 @@ export function instrument(
     const guarded = (body: ts.ConciseBody, name: string, at: ts.Node): ts.Block => {
       const block = api.isBlock(body) ? body : f.createBlock([f.createReturnStatement(body)], true);
       const caught = f.createIdentifier(`${PROBE}error`);
-      const index = add({ kind: 'boundary', file: relative, ...place(at), name });
+      const index = add({ line: place(at).line, column: place(at).column, kind: 'boundary', file: relative, name });
       return f.createBlock(
         [
           f.createTryStatement(
@@ -175,9 +175,9 @@ export function instrument(
         const outside = callee !== undefined && callee.origin.kind !== 'project' && !trusted;
         if (callee !== undefined && outside) {
           const index = add({
+            line: place(node).line, column: place(node).column,
             kind: 'call',
             file: relative,
-            ...place(node),
             name: callee.name,
             origin: callee.origin.kind === 'library' ? 'library' : 'package',
             ...(callee.origin.kind === 'package' && callee.origin.package !== undefined ? { package: callee.origin.package } : {}),
@@ -198,7 +198,7 @@ export function instrument(
         const isConst = api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'const';
         const shape: Shape = isConst ? { k: 'unknown' } : shapeOf(checker.getTypeFromTypeNode(written), 0);
         if (shape.k !== 'unknown') {
-          const index = add({ kind: 'cast', file: relative, ...place(node), name: checker.typeToString(checker.getTypeFromTypeNode(written)).slice(0, 80) });
+          const index = add({ line: place(node).line, column: place(node).column, kind: 'cast', file: relative, name: checker.typeToString(checker.getTypeFromTypeNode(written)).slice(0, 80) });
           const checked = probe('cast', index, visited.expression, literal(shape));
           return api.isAsExpression(visited) ? f.updateAsExpression(visited, checked, visited.type) : f.updateTypeAssertion(visited, visited.type, checked);
         }

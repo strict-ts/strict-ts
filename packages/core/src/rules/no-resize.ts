@@ -9,7 +9,7 @@ export const noResize: Rule = {
   guarantee: 'typing',
   description:
     'An array gets no hole and a tuple keeps its length: the length of an array is not assigned, an array is not written by position, a tuple is not pushed into or popped.',
-  scope: 'all',
+  scope: 'safe',
   visit(node, { typeOf, report }) {
     if (node.kind === 'binary' && node.operator === '=') {
       const left = node.left;

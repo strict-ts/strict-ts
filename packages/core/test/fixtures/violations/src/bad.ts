@@ -127,3 +127,13 @@ fixed.pop(); // expect: no-resize
 export const setField = <K extends "n">(target: Mut<{ n: number }>, key: K, value: { readonly n: number }[K]): void => {
   target[key] = value; // expect: no-keyed-write
 };
+
+const priced = { apple: 1, note: "fresh" };
+const shownPrices: { readonly apple: number } = priced;
+export const priceCount = Object.values(shownPrices).length; // expect: no-open-read
+export const hasMeow = (pet: { readonly meow: string } | { readonly bark: string }): boolean => "meow" in pet; // expect: no-in-narrowing
+export const mergedPrices = { id: 1, ...shownPrices }; // expect: no-loose-spread
+class Label {
+  readonly text = "tag";
+}
+export const lookalike: Label = { text: "tag" }; // expect: no-class-lookalike

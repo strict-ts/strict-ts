@@ -11,7 +11,7 @@ export const noUnboundMethod: Rule = {
   name: 'no-unbound-method',
   guarantee: 'typing',
   description: 'A method is called through its object: taken off it as a value, it loses `this`, and the call the types accept throws.',
-  scope: 'all',
+  scope: 'safe',
   visit(node, { report }, parent) {
     if (node.kind !== 'property-access' || parent === undefined) return;
     // Called: `this` is the object. `object.method.bind(object)` gives it back.

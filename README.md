@@ -132,12 +132,16 @@ is both, `project` is once for the whole project.
 | `no-overload` | typing | safe | No overload signature: nothing checks that the implementation keeps each promise, and one can be a cast |
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
-| `no-unset-capture` | typing | all | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
-| `no-keyed-write` | typing | all | A property is written through a key only when the key is one name |
-| `no-resize` | typing | all | An array gets no hole and a tuple keeps its length: no assignment to `length`, no write by position (`splice(i, 1, v)`), no `push` or `pop` on a tuple |
+| `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
+| `no-class-lookalike` | typing | safe | Where a class is asked for, the value is made by that class, not an object of its shape |
+| `no-loose-spread` | typing | safe | A spread does not write a property its type does not name: over one written before it, or into one the result may have |
+| `no-in-narrowing` | typing | safe | `in` does not choose between the members of a union: a tag does |
+| `no-open-read` | typing | safe | `Object.values` and `Object.entries` read a table (`Record`) only, and a table is not made from a value with named properties: it may hold more than its type names |
+| `no-keyed-write` | typing | safe | A property is written through a key only when the key is one name |
+| `no-resize` | typing | safe | An array gets no hole and a tuple keeps its length: no assignment to `length`, no write by position (`splice(i, 1, v)`), no `push` or `pop` on a tuple |
 | `mut-exact` | typing | safe | What is given where `Mut<…>` is asked for has exactly that type: a `Mut<string[]>` is not a `Mut<(string \| number)[]>` |
-| `no-unbound-method` | typing | all | A method is called through its object: taken off it as a value it loses `this` |
-| `no-early-this` | typing | all | In a constructor or in the value of a property, no method of `this` is called and `this` is not handed over: the object is not complete |
+| `no-unbound-method` | typing | safe | A method is called through its object: taken off it as a value it loses `this` |
+| `no-early-this` | typing | safe | In a constructor or in the value of a property, no method of `this` is called and `this` is not handed over: the object is not complete |
 | `no-ambient` | typing | safe | No `declare`, and no declaration file of the project outside an unsafe directory |
 | `no-external-import` | typing | safe | Dependencies (npm, `node:*`) are imported from an unsafe directory only |
 | `no-ts-directive` | typing | all | No `@ts-ignore`, `@ts-expect-error` or `@ts-nocheck`, unsafe directories included |
@@ -415,7 +419,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 32 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 36 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -433,12 +437,13 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 strict-ts refuses when it is not sure, but these are accepted today although the types do not cover them:
 
-- **Most of what TypeScript itself lets through.** strict-ts closes the doors a programmer opens on purpose (`any`,
-  a cast, `!`, `declare`, a written predicate). Of 23 known ways to make a value differ from its type without any
-  of them, it refuses 14: `Object.values` and `in` on a value that holds more than its type says, a narrowing that
-  outlives a change, all pass. Each is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it
-  is run, and `packages/core/test/attacks.test.ts` records which ones are refused.
-
+- **What TypeScript itself lets through, where a change or an order is not followed.** strict-ts closes the doors a
+  programmer opens on purpose (`any`, a cast, `!`, `declare`, a written predicate), and most of the unsound corners
+  of the compiler: of 23 known ways to make a value differ from its type without any of those, it refuses 19. What
+  passes: a test that narrowed a value which is changed before it is used (a `let` written by another function, a
+  mutable property, a getter), and a constant read through a function before the line that declares it. Each
+  attack is a file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
+  `packages/core/test/attacks.test.ts` records which ones are refused.
 - The effects ledger proves ECMAScript only. The DOM is run in a browser and not read: a function that never threw
   there is refused unless the project writes `"assume": ["dom-as-observed"]`, which is taking 80 calls for a proof.
   Node and `Intl` are neither read nor run: their functions are refused. A method of a typed array throws once its buffer is detached: it is refused

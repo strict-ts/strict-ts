@@ -16,7 +16,7 @@ describe('the attacks on safe typing', () => {
     for (const name of Object.keys(attacks)) expect(refusedBy(name).filter((rule) => rule.startsWith('TS')), name).toEqual([]);
   });
 
-  test('fourteen are refused', () => {
+  test('nineteen are refused', () => {
     // Refused for another reason than the hole: `new Array(n)` may throw. The holes it makes are not what is seen.
     expect(refusedBy('a01-sparse-array.ts')).toEqual(['no-throwing-call']);
     expect(refusedBy('a12-is-array.ts')).toEqual(['no-any']);
@@ -35,23 +35,24 @@ describe('the attacks on safe typing', () => {
     expect(refusedBy('a40-array-length.ts')).toEqual(['no-resize']);
     expect(refusedBy('c01-index-write-hole.ts')).toEqual(['no-resize']);
     expect(refusedBy('b09-keyed-write.ts')).toEqual(['no-keyed-write']);
+    // A value that holds more than its type names: read whole, narrowed by `in`, spread, taken for a class.
+    expect(refusedBy('a02-object-values.ts')).toEqual(['no-open-read']);
+    expect(refusedBy('a03-in-narrowing.ts')).toEqual(['no-in-narrowing']);
+    expect(refusedBy('a16-spread-overwrite.ts')).toEqual(['no-loose-spread']);
+    expect(refusedBy('b01-spread-optional.ts')).toEqual(['no-loose-spread']);
+    expect(refusedBy('b31-instanceof.ts')).toEqual(['no-class-lookalike']);
   });
 
-  test('nine are accepted: the holes of guarantee 2, to close one by one', () => {
+  test('four are accepted: the holes of guarantee 2, to close one by one', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
       .toSorted();
     // By family, with the task that is to close each: the Plane page « Review · guarantee 2, safe typing ».
     expect(accepted).toEqual([
-      'a02-object-values.ts',
-      'a03-in-narrowing.ts',
       'a08-narrowing-outlives-a-call.ts',
-      'a16-spread-overwrite.ts',
       'a21-read-before-declaration.ts',
-      'b01-spread-optional.ts',
       'b14-narrowed-let.ts',
       'b21-getter-narrowing.ts',
-      'b31-instanceof.ts',
     ]);
   });
 });

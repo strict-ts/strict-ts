@@ -29,7 +29,7 @@ export interface Type {
   readonly isArray: boolean;
   /** A tuple: its length is part of its type. */
   readonly isTuple: boolean;
-  /** Has an index signature (`Record<string, T>`, `{ [key: string]: T }`): any name is one of its keys. */
+  /** A table: an object with an index signature on texts (`Record<string, T>`, `{ [key: string]: T }`). */
   readonly isIndexed: boolean;
   /** The instances of a class. */
   readonly isClass: boolean;
@@ -40,6 +40,8 @@ export interface Type {
   readonly property: (name: string) => Type | undefined;
   /** The names of the properties that cannot be written: declared `readonly`, or made so by `Readonly<…>`. */
   readonly readonlyProperties: readonly string[];
+  /** The names of the properties that may be absent (`name?: T`). */
+  readonly optionalProperties: readonly string[];
   /** The names of every property. */
   readonly propertyNames: readonly string[];
   /** The types of every property. */

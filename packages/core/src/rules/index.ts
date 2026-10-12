@@ -18,6 +18,10 @@ import { noUnboundMethod } from './no-unbound-method.js';
 import { mutExact } from './mut-exact.js';
 import { noResize } from './no-resize.js';
 import { noKeyedWrite } from './no-keyed-write.js';
+import { noOpenRead } from './no-open-read.js';
+import { noInNarrowing } from './no-in-narrowing.js';
+import { noLooseSpread } from './no-loose-spread.js';
+import { noClassLookalike } from './no-class-lookalike.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
@@ -66,4 +70,8 @@ export const rules: readonly Rule[] = [
   mutExact,
   noResize,
   noKeyedWrite,
+  noOpenRead,
+  noInNarrowing,
+  noLooseSpread,
+  noClassLookalike,
 ];

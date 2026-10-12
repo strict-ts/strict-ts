@@ -44,7 +44,9 @@ export type Node = NodeBase &
       }
     | { readonly kind: 'string-literal'; readonly text: string }
     /** An object or an array written in place: `{ … }`, `[ … ]`. Nobody else holds it yet. */
-    | { readonly kind: 'literal' }
+    | { readonly kind: 'literal'; readonly entries: readonly LiteralEntry[] }
+    /** `condition ? whenTrue : whenFalse`. */
+    | { readonly kind: 'conditional'; readonly whenTrue: Node; readonly whenFalse: Node }
     /** A block of statements, or a whole file: its children run one after the other, and names declared in it end with it. */
     | { readonly kind: 'block' }
     /** Parentheses, a `const`/`let` statement and its list of declarations: children that run one after the other, each once. */
@@ -137,3 +139,12 @@ export type Node = NodeBase &
   );
 
 export type NodeKind = Node['kind'];
+
+/**
+ * One member of an object written in place, in the order written: a property with its name (absent when the name is
+ * computed), or a spread with what is spread. An array written in place has none.
+ */
+export interface LiteralEntry {
+  readonly name: string | undefined;
+  readonly spread: Node | undefined;
+}

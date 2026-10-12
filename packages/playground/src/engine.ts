@@ -70,7 +70,7 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
       rootNames.push(`${PROJECT}/${name}`);
     }
 
-    const options: ts.CompilerOptions = {
+    const options: Mut<ts.CompilerOptions> = {
       target: api.ScriptTarget.ES2022,
       module: api.ModuleKind.ESNext,
       moduleResolution: api.ModuleResolutionKind.Bundler,
@@ -78,8 +78,9 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
       types: [],
       noEmit: true,
       paths: { [STD_NAME]: [`${STD}/index.ts`] },
-      ...request.compilerFlags,
     };
+    // The flags of the page are options by their names: each is written as one.
+    for (const [flag, on] of Object.entries(request.compilerFlags)) options[flag] = on;
     const host: ts.CompilerHost = {
       getSourceFile: (fileName) => {
         const text = files.get(fileName);

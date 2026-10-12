@@ -5,7 +5,7 @@ export const noKeyedWrite: Rule = {
   guarantee: 'typing',
   description:
     'A property is written through a key only when the key is one name: with a key that stands for several, a value that fits one is written to another.',
-  scope: 'all',
+  scope: 'safe',
   visit(node, { typeOf, report }) {
     if (node.kind !== 'binary' || node.operator !== '=' || node.left.kind !== 'element-access') return;
     const holder = typeOf(node.left.object);
