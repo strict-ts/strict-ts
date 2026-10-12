@@ -1638,6 +1638,31 @@ describe('the rules on mutable collections', () => {
     expect(only('no-resize', lines)).toEqual([]);
   });
 
+  test('mut-exact refuses a property that can be written, asked for with a wider type, and accepts one that is read-only there', () => {
+    const lines = [
+      'class Cell<T> {',
+      '  constructor(public value: Mut<T>) {}',
+      '}',
+      'interface Shown<T> { readonly value: T }',
+      'const text = new Cell<string>("a");',
+      'export const wider: Cell<string | number> = text;',
+      'export const shown: Shown<string | number> = text;',
+      'export const same: Cell<string> = text;',
+    ];
+    expect(only('mut-exact', lines)).toEqual(['mut-exact@7']);
+  });
+
+  test('no-resize refuses an element that is deleted and an array made from a length alone', () => {
+    const lines = [
+      'const values: Mut<number[]> = [1, 2];',
+      'delete values[0];',
+      'export const a: readonly number[] = Array.from<number>({ length: 2 });',
+      'export const b: readonly number[] = Array.from({ length: 2 }, (_, index) => index);',
+      'export const c: readonly string[] = Array.from("ab");',
+    ];
+    expect(only('no-resize', lines)).toEqual(['no-resize@3', 'no-resize@4']);
+  });
+
   test('no-keyed-write refuses a write through a key that stands for several names, and accepts one name, a table, an array', () => {
     const lines = [
       'type Row = { readonly id: number; readonly label: string };',

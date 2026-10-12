@@ -40,6 +40,8 @@ export interface Type {
   readonly property: (name: string) => Type | undefined;
   /** The names of the properties that cannot be written: declared `readonly`, or made so by `Readonly<…>`. */
   readonly readonlyProperties: readonly string[];
+  /** The names of the properties whose type is written `Mut<…>`: those the project says it writes. */
+  readonly mutableProperties: readonly string[];
   /** The names of the properties that may be absent (`name?: T`). */
   readonly optionalProperties: readonly string[];
   /** The names of every property. */
