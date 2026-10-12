@@ -25,4 +25,4 @@ export function formatText(found: readonly Diagnostic[], note: Note = () => unde
  * them (the baseline's counts, when one is used).
  */
 export const formatJson = (found: readonly Diagnostic[], extra: Readonly<Record<string, unknown>> = {}): string =>
-  json({ diagnostics: found, ...extra }, 2);
+  json({ ...extra, diagnostics: found }, 2);

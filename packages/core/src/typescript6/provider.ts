@@ -190,7 +190,13 @@ export function createTypeScript6Provider(
         return checker.isTupleType(type);
       },
       get isIndexed() {
-        return checker.getIndexInfosOfType(type).length > 0;
+        // A table: an object any text is a key of. Not an array nor a text, which are read by position.
+        // A type parameter is what its constraint is; a table that may be missing is still one where it is there.
+        const known = checker.getBaseConstraintOfType(type) ?? type;
+        const present = (known.isUnion() ? known.types : [known]).filter((member) => (member.flags & (api.TypeFlags.Undefined | api.TypeFlags.Null)) === 0);
+        const isTable = (member: ts.Type): boolean =>
+          (member.flags & api.TypeFlags.Object) !== 0 && checker.getIndexInfosOfType(member).some((info) => (info.keyType.flags & api.TypeFlags.String) !== 0);
+        return present.length > 0 && present.every(isTable);
       },
       get isClass() {
         return ((type.getSymbol()?.flags ?? 0) & api.SymbolFlags.Class) !== 0;
@@ -214,6 +220,12 @@ export function createTypeScript6Provider(
       get readonlyProperties() {
         return type.getProperties().filter(isReadonlySymbol).map((symbol) => symbol.getName());
       },
+      get optionalProperties() {
+        return type
+          .getProperties()
+          .filter((symbol) => (symbol.flags & api.SymbolFlags.Optional) !== 0)
+          .map((symbol) => symbol.getName());
+      },
       get returns() {
         return type.getCallSignatures().map((signature) => wrapType(signature.getReturnType()));
       },
@@ -227,6 +239,12 @@ export function createTypeScript6Provider(
     !program.isSourceFileFromExternalLibrary(sourceFile) &&
     !sourceFile.fileName.includes('/node_modules/') &&
     sourceFile.fileName.startsWith(root);
+
+  /** The name of a member of an object written in place (`name: value`): it is no value, and nothing is expected of it. */
+  const isNameOfMember = (node: ts.Node): boolean => {
+    const owner = node.parent;
+    return (api.isPropertyAssignment(owner) || api.isMethodDeclaration(owner) || api.isAccessor(owner)) && owner.name === node;
+  };
 
   const readCallee = calleeReader(api, program, options.rootDir, options.packageNameOf);
 
@@ -422,7 +440,17 @@ export function createTypeScript6Provider(
         const specifier = api.isLiteralTypeNode(node.argument) ? part(node.argument.literal) : undefined;
         return { ...base, kind: 'module-reference', specifier };
       }
-      if (api.isObjectLiteralExpression(node) || api.isArrayLiteralExpression(node)) return { ...base, kind: 'literal' };
+      if (api.isConditionalExpression(node)) return { ...base, kind: 'conditional', whenTrue: part(unwrapped(node.whenTrue)), whenFalse: part(unwrapped(node.whenFalse)) };
+      if (api.isObjectLiteralExpression(node)) {
+        // In the order written: a spread writes over what comes before it, and is written over by what comes after.
+        const entries = node.properties.map((member) =>
+          api.isSpreadAssignment(member)
+            ? { name: undefined, spread: part(unwrapped(member.expression)) }
+            : { name: member.name !== undefined && (api.isIdentifier(member.name) || api.isStringLiteralLike(member.name)) ? member.name.text : undefined, spread: undefined },
+        );
+        return { ...base, kind: 'literal', entries };
+      }
+      if (api.isArrayLiteralExpression(node)) return { ...base, kind: 'literal', entries: [] };
       if (api.isBlock(node) || api.isSourceFile(node) || api.isModuleBlock(node)) return { ...base, kind: 'block' };
       if (api.isVariableStatement(node) || api.isVariableDeclarationList(node) || api.isParenthesizedExpression(node)) return { ...base, kind: 'sequence' };
       if (api.isVariableDeclaration(node)) {
@@ -440,7 +468,8 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'enum', isNumeric: !node.members.every(isText) };
       }
       if (api.isFunctionLike(node) && !api.isTypeNode(node) && !api.isTypeElement(node)) {
-        const body = 'body' in node ? node.body : undefined;
+        // The function-likes that are written with a body: a signature of a type has none.
+        const body = api.isFunctionDeclaration(node) || api.isMethodDeclaration(node) || api.isConstructorDeclaration(node) || api.isAccessor(node) || api.isFunctionExpression(node) || api.isArrowFunction(node) ? node.body : undefined;
         const declares = api.isFunctionDeclaration(node) || api.isMethodDeclaration(node) || api.isConstructorDeclaration(node);
         const isAbstract = (api.getCombinedModifierFlags(node) & api.ModifierFlags.Abstract) !== 0;
         // Under `declare`, a signature with no body says what is defined elsewhere: `no-ambient` answers for it.
@@ -577,6 +606,7 @@ export function createTypeScript6Provider(
     isBooleanLiteral: false,
     isOnce: false,
     readonlyProperties: [],
+    optionalProperties: [],
     propertyNames: [],
     isPlain: false,
     kinds: ['object'],
@@ -625,13 +655,13 @@ export function createTypeScript6Provider(
     },
     expectedOf: (node) => {
       const source = origin.get(node);
-      if (source === undefined || !api.isExpression(source)) return undefined;
+      if (source === undefined || !api.isExpression(source) || isNameOfMember(source)) return undefined;
       const expected = checker.getContextualType(source);
       return expected === undefined ? undefined : wrapType(expected);
     },
     isWidened: (node) => {
       const source = origin.get(node);
-      if (source === undefined || !api.isExpression(source)) return false;
+      if (source === undefined || !api.isExpression(source) || isNameOfMember(source)) return false;
       const expected = checker.getContextualType(source);
       return expected !== undefined && !checker.isTypeAssignableTo(expected, checker.getTypeAtLocation(source));
     },

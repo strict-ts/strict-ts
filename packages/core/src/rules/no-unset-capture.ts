@@ -11,7 +11,7 @@ export const noUnsetCapture: Rule = {
   guarantee: 'typing',
   description:
     'A variable declared with no value, and whose type has no `undefined`, is not used by a function: nothing shows it has a value when the function runs.',
-  scope: 'all',
+  scope: 'safe',
   // In a test the runner gives the value before each case (`beforeEach`), in an order the rule cannot see.
   inTests: false,
   file({ file, typeOf, report }) {

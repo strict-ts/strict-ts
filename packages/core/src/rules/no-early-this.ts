@@ -9,7 +9,7 @@ export const noEarlyThis: Rule = {
   guarantee: 'typing',
   description:
     'In a constructor or in the value of a property, `this` is only read and written by its properties: no method of it is called and it is not handed over, since the object is not complete.',
-  scope: 'all',
+  scope: 'safe',
   visit(node, { report }, parent, ancestors) {
     if (node.kind !== 'this' || parent === undefined) return;
     // The nearest function decides: a function written inside the constructor runs when it is called, later.

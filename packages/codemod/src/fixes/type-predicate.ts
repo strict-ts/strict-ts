@@ -9,7 +9,7 @@ export function typePredicateFixes(api: typeof ts, sourceFile: ts.SourceFile, fi
   const visit = (node: ts.Node): void => {
     const written = api.isFunctionLike(node) && !api.isFunctionTypeNode(node) ? node.type : undefined;
     // An assertion signature has no inferred form, and a predicate in a function type has no body to infer from.
-    if (written !== undefined && api.isTypePredicateNode(written) && written.assertsModifier === undefined && 'body' in node && node.body !== undefined) {
+    if (written !== undefined && api.isTypePredicateNode(written) && written.assertsModifier === undefined && (api.isFunctionDeclaration(node) || api.isMethodDeclaration(node) || api.isAccessor(node) || api.isFunctionExpression(node) || api.isArrowFunction(node)) && node.body !== undefined) {
       const text = sourceFile.text;
       // From the colon that introduces the return type to the end of the predicate.
       const colon = text.lastIndexOf(':', written.getStart(sourceFile));

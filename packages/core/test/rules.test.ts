@@ -1655,6 +1655,90 @@ describe('the rules on mutable collections', () => {
   });
 });
 
+describe('the rules on a value that holds more than its type names', () => {
+  const only = (rule: string, lines: readonly string[]) => refusals(checkSafe([...lines, ''].join('\n'))).filter((refusal) => refusal.startsWith(rule));
+  const shown = ['type Prices = { readonly apple: number };', 'const raw = { apple: 1, note: "fresh" };', 'const prices: Prices = raw;'];
+
+  test('no-open-read refuses Object.values and entries on named properties, and accepts a table and an array', () => {
+    const lines = [
+      ...shown,
+      'export const a = Object.values(prices);',
+      'export const b = Object.entries(prices);',
+      'const table: Readonly<Record<string, number>> = { apple: 1 };',
+      'export const c = Object.values(table);',
+      'export const d = Object.entries([1, 2]);',
+      'export const e = Object.keys(prices);',
+    ];
+    expect(only('no-open-read', lines)).toEqual(['no-open-read@4', 'no-open-read@5']);
+  });
+
+  test('no-open-read refuses a table made from a value with named properties, and accepts one written in place', () => {
+    const lines = [
+      ...shown,
+      'export const table: Readonly<Record<string, number>> = prices;',
+      'export const written: Readonly<Record<string, number>> = { apple: 1 };',
+      'export const again: Readonly<Record<string, number>> = written;',
+      'const sum = (of: Readonly<Record<string, number>>): number => Object.values(of).length;',
+      'export const total = sum(prices) + sum(written);',
+    ];
+    expect(only('no-open-read', lines)).toEqual(['no-open-read@4', 'no-open-read@8']);
+  });
+
+  test('no-in-narrowing refuses `in` on a union, and accepts it on one type', () => {
+    const lines = [
+      'type Cat = { readonly meow: string };',
+      'type Dog = { readonly bark: string };',
+      'export const a = (pet: Cat | Dog): boolean => "meow" in pet;',
+      'export const b = (pet: Dog): boolean => "meow" in pet;',
+      'export const c = (pet: object): boolean => "meow" in pet;',
+    ];
+    expect(only('no-in-narrowing', lines)).toEqual(['no-in-narrowing@3']);
+  });
+
+  test('no-loose-spread refuses a spread after a property it does not name, and one that may fill a property that may be there', () => {
+    const lines = [
+      'type Entry = { readonly id: number; readonly other: number };',
+      'type Options = { readonly name: string; readonly retries?: number };',
+      'const extra = { id: "x", other: 1, name: "job", retries: "many" };',
+      'const partial: { readonly other: number } = extra;',
+      'const named: { readonly name: string } = extra;',
+      'export const a: Entry = { id: 1, ...partial };',
+      'export const b: Options = { ...named };',
+      'export const c: Entry = { ...partial, id: 1 };',
+      'export const d: Options = { ...named, retries: 2 };',
+    ];
+    expect(only('no-loose-spread', lines)).toEqual(['no-loose-spread@6', 'no-loose-spread@7']);
+  });
+
+  test('no-loose-spread accepts what names everything it copies: a value of the same type, an object written in place, a choice of two', () => {
+    const lines = [
+      'type Options = { readonly name: string; readonly retries?: number };',
+      'const base: Options = { name: "a" };',
+      'export const a: Options = { ...base, name: "b" };',
+      'export const b: Options = { name: "c", ...{ retries: 1 } };',
+      'export const c = (quick: boolean): Options => ({ name: "d", ...(quick ? {} : { retries: 3 }) });',
+    ];
+    expect(only('no-loose-spread', lines)).toEqual([]);
+  });
+
+  test('no-class-lookalike refuses an object given where a class is asked, and accepts one made by it or an interface', () => {
+    const lines = [
+      'class Tag {',
+      '  readonly label = "tag";',
+      '}',
+      'interface Shown { readonly label: string }',
+      'export const a: Tag = { label: "tag" };',
+      'export const b: Tag = new Tag();',
+      'export const c: Shown = { label: "tag" };',
+      'export const d: Shown = new Tag();',
+      'const size = (of: Tag | string): number => (of instanceof Tag ? 0 : of.length);',
+      'const plain = { label: "tag" };',
+      'export const e = size(plain) + size(b) + size("x");',
+    ];
+    expect(only('no-class-lookalike', lines)).toEqual(['no-class-lookalike@5', 'no-class-lookalike@11']);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

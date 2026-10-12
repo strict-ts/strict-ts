@@ -96,7 +96,11 @@
           "no-unbound-method",
           "mut-exact",
           "no-resize",
-          "no-keyed-write"
+          "no-keyed-write",
+          "no-open-read",
+          "no-in-narrowing",
+          "no-loose-spread",
+          "no-class-lookalike"
         ]
       },
       "uniqueItems": true,
