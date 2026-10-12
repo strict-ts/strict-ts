@@ -15,6 +15,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 | `s` | Schemas: `s.object`, `s.loose`, `s.array`, `s.record`, `s.literal`, `s.optional`, `s.string`, `s.number`, `s.boolean`, `s.date`; `s.Infer<typeof X>` gives the type, read-only |
 | `s.nonEmpty`, `s.positive`, `s.integer`, `s.between`, `s.refine`, `s.branded` | Constraints carried by the type: a value that passed the check cannot be confused with one that did not |
 | `oneOf(values, given)` | The one of `values` that `given` is, or `undefined`: a field of a form or a part of a query string read as a known name, without a cast |
+| `setAt(list, index, value)` | `list[index] = value` at a position the array has; at one it does not have, the program stops. To add an element, `push` |
 | `parseJson(text)`, `toJson(value)` | JSON without exceptions: both return a `Result` |
 | `bodyJson(source)` | The JSON a `Request` or a `Response` carries, as a `Result`: their own `json()` gives `any` and rejects |
 | `uriComponent(text)`, `fromUriComponent(text)` | `encodeURIComponent` and `decodeURIComponent` as a `Result`: both throw on text that is not well formed |

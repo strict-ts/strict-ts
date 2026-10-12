@@ -6,6 +6,7 @@ export * from './panic.js';
 export * from './json.js';
 export * from './text.js';
 export * from './one-of.js';
+export * from './list.js';
 export * from './web.js';
 export { resultEquality } from './testing.js';
 export * from './bigint.js';

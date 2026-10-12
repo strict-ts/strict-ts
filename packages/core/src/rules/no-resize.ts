@@ -25,7 +25,7 @@ export const noResize: Rule = {
       };
       const written = left.kind === 'literal' ? left.children.filter(byPosition) : [left].filter(byPosition);
       for (const target of written) {
-        report(target, 'An array is written by position: past its end, the write leaves holes that are typed as elements.', 'Replace the element with `splice(index, 1, value)`, which never leaves a hole, or build another array.');
+        report(target, 'An array is written by position: past its end, the write leaves holes that are typed as elements.', 'Write it with `setAt(list, index, value)` of @strict-ts/std, which stops at a position the array does not have; or build another array.');
       }
       return;
     }
