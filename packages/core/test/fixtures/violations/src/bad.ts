@@ -97,3 +97,5 @@ export function widen(value: unknown): unknown {
 export interface Listener {
   notify(event: string): void; // expect: no-method-signature
 }
+
+export enum Priority { Low, High } // expect: no-numeric-enum

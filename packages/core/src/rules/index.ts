@@ -11,6 +11,7 @@ import { noNonNull } from './no-non-null.js';
 import { noParamMutation } from './no-param-mutation.js';
 import { noOverload } from './no-overload.js';
 import { noMethodSignature } from './no-method-signature.js';
+import { noNumericEnum } from './no-numeric-enum.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
@@ -52,4 +53,5 @@ export const rules: readonly Rule[] = [
   unreadSources,
   noOverload,
   noMethodSignature,
+  noNumericEnum,
 ];

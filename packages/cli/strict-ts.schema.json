@@ -89,7 +89,8 @@
           "mut-from-readonly",
           "unread-sources",
           "no-overload",
-          "no-method-signature"
+          "no-method-signature",
+          "no-numeric-enum"
         ]
       },
       "uniqueItems": true,
