@@ -1405,6 +1405,29 @@ describe('no-method-signature', () => {
   });
 });
 
+describe('no-numeric-enum', () => {
+  const only = (code: string) => refusals(checkSafe(code)).filter((refusal) => refusal.startsWith('no-numeric-enum'));
+
+  test('refuses an enum with a member that is a number, written or not', () => {
+    const code = [
+      'export enum Level { Low, High }',
+      'export enum Flag { Read = 1, Write = 2 }',
+      'export const enum Mixed { A = "a", B = 2 }',
+      'export enum Built { A = "a".length }',
+      '',
+    ].join('\n');
+    expect(only(code)).toEqual(['no-numeric-enum@1', 'no-numeric-enum@2', 'no-numeric-enum@3', 'no-numeric-enum@4']);
+  });
+
+  test('accepts an enum whose members are all texts: only its members are accepted where it is asked for', () => {
+    const code = ['export enum Level { Low = "low", High = "high" }', 'export const enum Side { Left = `left`, Right = "right" }', ''].join('\n');
+    expect(only(code)).toEqual([]);
+    const compiler = (text: string) => refusals(checkSafe(text)).filter((refusal) => refusal.startsWith('TS'));
+    expect(compiler('enum Level { Low = "low", High = "high" }\nconst given: string = "low";\nexport const level: Level = given;\n')).toEqual(['TS2322@3']);
+    expect(compiler('enum Level { Low, High }\nconst given: number = 7;\nexport const level: Level = given;\n')).toEqual([]);
+  });
+});
+
 describe('unread-sources', () => {
   const found = (lines: readonly string[], unreadSources: readonly string[], paths: Readonly<Record<string, string[]>> = {}) =>
     checkFiles({ 'src/a.ts': [...lines, ''].join('\n') }, { unreadSources, compilerOptions: { paths } })

@@ -109,6 +109,7 @@ describe('one violation per rule', () => {
       'no-method-signature',
       'no-non-null',
       'no-null',
+      'no-numeric-enum',
       'no-overload',
       'no-param-mutation',
       'no-throw',
