@@ -48,6 +48,30 @@ const thawed = (given: Type, wanted: Type, depth = 0): readonly string[] => {
   return [];
 };
 
+/**
+ * Where a function of `given` says more of `Mut<…>` than the one `wanted` has in the same place: the path to it,
+ * `''` for the value itself. Looked for in the value, in what a list of it holds, and in its properties.
+ */
+const louder = (given: Type, wanted: Type, depth = 0): string | undefined => {
+  if (depth > DEPTH || given.text === wanted.text) return undefined;
+  // Only a function type the project wrote says something by saying nothing.
+  // `Quiet | undefined`: the function among them.
+  const functions = wanted.returns.length > 0 ? [wanted] : wanted.members.filter((member) => member.returns.length > 0);
+  if (functions.length > 0 && given.returns.length > 0) {
+    const more = (one: Type): boolean => given.mutableParameters.some((index) => !one.mutableParameters.includes(index)) || (given.mutableReceiver !== undefined && one.mutableReceiver === undefined);
+    return functions.some((one) => one.isWrittenInProject && more(one)) ? '' : undefined;
+  }
+  const held = given.element;
+  const asked = wanted.element;
+  if (held !== undefined && asked !== undefined) return louder(held, asked, depth + 1) === undefined ? undefined : '[…]';
+  for (const name of wanted.propertyNames) {
+    const inner = given.property(name);
+    const outer = wanted.property(name);
+    if (inner !== undefined && outer !== undefined && louder(inner, outer, depth + 1) !== undefined) return name;
+  }
+  return undefined;
+};
+
 /** The first of them, as a message shows them. */
 const shown = (paths: readonly string[]): string =>
   paths
@@ -170,6 +194,11 @@ export const mutFromReadonly: Rule = {
     // A variable with no written type takes the type of its first value: it may be one that can be written.
     // Not a pattern on the left: `[a, b] = pair` copies what the pair holds.
     if (node.kind === 'binary' && node.operator === '=' && mayBeHeld(node.left) && mayBeHeld(node.right) && !asksForMutation(node.right) && !isCopied(typeOf(node.right))) {
+      const quieter = louder(typeOf(node.right), typeOf(node.left));
+      if (quieter !== undefined) {
+        report(node.right, 'A function that says `Mut<…>` of its object or of a parameter is assigned to a place whose type says a function that does not: called from there, it changes what its caller was told cannot change.', 'Say `Mut<…>` in the type of the place too; or assign a function that does not write.');
+        return;
+      }
       const paths = thawed(typeOf(node.right), typeOf(node.left));
       if (paths.length > 0) {
         report(node.right, `A value typed read-only (${shown(paths)}) is assigned to a place that can be written: a write there would change what its holder was told cannot change.`, HELP);
@@ -186,7 +215,7 @@ export const mutFromReadonly: Rule = {
     // the function may ask for `Mut<…>` when all of that is the caller's to change, down to what it holds.
     const call = parent?.kind === 'call' && parent.arguments.includes(node) && calleeOf(parent) !== undefined && calleeOf(parent)?.origin.kind !== 'project' ? parent : undefined;
     const [asks] = typeOf(node).mutableParameters;
-    if (call !== undefined && asks !== undefined) {
+    if (call !== undefined && asks !== undefined && !(wanted !== undefined && wanted.returns.length > 0 && wanted.isWrittenInProject)) {
       const copied = (named: Node): boolean => isCopied(typeOf(named));
       const sources = [...(call.callee.kind === 'property-access' ? [call.callee.object] : []), ...call.arguments.filter((argument) => argument !== node && argument.kind !== 'function')];
       // Of a list, a map or a set, what it holds has to say so too; any other object hands out parts of itself.
@@ -215,20 +244,14 @@ export const mutFromReadonly: Rule = {
     // `this: Mut<…>` where the type asked says none, a parameter that asks for it where the type asked does not.
     // Who holds it under that type calls them with what was not theirs to change.
     if (wanted !== undefined && node.kind !== 'function' && typeOf(node).text !== wanted.text) {
-      const own = typeOf(node);
-      for (const name of wanted.propertyNames) {
-        const asked = wanted.property(name);
-        const has = own.property(name);
-        if (asked === undefined || has === undefined || asked.returns.length === 0) continue;
-        const louder = has.mutableParameters.find((index) => !asked.mutableParameters.includes(index));
-        if ((has.mutableReceiver !== undefined && asked.mutableReceiver === undefined) || louder !== undefined) {
-          report(
-            node,
-            `\`${name}\` of what is given says \`Mut<…>\` of ${louder === undefined ? 'its object (`this: Mut<…>`)' : `its parameter ${louder + 1}`}, and \`${name}\` of the type it is given under does not: called through that type, it changes what its caller was told cannot change.`,
-            'Say `Mut<…>` on the member of the type that is asked for too; or give an object whose member does not write.',
-          );
-          return;
-        }
+      const where = louder(typeOf(node), wanted);
+      if (where !== undefined) {
+        report(
+          node,
+          `${where === '' ? 'What is given' : `\`${where}\` of what is given`} is a function that says \`Mut<…>\` of its object or of a parameter, and the type it is given under says a function that does not: called through that type, it changes what its caller was told cannot change.`,
+          'Say `Mut<…>` in the type that is asked for too; or give a function that does not write.',
+        );
+        return;
       }
     }
     if (node.kind === 'function' || wanted === undefined || !asksForMutation(node)) return;
