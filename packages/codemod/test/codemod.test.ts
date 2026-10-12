@@ -411,6 +411,19 @@ describe('strict-ts-fix --rule no-param-mutation', () => {
   });
 });
 
+describe('strict-ts-fix --rule no-param-mutation, on what a field or a list holds', () => {
+  test('writes `Mut<…>` on the field, and inside the list or the map', () => {
+    const directory = project('fields');
+    expect(Object.values(refused(directory))).toEqual([3]);
+    expect(fix(directory, '--rule', 'no-param-mutation').out).toEqual(['no-param-mutation: 3 fixes applied, 0 left', '1 file written']);
+    const cart = read(directory, 'src/cart.ts');
+    expect(cart).toContain('readonly first: Mut<Line> = { quantity: 0 };');
+    expect(cart).toContain('readonly lines: Mut<Mut<Line>[]> = [];');
+    expect(cart).toContain('readonly byName: Mut<Map<string, Mut<Line>>> = new Map();');
+    expect(refused(directory)).toEqual({});
+  });
+});
+
 describe('the fixes that write a name of the library', () => {
   /** A copy of a fixture that has the library installed, as a project that uses these fixes has. */
   const withLibrary = (name: string): string => {

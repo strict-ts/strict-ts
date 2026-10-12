@@ -25,6 +25,10 @@ const DEPTH = 3;
  */
 const thawed = (given: Type, wanted: Type, depth = 0): readonly string[] => {
   if (depth > DEPTH || given.text === wanted.text) return [];
+  // A list: what it holds, one for all.
+  const held = given.element;
+  const asked = wanted.element;
+  if (held !== undefined && asked !== undefined) return thawed(held, asked, depth + 1).map((path) => `[…].${path}`);
   const frozen = given.readonlyProperties;
   const here = wanted.propertyNames.filter((name) => frozen.includes(name) && !wanted.readonlyProperties.includes(name));
   if (here.length > 0) return here;

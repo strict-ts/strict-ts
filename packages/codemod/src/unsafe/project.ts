@@ -42,6 +42,8 @@ export interface Place {
 
 /** How many times the gate is asked what is written without a word: one for each step up a chain of calls. */
 const MUT_PASSES = 12;
+/** Which type argument of a container is what it holds. */
+const HOLDERS: Readonly<Record<string, number>> = { Array: 0, ReadonlyArray: 0, Set: 0, ReadonlySet: 0, Map: 1, ReadonlyMap: 1 };
 /** The methods that give back something their receiver holds. */
 const PARTS: readonly string[] = ['find', 'findLast', 'at', 'get', 'pop', 'shift'];
 const STD = '@strict-ts/std';
@@ -369,6 +371,39 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
             if (parameter === undefined || seen.has(parameter)) continue;
             seen.add(parameter);
             done(parameter.type !== undefined && parameter.dotDotDotToken === undefined && wrap(parameter.type));
+          } else if (refusal.message.startsWith('What the field `') || refusal.message.includes('says the container may be written')) {
+            // The field, or the list, that has to say what it holds may be written: named in the message, and read
+            // in the statement the refusal is in.
+            const isField = refusal.message.startsWith('What the field `');
+            const wanted = /^What (?:the field )?`([^`]+)`/.exec(refusal.message)?.[1] ?? '';
+            // The write may be through another name (the variable of a loop over the list): the name is looked for
+            // in the function the refusal is in, and what it declares has to be a field, a parameter or a variable.
+            let scope: ts.Node = place;
+            while (!ts.isFunctionLike(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
+            const declares = (one: ts.Declaration): boolean => ts.isPropertySignature(one) || ts.isPropertyDeclaration(one) || ts.isParameter(one) || ts.isVariableDeclaration(one);
+            const find = (node: ts.Node): ts.Declaration | undefined => {
+              const here = ts.isIdentifier(node) && node.text === wanted ? (checker.getSymbolAtLocation(node)?.declarations ?? []).find(declares) : undefined;
+              return here ?? ts.forEachChild(node, find);
+            };
+            const declaration = find(scope);
+            if (declaration === undefined || seen.has(declaration)) continue;
+            seen.add(declaration);
+            const written = ts.isPropertySignature(declaration) || ts.isPropertyDeclaration(declaration) || ts.isParameter(declaration) || ts.isVariableDeclaration(declaration) ? declaration.type : undefined;
+            if (written === undefined) {
+              done(false);
+            } else if (isField) {
+              done(wrap(written));
+            } else {
+              // Inside the container: around what an array holds, around the values of a map, around what a set holds.
+              let inner: ts.TypeNode = written;
+              for (;;) {
+                if (ts.isTypeReferenceNode(inner) && ts.isIdentifier(inner.typeName) && inner.typeName.text === 'Mut' && inner.typeArguments?.[0] !== undefined) inner = inner.typeArguments[0];
+                else if (ts.isTypeOperatorNode(inner) || ts.isParenthesizedTypeNode(inner)) inner = inner.type;
+                else break;
+              }
+              const held = ts.isArrayTypeNode(inner) ? inner.elementType : ts.isTypeReferenceNode(inner) && ts.isIdentifier(inner.typeName) ? (HOLDERS[inner.typeName.text] === undefined ? undefined : inner.typeArguments?.[HOLDERS[inner.typeName.text] ?? 0]) : undefined;
+              done(held !== undefined && wrap(held));
+            }
           } else if (refusal.message.includes('that gave it does not say')) {
             // The name that is written, in the statement the refusal is in; then the call it was made from.
             let statement: ts.Node = place;

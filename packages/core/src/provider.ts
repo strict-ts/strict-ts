@@ -48,6 +48,8 @@ export interface Type {
   readonly propertyNames: readonly string[];
   /** The types of every property. */
   readonly properties: readonly Type[];
+  /** For an array or a tuple: the type of what it holds. */
+  readonly element: Type | undefined;
   /** The return type of each call signature; empty when the type is not callable. */
   readonly returns: readonly Type[];
   /**

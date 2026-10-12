@@ -55,6 +55,13 @@ export type Node = NodeBase &
         /** Read here with a type narrower than the one it is declared with: a test before it said more. */
         readonly isNarrowed: boolean;
         /**
+         * For a name declared with a written type that is a list, a map or a set: whether what it holds may be
+         * written into. `Mut<Line[]>` says the list may be written, and not the lines: `readonly` here. A type that
+         * says `Mut<…>` inside (`Mut<Mut<Line>[]>`, `readonly Mut<Line>[]`) says they may: `writable`. `unknown`
+         * when no type is written for it.
+         */
+        readonly elements: 'writable' | 'readonly' | 'unknown';
+        /**
          * What a local name may stand for, when it was made from other places: `const a = b.c`, a piece taken out
          * by a pattern, the variable of a `for … of`, a variable assigned to later. Empty for a parameter, and for
          * a local made of something new. Computed on demand.
@@ -121,6 +128,15 @@ export type Node = NodeBase &
         readonly isNarrowed: boolean;
         /** The property is computed each time it is read (`get name()`). */
         readonly isGetter: boolean;
+        /**
+         * Whether what the property holds may be written into, as far as its declaration says: `writable` when its
+         * written type says `Mut<…>` somewhere, or when it is declared with no type and something made in place
+         * (`readonly party = new Party()`); `readonly` when the project declares it otherwise; `unknown` for a
+         * property of a library, of an object written in place, or one that is not declared as a property.
+         */
+        readonly holds: 'writable' | 'readonly' | 'unknown';
+        /** The same question as `elements` of a name, for a field that is a list, a map or a set. */
+        readonly elements: 'writable' | 'readonly' | 'unknown';
         /** For a getter written in the project: the file it is written in, as diagnostics show it. */
         readonly getterIn: string | undefined;
       }
@@ -199,12 +215,13 @@ export type NodeKind = Node['kind'];
 export interface Alias {
   readonly place: Node;
   /**
-   * `same`: the name is the place itself. `part`: it is something the place holds (an element, a property taken
-   * out by a pattern, what `find` gave). `copy`: it is a new container that holds what the place holds
+   * `same`: the name is the place itself. `part`: it is a property of the place, taken out by a pattern.
+   * `element`: it is one of the things the place holds as a list, a map or a set (the variable of a loop over
+   * it, what `find` gave). `copy`: it is a new container that holds what the place holds
    * (`slice()`, `[...place]`, the rest of a pattern): writing the container is not writing the place, writing
    * into what it holds is. `result`: it is what a call gave back, and `place` is the call.
    */
-  readonly as: 'same' | 'part' | 'copy' | 'result';
+  readonly as: 'same' | 'part' | 'element' | 'copy' | 'result';
 }
 
 export interface LiteralEntry {
