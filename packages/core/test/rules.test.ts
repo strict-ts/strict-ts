@@ -975,6 +975,25 @@ describe('no-param-mutation', () => {
     ]);
   });
 
+  test('a parameter with no written type asks for mutation when the place its function is given to does', () => {
+    const lines = [
+      'import type { Mut } from "@strict-ts/std";',
+      'type Pen = { colour: string };',
+      'const draw = (paint: (pen: Mut<Pen>, size: number) => void): void => paint({ colour: "" }, 1);',
+      'const look = (read: (pen: Pen) => void): void => read({ colour: "" });',
+      'draw((pen, size) => {',
+      '  pen.colour = `${size}`;',
+      '});',
+      'look((pen) => {',
+      '  pen.colour = "red";',
+      '});',
+      '[{ colour: "" }].forEach((pen) => {',
+      '  pen.colour = "blue";',
+      '});',
+    ];
+    expect(refusedAt(lines)).toEqual(['9 Parameter `pen` is mutated.', '12 Parameter `pen` is mutated.']);
+  });
+
   test('a function kept by a constructor does not write the object later, and `call` gives a receiver', () => {
     const lines = [
       'import type { Mut } from "@strict-ts/std";',
