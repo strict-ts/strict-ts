@@ -27,18 +27,17 @@ describe('the attacks on errors in the types', () => {
     expect(refusedBy('e10-eval.ts')).toContain('no-any');
   });
 
-  test('eleven are accepted: the holes of guarantee 3', () => {
+  test('a promise is not made to fail', () => {
+    for (const name of ['e02-rejected-by-the-callback', 'e16-dropped-rejection', 'e17-await-of-a-thenable', 'e21-async-function']) expect(refusedBy(`${name}.ts`), name).toEqual(['no-reject']);
+  });
+
+  test('seven are accepted: the holes of guarantee 3', () => {
     const accepted = attacks.filter((name) => refusedBy(name).length === 0).toSorted();
     expect(accepted).toEqual([
       // Read before the line that gives it a value, in one file and across two.
       'e01-read-before-declaration.ts',
-      // A promise made to fail with no `throw` written.
-      'e02-rejected-by-the-callback.ts',
       // A function that calls itself without end: the stack overflows. Not closed, and said as a limit.
       'e14-recursion.ts',
-      'e16-dropped-rejection.ts',
-      'e17-await-of-a-thenable.ts',
-      'e21-async-function.ts',
       // What an unsafe directory hands over besides a function that returns a Result.
       'e23-unsafe-object.ts',
       'e24-unsafe-class.ts',

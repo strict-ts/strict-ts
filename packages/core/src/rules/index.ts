@@ -23,6 +23,7 @@ import { noInNarrowing } from './no-in-narrowing.js';
 import { noLooseSpread } from './no-loose-spread.js';
 import { noClassLookalike } from './no-class-lookalike.js';
 import { noStaleNarrowing } from './no-stale-narrowing.js';
+import { noReject } from './no-reject.js';
 import { noNull } from './no-null.js';
 import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
@@ -76,4 +77,5 @@ export const rules: readonly Rule[] = [
   noLooseSpread,
   noClassLookalike,
   noStaleNarrowing,
+  noReject,
 ];

@@ -101,7 +101,8 @@
           "no-in-narrowing",
           "no-loose-spread",
           "no-class-lookalike",
-          "no-stale-narrowing"
+          "no-stale-narrowing",
+          "no-reject"
         ]
       },
       "uniqueItems": true,

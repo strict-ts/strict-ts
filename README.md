@@ -133,6 +133,7 @@ is both, `project` is once for the whole project.
 | `no-method-signature` | typing | safe | No method syntax in an interface or a type (`name(x: T): R`): written `name: (x: T) => R`, it is compared soundly |
 | `no-numeric-enum` | typing | safe | No enum with a member that is a number: any number is accepted where one is asked for. An enum of texts stays |
 | `no-unset-capture` | typing | safe | A variable declared with no value (`let ready: string;`) is not used by a function: nothing shows it has a value when the function runs |
+| `no-reject` | errors | safe | A promise is not made to fail: the callback of `new Promise` does not take the function that rejects it, and no object has a `then` of its own |
 | `no-stale-narrowing` | typing | safe | What a test narrowed is not relied on after a call or an `await` that could change it (a `let` another function writes, a property that can be written), nor on a getter |
 | `no-class-lookalike` | typing | safe | Where a class is asked for, the value is made by that class, not an object of its shape |
 | `no-loose-spread` | typing | safe | A spread does not write a property its type does not name: over one written before it, or into one the result may have |
@@ -420,7 +421,7 @@ import { attempt, err, type Mut, ok, Option, panic, Result, s } from '@strict-ts
 
 | Package | Role | State |
 |---|---|---|
-| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 37 rules, TypeScript 6 provider |
+| [`@strict-ts/core`](packages/core) | The rule engine, with no dependency on Node or on a TypeScript version | 38 rules, TypeScript 6 provider |
 | [`@strict-ts/cli`](packages/cli) | The CI gate | text, JSON and SARIF output, `strict-ts.json`, baseline, incremental cache |
 | [`@strict-ts/std`](packages/std) | The runtime library of conforming code | `Result`, `Option`, schemas, `panic`, `Mut`, `Once` |
 | [`@strict-ts/wrap`](packages/wrap) | Generates the `unsafe/` wrapper of a dependency | functions and constants; classes and objects left out |
@@ -445,9 +446,8 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   file of `packages/core/test/fixtures/attacks` that prints `BROKEN` when it is run, and
   `packages/core/test/attacks.test.ts` records which ones are refused. This is a list of known ways, not a proof
   that there is no other.
-- **An error can still escape its type in eleven known ways.** Of 27 ways for safe code to throw or to reject with
-  no `throw` written, the rules refuse 16. What passes: a promise made to fail through the callback of its
-  constructor or through an object with a `then` of its own; a constant read before the line that declares it, in
+- **An error can still escape its type in seven known ways.** Of 27 ways for safe code to throw or to reject with
+  no `throw` written, the rules refuse 20. What passes: a constant read before the line that declares it, in
   one file or across two that import each other; an object, a class or a getter that an unsafe directory hands
   over, which safe code then calls; and a function that calls itself without end. Each is a file of
   `packages/core/test/fixtures/escapes`, and `packages/core/test/escapes.test.ts` records which ones are refused.

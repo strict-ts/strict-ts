@@ -147,3 +147,7 @@ export const phaseText = (): string => {
   restart();
   return phase; // expect: no-stale-narrowing
 };
+
+export const failing = (): Promise<number> => new Promise<number>((_resolve, reject) => { // expect: no-reject
+  reject(new Error("no"));
+});
