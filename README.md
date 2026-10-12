@@ -45,7 +45,7 @@ brings the other four, one rule at a time. This table is the project's scoreboar
 | Ownership, no uncontrolled concurrent access | A value typed `Once<T>` has one owner and is given away exactly once (`use-once`). State shared across `await` and workers: nothing yet | Research: a first rule, on a small subset |
 
 « Acquired » has a narrow meaning here: **no way around the guarantee is known in checked code.** Each way that was
-found is a file that fails when it is run, kept in the tests with the rule that refuses it: 31 for safe typing, 29
+found is a file that fails when it is run, kept in the tests with the rule that refuses it: 32 for safe typing, 29
 for errors in the types. It is a list and not a proof, the lists were written by who wrote the rules, and what is
 taken on trust (the specification as it was read, the browser as it was run, the types of the packages a project
 allows) is in [Known limits](docs/known-limits.md). « Prototype » means the rules exist and are tested, and ways

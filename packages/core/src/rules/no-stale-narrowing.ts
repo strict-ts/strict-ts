@@ -62,13 +62,15 @@ export const noStaleNarrowing: Rule = {
       const receiver = node.callee.kind === 'property-access' ? [node.callee.object] : [];
       return [...receiver, ...node.arguments].every((given) => (given.kind === 'identifier' && given.declaredOutside) || typeOf(given).isPlain);
     };
-    /** Whether a child of a node is read there for a test: compared, read for its truth, chosen on. */
+    /** Whether a child of a node is read there for a test: compared, read for its truth, chosen on by a switch that has a `default`. */
     const testsIt = (node: Node, child: Node, isTest: boolean): boolean => {
       if (node.kind === 'binary') return COMPARES.includes(node.operator) || (CHOOSES.includes(node.operator) && (isTest || child === node.left));
       if (node.kind === 'unary') return node.operator === '!';
       if (node.kind === 'if') return child === node.condition;
       if (node.kind === 'conditional') return child !== node.whenTrue && child !== node.whenFalse;
-      if (node.kind === 'switch') return child === node.expression;
+      // With no `default`, the compiler takes the cases for all there is: a value the stale test ruled out falls
+      // through a switch it believes exhaustive. With one, that value goes there.
+      if (node.kind === 'switch') return child === node.expression && node.clauses.some((clause) => clause.kind === 'default-clause');
       return node.kind === 'sequence' && isTest;
     };
     /** Whether a loop makes a call, in its own turns: not in a function written in it. */
