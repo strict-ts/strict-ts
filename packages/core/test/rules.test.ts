@@ -1392,6 +1392,66 @@ describe('no-throwing-call in a page', () => {
   });
 });
 
+describe('no-throwing-call on arguments written in a call into the DOM', () => {
+  const page = { compilerOptions: { lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'] } };
+  const said = (lines: readonly string[], assume: readonly 'dom-as-observed'[] = ['dom-as-observed']) =>
+    checkSafeEverything([...lines, ''].join('\n'), { ...page, config: { unsafeDirs: ['src/unsafe'], allowedImports: ['@strict-ts/std'], assume } })
+      .filter((d) => d.rule === 'no-throwing-call')
+      .map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);
+
+  test('a call whose written arguments have the shape that was run in a browser is accepted', () => {
+    expect(
+      said([
+        'export const a = (el: Element): void => el.classList.add("hidden", "is-open");',
+        'export const b = (el: Element): void => el.classList.remove("app--shake");',
+        'export const c = (el: Element, on: boolean): void => { el.classList.toggle("is-climax"); void on; };',
+        'export const d = (): HTMLElement => document.createElement("canvas");',
+        'export const e = (el: Element): void => el.setAttribute("aria-hidden", "true");',
+        'export const f = (el: Element): void => el.setAttribute("role", "status");',
+        'export const g = (root: ParentNode): Element | undefined => root.querySelector("#menu") ?? undefined;',
+        'export const h = (root: ParentNode): number => root.querySelectorAll("[data-move]").length;',
+        `export const i = (el: Element): Element | undefined => el.closest('input, select, textarea, [role="dialog"]') ?? undefined;`,
+        'export const j = (el: Element): boolean => el.matches("button.upgrade-btn > span");',
+        'export const k = (g: CanvasGradient): void => g.addColorStop(0.55, "rgba(15,23,42,0.15)");',
+      ]),
+    ).toEqual([]);
+  });
+
+  test('every value a written argument can have must have the shape', () => {
+    expect(
+      said([
+        'export const a = (el: Element, open: boolean): void => el.classList.add(open ? "is-open" : "is-closed");',
+        'export const b = (el: Element, open: boolean): void => el.classList.add(open ? "is-open" : "");',
+        'export const c = (g: CanvasGradient, hot: boolean): void => g.addColorStop(hot ? 0 : 1, hot ? "#f00" : "rgba(0,0,0,0)");',
+        'export const d = (g: CanvasGradient, hot: boolean): void => g.addColorStop(hot ? 0 : 1.5, "#f00");',
+      ]),
+    ).toEqual(['2 `DOMTokenList.add` throws a SyntaxError.', '4 `CanvasGradient.addColorStop` throws a SyntaxError.']);
+  });
+
+  test('an argument that is not written, or has not the shape, leaves the call refused', () => {
+    expect(
+      said([
+        'export const a = (el: Element, name: string): void => el.classList.add(name);',
+        'export const b = (el: Element): void => el.classList.add("two words");',
+        'export const c = (name: string): HTMLElement => document.createElement(name);',
+        'export const d = (): HTMLElement => document.createElement("Not A Name");',
+        // An attribute that runs or loads something: a page can make the browser refuse a text there.
+        'export const e = (el: Element): void => el.setAttribute("onclick", "go()");',
+        'export const f = (el: Element): void => el.setAttribute("src", "a.js");',
+        // A pseudo-class is outside the shape: nothing is said of it.
+        'export const g = (root: ParentNode): Element | undefined => root.querySelector("li:not(.a)") ?? undefined;',
+        'export const h = (root: ParentNode): Element | undefined => root.querySelector("#1st") ?? undefined;',
+        'export const i = (g: CanvasGradient): void => g.addColorStop(0, "tomato");',
+        'export const j = (el: Element, names: readonly string[]): void => el.classList.add(...names);',
+      ]).map((line) => line.split(' ')[0]),
+    ).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+  });
+
+  test('it is something seen in a browser: only a project that takes that as enough is told', () => {
+    expect(said(['export const a = (el: Element): void => el.classList.add("hidden");'], [])).toEqual(['1 `DOMTokenList.add` throws a SyntaxError.']);
+  });
+});
+
 describe('no-throwing-operator', () => {
   const said = (found: ReturnType<typeof checkEverything>) =>
     found.filter((d) => d.rule === 'no-throwing-operator').map((d) => `${d.start.line} ${d.message.replace(/, as seen with .*$/, '.')}`);

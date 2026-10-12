@@ -27,7 +27,8 @@ export interface Config {
    * `attached-buffers`: no buffer is ever detached (transferred to another thread, resized away), so the methods of
    * typed arrays and of `DataView` do not throw for that.
    * `dom-as-observed`: a function of the DOM that was called in a browser on generated values and never threw is
-   * taken not to throw, although no specification was read for it.
+   * taken not to throw, although no specification was read for it; and one that throws is taken not to on
+   * arguments written in the call, of a shape on which it never threw there.
    * `generated-receivers`: a method called with arguments written in the call, that did not throw when the gate ran
    * it with them on a list of receivers of its class, is taken not to throw on the receiver it will have.
    */
