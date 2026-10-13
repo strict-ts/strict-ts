@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "files": {
+    "src/mut.ts": {
+      "no-ambient": 1,
+      "no-cast": 1
+    }
+  }
+}

@@ -441,7 +441,23 @@ export function createTypeScript6Provider(
     return valuesOfType(checker.getTypeAtLocation(expression));
   };
 
-  const wrapType = (type: ts.Type): Type => {
+  /** The mark of `Mut<…>`: an object type with the one property the library declares for it. */
+  const isMark = (part: ts.Type): boolean => {
+    const properties = part.getProperties();
+    return properties.length === 1 && (properties[0]?.getName().startsWith('__@MUT') ?? false);
+  };
+  /** A type without the mark: `Cart[]` for `Mut<Cart[]>`. What a type is (a list, a table, a class) is asked of that. */
+  const unmarked = (marked: ts.Type): ts.Type => {
+    if (!marked.isIntersection()) return marked;
+    const rest = marked.types.filter((part) => !isMark(part));
+    return rest.length === 1 && rest[0] !== undefined ? rest[0] : marked;
+  };
+  const carriesMark = (marked: ts.Type): boolean => {
+    const some = (marked.isUnion() ? marked.types : [marked]).filter((member) => (member.flags & (api.TypeFlags.Undefined | api.TypeFlags.Null)) === 0);
+    return some.length > 0 && some.every((member) => member.isIntersection() && member.types.some(isMark));
+  };
+  const wrapType = (given: ts.Type): Type => {
+    const type = unmarked(given);
     const symbolName = type.getSymbol()?.getName();
     const isPromise = symbolName === 'Promise' || symbolName === 'PromiseLike';
     const self: Type = {
@@ -550,8 +566,7 @@ export function createTypeScript6Provider(
         return (type.getCallSignatures()[0]?.getParameters() ?? []).flatMap((parameter, index) => (takesUndefined(parameter) ? [index] : []));
       },
       get isMut() {
-        const some = (type.isUnion() ? type.types : [type]).filter((member) => (member.flags & (api.TypeFlags.Undefined | api.TypeFlags.Null)) === 0);
-        return some.length > 0 && some.every((member) => member.getProperties().some((property) => property.getName().startsWith('__@MUT')));
+        return carriesMark(given);
       },
       get isImplemented() {
         const declaration = type.getCallSignatures()[0]?.getDeclaration();

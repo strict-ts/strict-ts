@@ -32,6 +32,8 @@ export const noOpenRead: Rule = {
     }
     // What can name a value someone else made: a fresh literal cannot.
     if (node.kind !== 'identifier' && node.kind !== 'property-access' && node.kind !== 'element-access' && node.kind !== 'call') return;
+    // `mut({ … })` is the object written in it, which `mut-fresh` asks to be made there.
+    if (node.kind === 'call' && node.callee.kind === 'identifier' && node.callee.text === 'mut') return;
     // Under a cast the type is the author's word, which `no-cast` answers for.
     if (ancestors.some((outer) => outer.kind === 'as' || outer.kind === 'type-assertion')) return;
     const wanted = expectedOf(node);

@@ -7,9 +7,9 @@ import { compiler, pageData, parseJson } from './unsafe/page.js';
 
 /** What the visitor edits: the one piece of the page that is meant to change. */
 type Workspace = Mut<{
-  files: Record<string, string>;
+  files: Mut<Record<string, string>>;
   active: string;
-  flags: Record<string, boolean>;
+  flags: Mut<Record<string, boolean>>;
   unsafeDirs: string;
   allowedImports: string;
   disabled: readonly string[];
@@ -19,7 +19,7 @@ type Tab = 'problems' | 'rules' | 'config';
 
 type State = Mut<{
   scenario: string;
-  workspaces: Record<string, Workspace>;
+  workspaces: Mut<Record<string, Workspace>>;
   tab: Tab;
   filter: string | undefined;
 }>;
@@ -32,7 +32,7 @@ const STD_PREFIX = `${STD_NAME}/`;
 
 // An element of the page, to write into.
 // The page is in the shadow tree of one element of the site's page: what it looks for is looked for there.
-const page = document.getElementById('playground')?.shadowRoot ?? document;
+const page = mut(document.getElementById('playground')?.shadowRoot ?? document);
 const $ = (id: string): Mut<HTMLElement> => mut(page.getElementById(id) ?? document.body);
 const esc = (text: string): string =>
   text.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
@@ -52,21 +52,21 @@ let checkTimer = 0;
 // ── State ────────────────────────────────────────────
 const scenarioById = (id: string): Scenario | undefined => DATA.scenarios.find((scenario) => scenario.id === id);
 
-function freshWorkspace(scenario: Scenario | undefined): Mut<Workspace> {
+function freshWorkspace(scenario: Scenario | undefined): Workspace {
   const files = mut({ ...scenario?.files });
   const depth = (path: string): number => path.split('/').length;
   const first = Object.keys(files).toSorted((a, b) => depth(a) - depth(b) || a.localeCompare(b))[0] ?? '';
   return mut({
     files,
     active: first,
-    flags: { ...scenario?.flags },
+    flags: mut({ ...scenario?.flags }),
     unsafeDirs: 'src/unsafe',
     allowedImports: STD_NAME,
     disabled: [],
   });
 }
 
-const state: State = mut({ scenario: DATA.scenarios[0]?.id ?? '', workspaces: {}, tab: 'problems', filter: undefined });
+const state: State = mut({ scenario: DATA.scenarios[0]?.id ?? '', workspaces: mut({}), tab: 'problems', filter: undefined });
 try {
   const saved = parseJson(localStorage.getItem(STORE) ?? 'null').unwrapOr(undefined);
   if (typeof saved === 'object' && saved !== null && 'scenario' in saved && 'workspaces' in saved) {
@@ -301,7 +301,7 @@ function renderTabs(): void {
   // The DOM refuses a selector or an attribute name it cannot read by throwing: caught here, the tabs stay as they were.
   void attempt(() => {
     for (const tab of page.querySelectorAll<HTMLElement>('.tab')) {
-      tab.setAttribute('aria-selected', String(tab.dataset['tab'] === state.tab));
+      mut(tab).setAttribute('aria-selected', String(tab.dataset['tab'] === state.tab));
     }
   }, String);
   $('n-problems').textContent = outcome === undefined ? '' : String(diagnostics().length);
@@ -490,7 +490,7 @@ $('files').addEventListener('click', (event) => {
   const removed = closest(event, '[data-del]')?.dataset['del'];
   if (removed === undefined) return;
   const current = workspace();
-  current.files = { ...record(Object.entries(current.files).filter(([path]) => path !== removed)) };
+  current.files = mut({ ...record(Object.entries(current.files).filter(([path]) => path !== removed)) });
   if (current.active === removed) current.active = Object.keys(current.files).toSorted()[0] ?? `${STD_PREFIX}index.ts`;
   save();
   renderAll(false);

@@ -4,11 +4,11 @@
     "src/runtime.ts": {
       "freeze-fresh": 1,
       "must-use": 1,
+      "mut-exact": 1,
       "no-any": 2,
       "no-cast": 9,
       "no-throw": 1,
-      "no-throwing-call": 4,
-      "readonly-types": 30
+      "no-throwing-call": 4
     }
   }
 }

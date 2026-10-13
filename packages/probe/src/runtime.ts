@@ -1,12 +1,12 @@
-import { mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 // What the instrumented code calls. It is not imported: its text is put at the top of each instrumented module, so
 // that instrumented code needs nothing installed where it runs. Hence one function, no import, and plain JavaScript
 // in its body: it is read with `toString`.
 
 /** Installs the probes on the global object, once, and returns them. `file` is where events are appended. */
 export function install(file: string): unknown {
-  const root: { __strictTsProbe?: unknown; process?: { getBuiltinModule?: (name: string) => unknown; on?: (event: string, listener: () => void) => void } } =
-    globalThis;
+  const root: Mut<{ __strictTsProbe?: unknown; process?: { getBuiltinModule?: (name: string) => unknown; on?: (event: string, listener: () => void) => void } }> =
+    mut(globalThis);
   if (root.__strictTsProbe !== undefined) return root.__strictTsProbe;
 
   const fs = root.process?.getBuiltinModule?.('node:fs') as
@@ -23,7 +23,7 @@ export function install(file: string): unknown {
   const describe = (error: unknown): string =>
     error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : String(error).slice(0, 300);
 
-  const sites: unknown[] = mut([]);
+  const sites = mut<unknown[]>([]);
   // How many times each site ran since the last write. Written at the end of the turn of the event loop that ran
   // them, and not when the process exits: a test runner stops its workers without letting them say goodbye.
   const counts = mut(new Map<number, number>());

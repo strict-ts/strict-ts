@@ -1,6 +1,5 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
-import { mut } from '../mut.js';
 
 const isAssignment = (operator: string): boolean => operator.endsWith('=') && !['==', '===', '!=', '!==', '<=', '>='].includes(operator);
 
@@ -93,7 +92,8 @@ export const noParamMutation: Rule = {
       const holder = typeOf(node.callee.object);
       // A function kept in a table is called, not a method of the table: what it writes, its own type says.
       if (key === undefined && holder.isIndexed && !holder.isArray && !holder.isTuple) return;
-      if (!reached.isImplemented && (key === undefined || changes(key)) && !holder.kinds.every((kind) => PRIMITIVES.includes(kind))) {
+      // Nor is a function whose type the project wrote: that type says what it writes, and the compiler asks it.
+      if (!reached.isImplemented && !reached.isWrittenInProject && (key === undefined || changes(key)) && !holder.kinds.every((kind) => PRIMITIVES.includes(kind))) {
         refuse(node, node.callee.object, key === undefined ? ' by a method reached by a key that is computed' : ` by \`${key}\``);
       }
       return;

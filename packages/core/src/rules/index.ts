@@ -32,7 +32,6 @@ import { noThrow } from './no-throw.js';
 import { noThrowingCall } from './no-throwing-call.js';
 import { noThrowingOperator } from './no-throwing-operator.js';
 import { noTsDirective } from './no-ts-directive.js';
-import { readonlyTypes } from './readonly-types.js';
 import { noTypePredicate } from './no-type-predicate.js';
 import { pureDomain } from './pure-domain.js';
 import { safetyComment } from './safety-comment.js';
