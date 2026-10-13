@@ -89,12 +89,12 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 <section class="figures" aria-label="The measure">
   <div class="in">
     <div class="measure">
-      <p class="about"><b>How do we know it works? By attacking it.</b> For each guarantee, we look for TypeScript that <code>tsc --strict</code> and strict-ts both accept and that still fails when it runs. Each program found is kept as a test, with the rule that now refuses it.</p>
+      <p class="about"><b>Does it work? We try to fool it.</b> We write TypeScript that compiles without a warning and still goes wrong when it runs. Each trick that got past strict-ts became a rule that blocks it. The score so far:</p>
       <dl>
-        ${figures.map((figure) => `<div><dt>${figure.value}</dt><dd>${figure.label}</dd></div>`).join('\n        ')}
+        ${figures.map((figure) => `<div><dt>${figure.value}</dt><dd><b>${figure.title}</b>${figure.label}</dd></div>`).join('\n        ')}
       </dl>
     </div>
-    <p>A list of attacks is not a proof. <a href="docs/known-limits.html">Known limits</a> says what is taken on trust, and what is still accepted.</p>
+    <p>Blocking every trick we found does not prove there is no other. <a href="docs/known-limits.html">Known limits</a> says what is left.</p>
   </div>
 </section>
 
