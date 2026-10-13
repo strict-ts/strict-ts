@@ -147,6 +147,12 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m69-field-made-around-a-part.ts')).toContain('no-param-mutation');
   }, 180_000);
 
+  test('the ninth round: functions inside types, and the value a parameter starts with', () => {
+    expect(refusedBy('m70-functions-inside-function-types.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m71-function-in-a-collection.ts')).toContain('mut-from-readonly');
+    expect(refusedBy('m72-the-value-a-parameter-starts-with.ts')).toContain('mut-from-readonly');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

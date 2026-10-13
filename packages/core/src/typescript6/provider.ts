@@ -500,6 +500,12 @@ export function createTypeScript6Provider(
       get returns() {
         return type.getCallSignatures().map((signature) => wrapType(signature.getReturnType()));
       },
+      get parameterTypes() {
+        const signature = type.getCallSignatures()[0];
+        const declaration = signature?.getDeclaration();
+        if (signature === undefined || declaration === undefined) return [];
+        return signature.getParameters().map((parameter) => wrapType(checker.getTypeOfSymbolAtLocation(parameter, declaration)));
+      },
       get mutableParameters() {
         const declaration = type.getCallSignatures()[0]?.getDeclaration();
         const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
@@ -1290,6 +1296,7 @@ export function createTypeScript6Provider(
     properties: [],
     element: undefined,
     returns: [],
+    parameterTypes: [],
     mutableParameters: [],
     isWrittenInProject: false,
     defaultedParameters: [],
@@ -1323,6 +1330,13 @@ export function createTypeScript6Provider(
     }
     const holder = place.parent;
     if (api.isVariableDeclaration(holder)) return holder.initializer === place ? holder.type : undefined;
+    // The value a parameter or a field starts with.
+    if ((api.isParameter(holder) || api.isPropertyDeclaration(holder)) && holder.initializer === place) return holder.type;
+    // The value a name takes when a pattern finds nothing: what the type written for the pattern says of that name.
+    if (api.isBindingElement(holder) && holder.initializer === place && api.isObjectBindingPattern(holder.parent)) {
+      const name = holder.propertyName ?? holder.name;
+      return api.isIdentifier(name) ? declaredType(checker.getTypeAtLocation(holder.parent).getProperty(name.text)) : undefined;
+    }
     if (api.isReturnStatement(holder) || (api.isArrowFunction(holder) && holder.body === place)) {
       let owner: ts.Node | undefined = holder;
       while (owner !== undefined && !api.isFunctionLike(owner)) owner = owner.parent;
