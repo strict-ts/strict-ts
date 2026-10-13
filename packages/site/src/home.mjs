@@ -88,10 +88,13 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section class="figures" aria-label="The measure">
   <div class="in">
-    <dl>
-      ${figures.map((figure) => `<div><dt>${figure.value}</dt><dd>${figure.label}</dd></div>`).join('\n      ')}
-    </dl>
-    <p>It is a list and not a proof. <a href="docs/known-limits.html">Known limits</a> says what is taken on trust, and what is still accepted.</p>
+    <div class="measure">
+      <p class="about"><b>How do we know it works? By attacking it.</b> For each guarantee, we look for TypeScript that <code>tsc --strict</code> and strict-ts both accept and that still fails when it runs. Each program found is kept as a test, with the rule that now refuses it.</p>
+      <dl>
+        ${figures.map((figure) => `<div><dt>${figure.value}</dt><dd>${figure.label}</dd></div>`).join('\n        ')}
+      </dl>
+    </div>
+    <p>A list of attacks is not a proof. <a href="docs/known-limits.html">Known limits</a> says what is taken on trust, and what is still accepted.</p>
   </div>
 </section>
 

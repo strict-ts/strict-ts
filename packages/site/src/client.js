@@ -6,6 +6,9 @@ const root = document.documentElement;
 document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
   const now = root.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   root.dataset.theme = now === 'dark' ? 'light' : 'dark';
+  // The playground is in a tree the root does not reach: it is told.
+  const play = document.getElementById('playground');
+  if (play !== null) play.dataset.theme = root.dataset.theme;
   try {
     localStorage.setItem('strict-ts-theme', root.dataset.theme);
   } catch {

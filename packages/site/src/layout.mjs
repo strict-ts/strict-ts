@@ -3,7 +3,7 @@
 import { escape } from './markdown.mjs';
 
 export const REPOSITORY = 'https://git.cf.adserver.fr/Alex/strict-ts';
-export const PLAYGROUND = 'playground/index.html';
+export const PLAYGROUND = 'playground.html';
 
 /** The bar at the top: the entries of typescriptlang.org, for what this project has. */
 export const nav = (base, active) => NAV.map((entry) => `<a href="${base}${entry.to}"${entry.key === active ? ' aria-current="page"' : ''}>${entry.label}</a>`);
@@ -29,7 +29,8 @@ const brand = (base, mark) => `<a class="brand" href="${base}index.html"><span c
 
 /**
  * A page. `base` is the way from the page to the root of the site (`''` or `'../'`): every address is relative, so
- * the site works from a folder and under any address. `kind` is `home`, `doc` or `plain`.
+ * the site works from a folder and under any address. `kind` is `home`, `doc`, `app` (the playground: the page is
+ * as high as the window, and has no foot) or `plain`.
  */
 export const page = ({ title, description, base, active, body, mark, commit, kind = 'plain', scripts = [] }) => `<!doctype html>
 <html lang="en" data-base="${base}">
@@ -60,7 +61,10 @@ export const page = ({ title, description, base, active, body, mark, commit, kin
 <div id="content">
 ${body}
 </div>
-<footer class="foot">
+${
+  kind === 'app'
+    ? ''
+    : `<footer class="foot">
   <div class="foot-in">
     <div class="foot-about">
       ${brand(base, mark)}
@@ -93,7 +97,8 @@ ${body}
       <a href="https://strict-script.adserver.fr/" rel="noopener">strict-script, its sibling</a>
     </div>
   </div>
-</footer>
+</footer>`
+}
 <dialog class="search" data-search data-index="${base}assets/search.js" aria-label="Search the documentation">
   <div class="search-field">${ICONS.search}<input type="search" placeholder="Search the documentation" aria-label="Search the documentation" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
   <ol data-results></ol>

@@ -19,14 +19,15 @@ It is an adapter around `core`, with no rule in it, and it writes as little as i
 - **The samples of the front page are judged by the checker when the site is built** (`src/demos`: each as
   `tsc --strict` accepts it, `.classic.ts`, and as it conforms, `.strict.ts`). What the page shows under a sample is
   a line per refusal, in the words of the command line. Once a sample is changed, the checker is loaded in the page
-  and asked again: the compiler (`playground/typescript.js`), what a file is compiled against
+  and asked again: the compiler (`assets/typescript.js`), what a file is compiled against
   (`assets/environment.js`) and `assets/engine.js`, which is `src/engine.js` around the engine of the playground. It
   is the script the build judged the samples with.
 - **The scoreboard, the questions, the figures and the commands** are the sections and the blocks of `README.md` and
   of `docs/`, not copies of them: a figure the README no longer gives stops the build. The list of the rules is
   `core`'s.
-- **The playground** is the page of [`@strict-ts/playground`](../playground), with the way back to the site beside
-  its name. It keeps its own dress: it is also built alone, as one file.
+- **The playground** is a page of the site, under the same bar: `playground.html`. What it shows is handed by
+  [`@strict-ts/playground`](../playground), the engine and the interface, which stay under the gate; its style and
+  markup are in a shadow tree, so that its sheet and the site's do not meet. There is no other playground.
 - **The search** looks into every section of the documentation, in the page: `/` opens it.
 
 The tests build the site and follow every link of it: a page or an anchor that is named and is not there fails
