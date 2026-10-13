@@ -2700,6 +2700,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('type Quiet = (cart: Cart) => number;', 'const read = (cart: Cart): number => cart.total;', 'const twice = (cart: Cart): number => cart.total * 2;', 'const runAll = (fs: readonly Quiet[], cart: Cart): number => fs.length + cart.total;', 'export function all(cart: Cart): number {', '  const fs = [read, twice];', '  fs.forEach((f) => f(cart));', '  const own = { total: 1 };', '  [read, bump].forEach((f) => f(own));', '  return runAll(fs, cart);', '}')).toEqual([]);
   });
 
+  test('bytes of its own, a copy of the ones it was given, and an object of its own given as `thisArg`', () => {
+    expect(found('function zeroThis(this: Mut<Cart>): void {', '  this.total = 0;', '}', 'export function mine(bytes: Uint8Array): number {', '  const own = new Uint8Array(4);', '  own[0] = 1;', '  const copy = new Uint8Array(bytes);', '  copy[0] = 2;', '  const cut = bytes.slice(0, 2);', '  cut[0] = 3;', '  const view = new Uint8Array(own.buffer);', '  view[1] = 4;', '  const cart = { total: 1 };', '  [1].forEach(zeroThis, cart);', '  return own.length + copy.length + cut.length + view.length + cart.total;', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });

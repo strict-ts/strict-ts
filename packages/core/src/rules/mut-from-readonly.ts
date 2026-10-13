@@ -276,6 +276,14 @@ export const mutFromReadonly: Rule = {
     // the function may ask for `Mut<…>` when all of that is the caller's to change, down to what it holds.
     const call = parent?.kind === 'call' && parent.arguments.includes(node) && calleeOf(parent) !== undefined && calleeOf(parent)?.origin.kind !== 'project' ? parent : undefined;
     const [asks] = typeOf(node).mutableParameters;
+    // One that says `this: Mut<…>` is given its object by the argument that follows it (`forEach(f, thisArg)`).
+    if (call !== undefined && asks === undefined && node.kind !== 'literal' && typeOf(node).mutableReceiver !== undefined) {
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      if (call.arguments.some((argument) => argument !== node && argument.kind !== 'function' && ownerOf(argument, gives, copied, 0, 0, plain) !== undefined)) {
+        report(node, `A function that says \`this: Mut<…>\` is given to \`${call.callee.kind === 'property-access' ? call.callee.name : 'a function'}\` with, as its object, what this function may not change.`, HELP);
+      }
+      return;
+    }
     if (call !== undefined && asks !== undefined && !(wanted !== undefined && wanted.returns.length > 0 && wanted.isWrittenInProject)) {
       const copied = (named: Node): boolean => isCopied(typeOf(named));
       const sources = [...(call.callee.kind === 'property-access' ? [call.callee.object] : []), ...call.arguments.filter((argument) => argument !== node && argument.kind !== 'function')];
