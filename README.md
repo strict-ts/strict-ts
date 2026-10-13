@@ -102,6 +102,8 @@ in [Configuration](docs/configuration.md).
 
 ## Documentation
 
+- The website, with these documents and the playground: <https://strict-ts.adserver.fr>, or
+  `pnpm build && pnpm site` for a folder of files ([`packages/site`](packages/site))
 - [Getting started](docs/getting-started.md): what a refusal looks like, the examples, a first run
 - [The rules](docs/rules.md), and [how strict-ts knows what throws](docs/what-throws.md)
 - [Unsafe directories](docs/unsafe-directories.md)

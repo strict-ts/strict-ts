@@ -1,0 +1,7 @@
+[
+  { "file": "1-typing", "name": "invoice.ts", "tab": "No cast", "note": "`as` asserts a shape and proves nothing, and `JSON.parse` gives `any` and may throw. A schema proves the shape, and both failures are in a `Result`." },
+  { "file": "2-errors", "name": "share.ts", "tab": "Errors are values", "note": "A `throw` is in no type. A function that may fail returns a `Result`, and who calls it cannot forget the failure." },
+  { "file": "3-null", "name": "catalog.ts", "tab": "No null", "note": "`null` and `!` are refused. What may be missing is an `Option`, and each use says what happens when it is." },
+  { "file": "4-mut", "name": "cart.ts", "tab": "Mut", "note": "Types are read-only unless they say `Mut<T>`. A function changes only what it made, or what its signature asks to change." },
+  { "file": "5-once", "name": "transfer.ts", "tab": "One owner", "note": "A value typed `Once<T>` has one owner and is given away exactly once: left open on one path, it is refused." }
+]

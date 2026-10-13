@@ -26,6 +26,9 @@ jobs:
         run: pnpm build
       - name: Test
         run: pnpm test
+      # The website: what the Dockerfile at the root builds.
+      - name: Website
+        run: pnpm site
       # strict-ts on its own sources, as a blocking check: only what the baselines record is tolerated.
       - name: strict-ts
         run: pnpm check

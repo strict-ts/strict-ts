@@ -18,7 +18,9 @@
     "corpus": "node corpus/run.mjs",
     "probe": "rm -rf .strict-ts-probe && STRICT_TS_PROBE=1 vitest run && node packages/probe/dist/main.js report",
     "ledger": "node packages/ledger/scripts/build.mjs --check",
-    "publish:pilot": "node scripts/publish-pilot.mjs"
+    "publish:pilot": "node scripts/publish-pilot.mjs",
+    "site": "node packages/site/scripts/build.mjs",
+    "site:serve": "node packages/site/scripts/serve.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

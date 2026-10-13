@@ -19,5 +19,7 @@ pnpm build && plane artifact publish -p STS -t "strict-ts Playground" packages/p
 - `src/engine.ts` builds a TypeScript 6 program from the files held in the page and hands it to `@strict-ts/core`.
   It holds no rule.
 - `src/app.ts` is the interface. `src/unsafe/page.ts` is where the page receives what the build hands it.
+- `scripts/page.mjs` makes the page as a text; `scripts/build.mjs` writes it. The website ([`@strict-ts/site`](../site))
+  shows the same page, with the way back to the site beside its name.
 - `scripts/data.mjs` reads the scenarios from the repo: `examples/invoice`, core's fixtures, the sources of
   `packages/std`.

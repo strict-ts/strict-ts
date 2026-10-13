@@ -1,0 +1,19 @@
+{
+  "name": "@strict-ts/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The website of strict-ts: a front page, the documentation and the playground, written as files. An adapter around core.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@strict-ts/core": "workspace:*",
+    "@strict-ts/playground": "workspace:*",
+    "@strict-ts/std": "workspace:*",
+    "@typescript/typescript6": "^6.0.2",
+    "esbuild": "^0.28.2",
+    "marked": "^16.0.0"
+  }
+}

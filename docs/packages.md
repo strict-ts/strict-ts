@@ -12,6 +12,7 @@
 | [`@strict-ts/oxlint-plugin`](../packages/oxlint-plugin) | `no-throw`, `no-null` and `no-ts-directive` as an Oxlint plugin: a quick first answer, not a faster gate | same diagnostics as the gate, compared in a test |
 | [`@strict-ts/probe`](../packages/probe) | Runs the tests on instrumented code and reports what contradicts what the gate took on trust | calls, unsafe boundaries, casts, frozen read-only values |
 | [`@strict-ts/playground`](../packages/playground) | strict-ts in the browser, on eleven scenarios; not published | builds to one page, or to one file with the compiler inside |
+| [`@strict-ts/site`](../packages/site) | The website: a front page, these documents as pages, the playground; not published | a folder of files, served by nginx from the `Dockerfile` at the root |
 | [`@strict-ts/ledger`](../packages/ledger) | Builds the effects ledger: runs the standard library and reads the specification; a tool of this repo | 802 of 844 functions of ECMAScript run, 797 entries; 1,464 functions of the DOM run in a browser |
 | [`@strict-ts/codemod`](../packages/codemod) | Automatic fixes and migration of existing code | `readonly-types` and `no-type-predicate`, each fix kept only if the project still compiles; `no-null` on request, where the `null` stays in the program |
 | `@strict-ts/flow` | Flow analysis across `await` and aliases. The single-use rule does not need it: it follows each function on the syntax tree of `core` | not started |

@@ -66,6 +66,10 @@ code, .mono { font-family: var(--f-mono); }
 .brand h1 { margin: 0; font: 800 26px/1 var(--f-display); letter-spacing: -.02em; }
 .brand h1 span { color: var(--oxide); }
 .brand p { margin: 0; color: var(--muted); font-size: 13px; }
+/* The links back to the site, when the page is one of its pages. */
+.site { display: flex; gap: 16px; font-size: 13px; }
+.site a { color: var(--muted); text-decoration: none; }
+.site a:hover { color: var(--oxide); }
 .field-inline { display: flex; align-items: center; gap: 8px; }
 .field-inline label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 select, .text-input { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
@@ -220,6 +224,7 @@ select { padding-right: 28px; }
         <h1>strict<span>-ts</span></h1>
         <p>TypeScript checked like Rust</p>
       </div>
+      <!--SITE-->
       <div class="field-inline">
         <label for="preset">Scenario</label>
         <select id="preset"></select>
