@@ -49,8 +49,8 @@ found is a file that fails when it is run, kept in the tests with the rule that 
 for errors in the types. It is a list and not a proof, the lists were written by who wrote the rules, and what is
 taken on trust (the specification as it was read, the browser as it was run, the types of the packages a project
 allows) is in [Known limits](docs/known-limits.md). « Prototype » means the rules exist and are tested, and ways
-around them are still being found: explicit mutability went from 2 known ways refused to 60 in six rounds, the
-last four after an application had already been made to pass, and no round has yet found nothing.
+around them are still being found: explicit mutability went from 2 known ways refused to 64 in seven rounds, the
+last five after an application had already been made to pass, and no round has yet found nothing.
 
 ## Installation and usage
 

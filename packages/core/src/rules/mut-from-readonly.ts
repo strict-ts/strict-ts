@@ -149,6 +149,11 @@ export const mutFromReadonly: Rule = {
       return false;
     };
 
+    // A method the language calls by itself runs on whatever is looped over, converted or awaited: nobody gave
+    // it something to change.
+    if (node.kind === 'function' && node.isProtocol && typeOf(node).mutableReceiver !== undefined) {
+      report(node, 'A method the language calls by itself (a loop, a conversion to text or to JSON, `await`) says `this: Mut<…>`: it is run on an object whoever holds it was told cannot change.', 'Do not change the object there; or give the change a method of its own, with a name, that is called on purpose.');
+    }
     // A method stands for the member of the same name under each type its class extends or implements: it does
     // not write what that member does not say it writes.
     if (node.kind === 'function' && node.overridden.length > 0) {
