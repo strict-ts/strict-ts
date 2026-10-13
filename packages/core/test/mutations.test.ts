@@ -158,6 +158,10 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m74-a-list-of-lists.ts')).toEqual(['no-param-mutation']);
   }, 180_000);
 
+  test('the eleventh round: lists of lists in a field or given back, a table read by a pattern', () => {
+    expect(refusedBy('m75-lists-of-lists-elsewhere.ts')).toEqual(['no-param-mutation']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

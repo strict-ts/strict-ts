@@ -162,6 +162,8 @@ export type Node = NodeBase &
          * type its function of the project is written with. `unknown` for a function that is not the project's.
          */
         readonly elements: 'writable' | 'readonly' | 'unknown';
+        /** The same, one list further in at each position. */
+        readonly elementsDeep: readonly ('writable' | 'readonly' | 'unknown')[];
       }
     /** `new Callee(…)`, with the number of arguments written. */
     | {
@@ -198,6 +200,8 @@ export type Node = NodeBase &
          * property of a library, of an object written in place, or one that is not declared as a property.
          */
         readonly holds: 'writable' | 'readonly' | 'unknown';
+        /** The name is not one the type declares: it is read out of a table (`Record<string, T>`), as `table[name]` is. */
+        readonly byIndex: boolean;
         /**
          * For a value another file of the project made, reached as a property: of a namespace (`import * as state`)
          * or of a class (`Shop.shared`, a static field). Whether its declaration says `Mut<…>`; absent otherwise.

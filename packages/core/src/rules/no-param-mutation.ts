@@ -31,8 +31,10 @@ const PRIMITIVES: readonly string[] = ['string', 'number', 'bigint', 'boolean', 
 const DEPTH = 8;
 
 /** The name at the start of `a.b[c].d`, when there is one, and how many steps lead from it to the place. */
+/** `table[name]`, or `table.name` when the name is not one the type declares: one of the things a list or a table holds. */
+const isIndexed = (node: Node): boolean => node.kind === 'element-access' || (node.kind === 'property-access' && node.byIndex);
 const rootOf = (node: Node, steps = 0, lists = 0): { readonly root: Node; readonly steps: number; readonly lists: number } =>
-  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1, lists + (node.kind === 'element-access' ? 1 : 0)) : { root: node, steps, lists };
+  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1, lists + (isIndexed(node) ? 1 : 0)) : { root: node, steps, lists };
 
 /** The kinds of expression that are a root themselves: asked directly. */
 const ROOTS: readonly string[] = ['identifier', 'this', 'call', 'new', 'literal', 'function', 'string-literal', 'template'];
@@ -64,7 +66,7 @@ export const closedElements = (container: Node): string | undefined => {
 };
 /** The first list, on the way down to an object, that is read by position and does not say what it holds may be written. */
 const closedList = (object: Node): string | undefined => {
-  if (object.kind === 'element-access') return closedList(object.object) ?? closedElements(object.object);
+  if (object.kind === 'element-access' || (object.kind === 'property-access' && object.byIndex)) return closedList(object.object) ?? closedElements(object.object);
   return object.kind === 'property-access' ? closedList(object.object) : undefined;
 };
 
@@ -94,8 +96,10 @@ export const ownerOf = (
 ): Owner | undefined => {
   const { root, steps, lists } = rootOf(object);
   // A list of lists says `Mut<…>` at each level: of the lists it holds, and of what those hold.
-  const deep = root.kind === 'identifier' ? root.elementsDeep : [];
-  if (lists + inLists >= 2 && deep[lists + inLists - 1] === 'readonly' && root.kind === 'identifier') return { kind: 'elements', name: root.text };
+  const deep = root.kind === 'identifier' || root.kind === 'call' ? root.elementsDeep : [];
+  if (lists + inLists >= 2 && deep[lists + inLists - 1] === 'readonly') {
+    return { kind: 'elements', name: root.kind === 'identifier' ? root.text : root.kind === 'call' && root.callee.kind === 'identifier' ? root.callee.text : root.kind === 'call' && root.callee.kind === 'property-access' ? root.callee.name : 'the call' };
+  }
   // A name for a number or a text names nothing that can be written: it was copied when it was given.
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
@@ -111,11 +115,13 @@ export const ownerOf = (
    * property of a namespace or of a class; a field declared with no type, made around something that is not the
    * object's own. `under` counts the steps from there down to the object.
    */
-  const alongTheWay = (node: Node, under: number): Owner | undefined => {
-    if (node.kind === 'element-access') return alongTheWay(node.object, under + 1);
+  const alongTheWay = (node: Node, under: number, listsUnder = 0): Owner | undefined => {
+    if (node.kind === 'element-access') return alongTheWay(node.object, under + 1, listsUnder + 1);
     if (node.kind !== 'property-access') return undefined;
-    const above = alongTheWay(node.object, under + 1);
+    const above = alongTheWay(node.object, under + 1, listsUnder + (node.byIndex ? 1 : 0));
     if (above !== undefined) return above;
+    // A field that is a list of lists says `Mut<…>` at each level too.
+    if (listsUnder + inLists >= 2 && node.elementsDeep[listsUnder + inLists - 1] === 'readonly') return { kind: 'elements', name: node.name };
     if (node.fromModule === 'readonly') return { kind: 'module', name: node.name };
     for (const alias of node.madeFrom) {
       if (isCopied(alias.place) || (alias.as === 'copy' && (under === 0 || isListOfCopies(alias.place)))) continue;
