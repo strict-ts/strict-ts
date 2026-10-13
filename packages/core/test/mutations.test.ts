@@ -126,6 +126,14 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m57-put-in-by-assign.ts')).toContain('no-param-mutation');
   }, 180_000);
 
+  test('the sixth round: a generator, a promise, a template, new wrappers, keys and iterators', () => {
+    expect(refusedBy('m58-yielded.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m59-promised.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m60-tagged-template.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m61-new-wrappers.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m62-keys-and-iterators.ts')).toContain('no-param-mutation');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
