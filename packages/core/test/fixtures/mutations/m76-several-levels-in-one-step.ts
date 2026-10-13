@@ -10,7 +10,7 @@ function b(grid: Grid): void {
   if (cell !== undefined) cell.total -= 1;
 }
 function c(grid: Grid): void {
-  const [[cell]] = grid;
+  const [[cell] = []] = grid;
   if (cell !== undefined) cell.total -= 1;
 }
 function d(grid: Grid): void {
