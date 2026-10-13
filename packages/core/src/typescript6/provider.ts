@@ -1414,6 +1414,8 @@ export function createTypeScript6Provider(
    * it is an argument of, what the function it is returned from says it gives, the property or the position it
    * fills in something written in place.
    */
+  /** `=`, and the three that assign when the place is empty, or is not: what is on the right is put in the place. */
+  const ASSIGNS: readonly ts.SyntaxKind[] = [api.SyntaxKind.EqualsToken, api.SyntaxKind.QuestionQuestionEqualsToken, api.SyntaxKind.BarBarEqualsToken, api.SyntaxKind.AmpersandAmpersandEqualsToken];
   const wantedOf = (source: ts.Expression): ts.TypeNode | undefined => {
     // The expression that is given: what is chosen between (`a ?? b`, `c ? a : b`) is given where the choice is.
     let place: ts.Node = source;
@@ -1475,7 +1477,7 @@ export function createTypeScript6Provider(
       return (wanted.isUnion() ? wanted.types : [wanted]).flatMap((member) => declaredType(member.getProperty(name.text)) ?? [])[0];
     }
     // The right side of an assignment to a name or a property: what the left side was declared as.
-    if (api.isBinaryExpression(holder) && holder.operatorToken.kind === api.SyntaxKind.EqualsToken && holder.right === place && !api.isElementAccessExpression(holder.left)) {
+    if (api.isBinaryExpression(holder) && ASSIGNS.includes(holder.operatorToken.kind) && holder.right === place && !api.isElementAccessExpression(holder.left)) {
       const left = holder.left;
       return declaredType(checker.getSymbolAtLocation(api.isPropertyAccessExpression(left) ? left.name : left));
     }
@@ -1508,13 +1510,6 @@ export function createTypeScript6Provider(
       if (!api.isParenthesizedExpression(outer) && !api.isNonNullExpression(outer) && !chooses && !branch) break;
       spread = outer;
     }
-    if (api.isSpreadAssignment(spread.parent) || api.isSpreadElement(spread.parent)) return false;
-    const wanted = wantedOf(source);
-    // A place declared inside a `Mut<…>` asks it too: `Mut<{ cart: Cart }>` has asked for the whole of what it wraps.
-    if (mentionsMut(wanted) || (wanted !== undefined && isUnderMut(wanted))) return true;
-    let place: ts.Node = source;
-    while (api.isParenthesizedExpression(place.parent) || api.isNonNullExpression(place.parent)) place = place.parent;
-    const holder = place.parent;
     /** Whether what a container holds may be written into, as it is named here. */
     const holdsWritable = (container: ts.Expression): boolean => {
       let named = container;
@@ -1527,10 +1522,39 @@ export function createTypeScript6Provider(
       // A field of the project with no written type holds what it holds, written or not: nothing says.
       return fromProject && elementsOf(declaredType(symbol)) !== 'readonly';
     };
-    if (api.isCallExpression(holder) && api.isPropertyAccessExpression(holder.expression) && STORES.includes(holder.expression.name.text) && holder.arguments.some((argument) => argument === place)) {
-      return holdsWritable(holder.expression.expression);
+    /** The list a call puts its arguments in, when it is one that does: `list.push(…)`, `push.call(list, …)`, `Reflect.apply(list.push, list, […])`. */
+    const putIn = (call: ts.Node): ts.Expression | undefined => {
+      if (!api.isCallExpression(call) || !api.isPropertyAccessExpression(call.expression)) return undefined;
+      const method = call.expression;
+      if (STORES.includes(method.name.text)) return method.expression;
+      const [first, second] = call.arguments;
+      const stores = (named: ts.Node | undefined): boolean => named !== undefined && api.isPropertyAccessExpression(named) && STORES.includes(named.name.text);
+      if (['call', 'apply'].includes(method.name.text) && stores(method.expression)) return first !== undefined && !api.isSpreadElement(first) ? first : undefined;
+      if (api.isIdentifier(method.expression) && method.expression.text === 'Reflect' && method.name.text === 'apply' && stores(first)) return second !== undefined && !api.isSpreadElement(second) ? second : undefined;
+      return undefined;
+    };
+    // `list.push(...carts)`: each of the things spread is put in the list. So is a list given to `apply`.
+    const spreadInto = api.isSpreadElement(spread.parent) ? putIn(spread.parent.parent) : undefined;
+    if (spreadInto !== undefined) return holdsWritable(spreadInto);
+    if (api.isSpreadAssignment(spread.parent) || api.isSpreadElement(spread.parent)) return false;
+    // What is written in the list `apply` is given, or in the object `Object.assign` is given, is put where they put it.
+    const inList = api.isArrayLiteralExpression(spread.parent) ? putIn(spread.parent.parent) : undefined;
+    if (inList !== undefined && inList !== spread.parent) return holdsWritable(inList);
+    const assigned = (api.isPropertyAssignment(spread.parent) || api.isShorthandPropertyAssignment(spread.parent)) && api.isObjectLiteralExpression(spread.parent.parent) ? spread.parent.parent.parent : undefined;
+    if (assigned !== undefined && api.isCallExpression(assigned) && api.isPropertyAccessExpression(assigned.expression) && api.isIdentifier(assigned.expression.expression) && assigned.expression.expression.text === 'Object' && assigned.expression.name.text === 'assign') {
+      const [target] = assigned.arguments;
+      if (target !== undefined && target !== spread.parent.parent && api.isIdentifier(target)) return mentionsMut(declaredType(checker.getSymbolAtLocation(target)));
+      if (target !== undefined && target !== spread.parent.parent) return true;
     }
-    if (api.isBinaryExpression(holder) && holder.operatorToken.kind === api.SyntaxKind.EqualsToken && holder.right === place && api.isElementAccessExpression(holder.left)) {
+    const wanted = wantedOf(source);
+    // A place declared inside a `Mut<…>` asks it too: `Mut<{ cart: Cart }>` has asked for the whole of what it wraps.
+    if (mentionsMut(wanted) || (wanted !== undefined && isUnderMut(wanted))) return true;
+    let place: ts.Node = source;
+    while (api.isParenthesizedExpression(place.parent) || api.isNonNullExpression(place.parent)) place = place.parent;
+    const holder = place.parent;
+    const into = putIn(holder);
+    if (into !== undefined && into !== place && api.isCallExpression(holder) && holder.arguments.some((argument) => argument === place)) return holdsWritable(into);
+    if (api.isBinaryExpression(holder) && ASSIGNS.includes(holder.operatorToken.kind) && holder.right === place && api.isElementAccessExpression(holder.left)) {
       return holdsWritable(holder.left.expression);
     }
     return false;
