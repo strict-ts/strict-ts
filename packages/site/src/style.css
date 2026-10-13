@@ -180,7 +180,10 @@ pre.code:hover .copy, .copy:focus-visible { opacity: 1; }
 
 .k-home .figures { padding: 0; background: var(--bg); }
 .figures .in { position: relative; margin-top: -44px; }
-.figures dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-up); overflow: hidden; }
+.measure { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-up); overflow: hidden; }
+.measure .about { margin: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); color: var(--soft); font-size: 15.5px; line-height: 1.55; }
+.measure .about b { color: var(--ink); }
+.figures dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .figures dl > div { padding: 22px 24px; border-left: 1px solid var(--line); }
 .figures dl > div:first-child { border-left: 0; }
 .figures dt { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; }
