@@ -1,5 +1,6 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { MAKERS } from './mut-fresh.js';
 
 const isAssignment = (operator: string): boolean => operator.endsWith('=') && !['==', '===', '!=', '!==', '<=', '>='].includes(operator);
 
@@ -54,6 +55,13 @@ export const noParamMutation: Rule = {
       // What the platform itself holds for everyone (`document`, `process`, `localStorage`): nobody gave it.
       if (object.kind === 'identifier' && object.declaredOutside) return true;
       if (depth > 8) return false;
+      // Written in place, or just made by a function of the platform that makes something new: `[...list].sort()`,
+      // `list.slice().reverse()`. It has no name yet, and nobody else holds it.
+      if (object.kind === 'literal' || object.kind === 'new') return true;
+      if (object.kind === 'call' && !typeOf(object.callee).isImplemented && !typeOf(object.callee).isWrittenInProject) {
+        const made = object.callee.kind === 'property-access' ? object.callee.name : object.callee.kind === 'identifier' ? object.callee.text : '';
+        if (MAKERS.has(made)) return true;
+      }
       // `element.style.color`: the types of the platform cannot say `Mut<…>` inside, and its parts go with it.
       if (object.kind === 'property-access' && object.ofPlatform) return writable(object.object, depth + 1);
       // Parentheses, `!`, `satisfies`: the one thing written inside.

@@ -6,7 +6,7 @@ import type { Node } from '../syntax.js';
  * the page that did not exist. The mark of `Mut<…>` is one level, so a new container is safe to mark whatever it
  * holds: what it holds says `Mut<…>` for itself, or is read.
  */
-const MAKERS = new Set([
+export const MAKERS = new Set([
   'slice', 'map', 'filter', 'concat', 'flat', 'flatMap', 'toSorted', 'toReversed', 'toSpliced', 'with', 'from', 'of', 'fromEntries', 'entries', 'keys', 'values', 'groupBy',
   'structuredClone', 'parse', 'split', 'match', 'matchAll', 'subarray',
   'createElement', 'createElementNS', 'createTextNode', 'createDocumentFragment', 'cloneNode', 'getImageData', 'createImageData', 'getBoundingClientRect',
