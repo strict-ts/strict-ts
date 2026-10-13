@@ -7,8 +7,8 @@ Semantic versioning from 1.0: a rule that starts refusing code it accepted waits
 Not a release yet. The rules of explicit mutability refuse much more than in 1.0.0, so by the line above this is
 a major version when it ships.
 
-**Explicit mutability is still a prototype**, and harder to get around: 78 known ways to change what a function
-did not make and that does not say `Mut`, 77 refused, the last being aliasing, outside the guarantee. Thirteen rounds
+**Explicit mutability is still a prototype**, and harder to get around: 79 known ways to change what a function
+did not make and that does not say `Mut`, 78 refused, the last being aliasing, outside the guarantee. Fourteen rounds
 of attacks found them; no round has yet found nothing.
 
 - Giving a value where `Mut<…>` is asked is judged as a write of it: a parameter, `this` or a part of it, what a

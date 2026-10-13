@@ -2692,6 +2692,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('const read = (cart: Cart): number => cart.total;', 'export const same = (flag: boolean) => (flag ? read : read);', 'export function mine(flag: boolean): number {', '  const cart = { total: 1 };', '  const f = flag ? read : bump;', '  f(cart);', '  for (const g of [read, bump]) g(cart);', '  const made = [1].map(() => ({ total: 2 }));', '  for (const one of made) one.total = 0;', '  return same(flag)(cart);', '}')).toEqual([]);
   });
 
+  test('a field that says `Mut<…>`, of an object that is one of two that both say it', () => {
+    expect(found('type Open = { readonly cart: Mut<Cart> };', 'export function zero(x: Mut<Open>, y: Mut<Open>, flag: boolean): void {', '  (flag ? x : y).cart.total = 0;', '  bump((flag ? x : y).cart);', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });

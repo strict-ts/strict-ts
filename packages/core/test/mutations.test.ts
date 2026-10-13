@@ -175,6 +175,12 @@ describe('the attacks on explicit mutability', () => {
     expect(both).toContain('no-param-mutation');
   }, 180_000);
 
+  test('the fourteenth round: a field of an object that is one of two', () => {
+    const found = refusedBy('m80-a-field-of-one-of-two.ts');
+    expect(found).toContain('no-param-mutation');
+    expect(found).toContain('mut-from-readonly');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
