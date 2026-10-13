@@ -9,7 +9,7 @@
   it (rules, command line, configuration, adoption, limits) is in `docs/`, one file per subject, changed in the same
   pull request as the code it describes. `CONTRIBUTING.md` says how to work on the repo.
 - `packages/site` is the website (`pnpm build && pnpm site`, then `pnpm site:serve`): the front page, `docs/` as pages,
-  the playground of `packages/playground` inside it. It takes its texts from `README.md` and `docs/`: a heading, a
+  the playground of `packages/playground` as one of its pages (there is no other playground, and no artifact). It takes its texts from `README.md` and `docs/`: a heading, a
   figure or a block changed there is checked by its test. It is on Coolify (application `strict-ts`, built from the
   `Dockerfile` at the root) at `https://strict-ts.adserver.fr`; a push to `main` deploys it again.
 - Everything is written in English: code, comments, commits, Plane.

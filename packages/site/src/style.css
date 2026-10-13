@@ -142,19 +142,9 @@ pre.code:hover .copy, .copy:focus-visible { opacity: 1; }
 .editor textarea::selection { background: rgba(242, 149, 95, 0.3); color: transparent; }
 
 /* What may be written where the caret is: a list under it, one line for each name, its type beside it. */
-.offers { position: absolute; z-index: 3; margin: 0; padding: 4px; list-style: none; min-width: 200px; max-width: min(560px, calc(100% - 16px)); max-height: 226px; overflow-y: auto; background: var(--code-bar); border: 1px solid var(--deep-line); border-radius: var(--r-s); box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5); font: 12.5px/1.6 var(--mono); }
-.offers li { display: flex; justify-content: space-between; gap: 20px; padding: 2px 8px; border-radius: 5px; color: var(--code-ink); white-space: nowrap; cursor: pointer; }
-.offers li[aria-selected="true"] { background: rgba(242, 149, 95, 0.18); }
-.offers .function, .offers .method { color: var(--fn); }
-.offers .type, .offers .platform { color: var(--ty); }
-.offers .keyword { color: var(--kw); }
-.offers .detail { color: var(--code-soft); overflow: hidden; text-overflow: ellipsis; }
 
 /* What the compiler says, in the words of the command line. */
-.refusal, .view .problem { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 8px 12px; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--code-ink); background: rgba(255, 131, 119, 0.07); border: 0; border-left: 3px solid var(--code-bad); border-radius: 0 6px 6px 0; }
-.view .problem { cursor: pointer; }
-.view .problem:hover { background: rgba(255, 131, 119, 0.14); }
-.view .problem pre { margin: 0; font: inherit; white-space: pre-wrap; }
+.refusal { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 8px 12px; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--code-ink); background: rgba(255, 131, 119, 0.07); border: 0; border-left: 3px solid var(--code-bad); border-radius: 0 6px 6px 0; }
 .window .fine { color: var(--code-ok); font-weight: 700; margin: 0; font-size: 14px; }
 .window .note { color: var(--code-soft); margin: 0; font-size: 14px; }
 .window .err { color: var(--code-bad); }
@@ -285,25 +275,10 @@ tbody tr:hover td { background: var(--tint); }
 .lost .button { color: var(--ink); border-color: var(--line); background: var(--panel); }
 .lost .button.main { color: #fff; }
 
-/* ── The playground: a page as high as the window ─────────────────────────────────────────────────────────────── */
-body.k-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--deep); }
-body.k-app #content { flex: 1; min-height: 0; display: flex; }
-.play { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0 16px 16px; }
-.play-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 4px; color: var(--on-deep); }
-.play-bar h1 { font-size: 18px; margin: 0; }
-.play-bar p { margin: 0 0 0 6px; color: var(--on-deep-soft); font-size: 14px; }
-.play-bar label { color: var(--on-deep-soft); font-size: 14px; }
-.play-bar select, .play-bar button { font: 14px var(--sans); color: var(--on-deep); background: var(--deep-2); border: 1px solid var(--deep-line); border-radius: var(--r-s); height: 36px; padding: 0 12px; }
-.play-bar button { cursor: pointer; }
-.play-bar button:hover, .play-bar select:hover { border-color: var(--glow); }
-.play-bar .run { background: linear-gradient(180deg, #c9521f, #b0441a); border-color: #d05a26; color: #fff; font-weight: 700; padding: 0 18px; }
-.play-bar .run:disabled { opacity: 0.45; cursor: default; }
-.play-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.play .window { min-height: 0; box-shadow: none; }
-.window-bar .hint { opacity: 0.7; }
-.view { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
-.view > pre { margin: 0; font: 13.5px/1.65 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--code-ink); }
-.view p { margin: 0 0 8px; }
+/* ── The playground: a page as high as the window. What is in it has its own sheet, in a shadow tree ─────────── */
+body.k-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+body.k-app #content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.play { flex: 1; min-width: 0; min-height: 0; }
 
 /* ── The search ───────────────────────────────────────────────────────────────────────────────────────────────── */
 .search { width: min(680px, calc(100vw - 32px)); margin: 12vh auto auto; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45); overflow: hidden; }
@@ -356,8 +331,6 @@ body.k-app #content { flex: 1; min-height: 0; display: flex; }
   .side { top: 0; }
   .foot-in { grid-template-columns: 1fr 1fr; }
   .foot-about { grid-column: 1 / -1; }
-  .play-panes { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
-  .play-bar p { display: none; }
 }
 @media (max-width: 760px) {
   .doc { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -373,10 +346,6 @@ body.k-app #content { flex: 1; min-height: 0; display: flex; }
   .anchor { display: none; }
   .turn { grid-template-columns: minmax(0, 1fr); }
   .button { flex: 1 1 100%; }
-  .play-bar label, .play-bar .grow, .window-bar .hint { display: none; }
-  .play-bar h1 { flex-basis: 100%; }
-  .play-bar select { flex: 1; min-width: 0; }
-  .play { padding: 0 10px 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

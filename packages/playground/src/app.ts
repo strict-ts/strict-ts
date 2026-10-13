@@ -31,7 +31,9 @@ const STORE = 'strict-ts-playground-v3';
 const STD_PREFIX = `${STD_NAME}/`;
 
 // An element of the page, to write into.
-const $ = (id: string): Mut<HTMLElement> => document.getElementById(id) ?? document.body;
+// The page is in the shadow tree of one element of the site's page: what it looks for is looked for there.
+const page = document.getElementById('playground')?.shadowRoot ?? document;
+const $ = (id: string): Mut<HTMLElement> => page.getElementById(id) ?? document.body;
 const esc = (text: string): string =>
   text.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
 const split = (list: string): readonly string[] =>
@@ -298,7 +300,7 @@ function renderEditor(): void {
 function renderTabs(): void {
   // The DOM refuses a selector or an attribute name it cannot read by throwing: caught here, the tabs stay as they were.
   void attempt(() => {
-    for (const tab of document.querySelectorAll<HTMLElement>('.tab')) {
+    for (const tab of page.querySelectorAll<HTMLElement>('.tab')) {
       tab.setAttribute('aria-selected', String(tab.dataset['tab'] === state.tab));
     }
   }, String);
@@ -402,14 +404,14 @@ function renderPanel(force: boolean): void {
   const body = $('panel');
   // The configuration does not depend on the result: it is not redrawn while the user types in it.
   if (state.tab === 'config' && body.dataset['view'] === `config:${state.scenario}` && !force) return;
-  const active = document.activeElement;
+  const active = page.activeElement;
   const focused = active !== null && body.contains(active) ? active.id : '';
   const scroll = body.scrollTop;
   const tab = state.tab;
   body.innerHTML = tab === 'rules' ? renderRules() : tab === 'config' ? renderConfig() : renderProblems();
   body.dataset['view'] = `${state.tab}:${state.scenario}`;
   body.scrollTop = scroll;
-  if (focused !== '') document.getElementById(focused)?.focus({ preventScroll: true });
+  if (focused !== '') page.getElementById(focused)?.focus({ preventScroll: true });
 }
 
 function renderAll(force: boolean): void {
@@ -540,7 +542,7 @@ if (editor !== undefined) {
   for (const name of ['keyup', 'click', 'select']) editor.addEventListener(name, renderCaretBar);
 }
 
-attempt(() => document.querySelector('.tabs'), String)
+attempt(() => page.querySelector('.tabs'), String)
   .unwrapOr(undefined)
   ?.addEventListener('click', (event) => {
   const tab = closest(event, '[data-tab]')?.dataset['tab'];

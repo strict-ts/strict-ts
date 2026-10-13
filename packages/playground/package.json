@@ -2,7 +2,7 @@
   "name": "@strict-ts/playground",
   "version": "0.0.0",
   "private": true,
-  "description": "strict-ts in the browser: the five scenarios, checked by @strict-ts/core as it is in the monorepo.",
+  "description": "strict-ts in the browser: eleven scenarios, checked by @strict-ts/core as it is in the monorepo. A page of the website.",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "./page": "./scripts/page.mjs"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/build.mjs"
+    "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@strict-ts/core": "workspace:*",

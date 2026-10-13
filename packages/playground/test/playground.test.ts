@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { rules } from '@strict-ts/core';
 import ts from '@typescript/typescript6';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { collect } from '../scripts/data.mjs';
+import { DATA, HOST, parts } from '../scripts/page.mjs';
 import { createPlayground, type Request } from '../src/engine.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -133,39 +133,33 @@ describe('the sources', () => {
   });
 });
 
-describe('the built page', () => {
-  beforeAll(() => {
-    execFileSync(process.execPath, [`${root}scripts/build.mjs`], { cwd: root });
+describe('what the website is handed', () => {
+  let made: { fragment: string; data: string; script: string; compiler: string; scenarios: number };
+  beforeAll(async () => {
+    made = await parts();
   }, 60_000);
 
-  test('is one page and the compiler beside it, and the same page as one file', () => {
-    expect(readdirSync(`${root}dist`).toSorted()).toEqual(['index.html', 'playground.html', 'typescript.js']);
-    expect(existsSync(`${root}dist/typescript.js`)).toBe(true);
-    const single = readFileSync(`${root}dist/playground.html`, 'utf8');
-    // The one file asks for nothing: the compiler is inside it.
-    expect(single).not.toContain('<script src=');
-    expect(single.length).toBeGreaterThan(readFileSync(`${root}dist/typescript.js`, 'utf8').length);
-  });
-
-  test('loads nothing but its own files', () => {
-    const html = readFileSync(`${root}dist/index.html`, 'utf8');
-    const loaded = [...html.matchAll(/<(?:script|link|img|iframe)\b[^>]*?\b(?:src|href)="([^"]*)"/g)].map((match) => match[1]);
-    // The icon is the project's mark, inlined: a data URI is not a request.
-    expect(loaded.filter((address) => !address?.startsWith('data:'))).toEqual(['typescript.js']);
-    expect(loaded.some((address) => address?.startsWith('data:image/svg+xml,'))).toBe(true);
-    const style = /<style>(.*?)<\/style>/s.exec(html)?.[1] ?? '';
+  test('is a style and the markup the script writes into, and nothing that is loaded', () => {
+    expect(made.fragment.startsWith('<style>')).toBe(true);
+    const style = /<style>(.*?)<\/style>/s.exec(made.fragment)?.[1] ?? '';
     expect(style.length).toBeGreaterThan(1000);
     expect(style).not.toMatch(/@import|url\(/);
+    // It lives in a shadow tree: its variables are the host's, and nothing is said of the page around it.
+    expect(style).toContain(':host {');
+    expect(style).not.toMatch(/:root|(?:^|[\s,}])(?:html|body)\s*[{,]/m);
+    expect(made.fragment).not.toMatch(/<(?:script|link|img|iframe)\b/);
+    expect(made.fragment).not.toContain('<!--');
+    for (const id of ['preset', 'reset', 'verdict', 'intro', 'files', 'src', 'hl', 'gutter', 'panel', 'foot']) expect(made.fragment, id).toContain(` id="${id}"`);
   });
 
-  test('embeds the scenarios and the engine', () => {
-    const html = readFileSync(`${root}dist/index.html`, 'utf8');
-    expect(html).not.toContain('<!--DATA-->');
-    expect(html).not.toContain('<!--APP-->');
-    expect(html).not.toContain('<!--MARK-->');
-    expect(html).not.toContain('<!--FAVICON-->');
-    const embedded = /<script id="st-data" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
-    expect(JSON.parse(embedded).scenarios).toHaveLength(11);
-    expect(html).toContain('no-external-import');
+  test('holds the scenarios, the script that reads them, and where the compiler is', () => {
+    expect(JSON.parse(made.data).scenarios).toHaveLength(11);
+    expect(made.scenarios).toBe(11);
+    expect(made.data).not.toContain('<');
+    expect(made.script).toContain(`document.getElementById("${DATA}")`);
+    expect(made.script).toContain('no-external-import');
+    // The script looks for the page in the shadow tree of the element the site names after `HOST`.
+    expect(readFileSync(`${root}src/app.ts`, 'utf8')).toContain(`document.getElementById('${HOST}')?.shadowRoot`);
+    expect(existsSync(made.compiler)).toBe(true);
   });
 });

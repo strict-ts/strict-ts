@@ -6,12 +6,12 @@ import { posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rules } from '@strict-ts/core';
 import { allFlags, collect } from '@strict-ts/playground/data';
-import { page as playgroundPage } from '@strict-ts/playground/page';
+import { DATA, HOST, parts } from '@strict-ts/playground/page';
 import ts from '@typescript/typescript6';
 import { build as bundle } from 'esbuild';
 import { Marked } from 'marked';
 import { code, home } from './home.mjs';
-import { nav, page, PLAYGROUND } from './layout.mjs';
+import { page, PLAYGROUND } from './layout.mjs';
 import { escape, linker, render, sectionOf, slug } from './markdown.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -216,11 +216,12 @@ export const buildSite = async () => {
     .slice(1)
     .map((question) => ({ title: inline(question.slice(0, question.indexOf('\n'))), html: render(question.slice(question.indexOf('\n')), fromReadme).html }));
   const engine = await engineScript();
-  const playground = collect(ts);
+  const playground = await parts();
+  const environment = collect(ts).data.env;
   const body = home({
     demos: await demos(engine),
     // The compiler, what a file is compiled against, then the checker: what the page loads when a sample is changed.
-    engine: ['playground/typescript.js', 'assets/environment.js', 'assets/engine.js'],
+    engine: ['assets/typescript.js', 'assets/environment.js', 'assets/engine.js'],
     run: { install: blockOf(readme, 'Installation and usage', 0), command: blockOf(readme, 'Installation and usage', 1), printed: blockOf(readme, 'Installation and usage', 2), configuration: blockOf(readme, 'Configuration') },
     adopt: blockOf(text('docs/adopting.md'), 'The baseline'),
     guarantees: render(sectionOf(readme, 'The five guarantees'), fromReadme).html,
@@ -229,7 +230,7 @@ export const buildSite = async () => {
     rules: rules.map((rule) => rule.name),
     figures: figures(),
     tour: TOUR.map(idea),
-    scenarios: playground.data.scenarios.length,
+    scenarios: playground.scenarios,
   });
   files.set('index.html', page({ ...chrome, title: 'strict-ts: TypeScript as safe as Rust', description: 'A checker that makes TypeScript and JavaScript as safe as Rust: a program it accepts must not be able to fail for a reason its types do not announce.', base: '', active: 'home', body, kind: 'home' }));
 
@@ -240,11 +241,14 @@ export const buildSite = async () => {
   // What the search looks into, as a script: a page opened from the disk may not fetch a file.
   files.set('assets/search.js', `globalThis.StrictTsSearch=${JSON.stringify(found).replaceAll('<', '\\u003c')};\n`);
 
-  // The playground is the page of `packages/playground`, with the way back to the site beside its name.
-  const back = way(PLAYGROUND, 'x').slice(0, -1);
-  const { html, compiler } = await playgroundPage({ site: `<nav class="site" aria-label="Site"><a href="${back}index.html">← The site</a>${nav(back, 'playground').filter((link) => !link.includes('aria-current')).join('')}</nav>` });
-  files.set(PLAYGROUND, html);
-  files.set(posix.join(posix.dirname(PLAYGROUND), 'typescript.js'), readFileSync(compiler));
+  // The playground: a page of the site, under its bar. What `packages/playground` hands over is in a shadow tree, so
+  // that its sheet and the site's do not meet; the tree is told the theme before it is painted.
+  const play = `<main class="play" id="${HOST}"><template shadowrootmode="open">${playground.fragment}</template></main>
+<script>document.getElementById('${HOST}').dataset.theme=document.documentElement.dataset.theme??''</script>
+<script id="${DATA}" type="application/json">${playground.data}</script>`;
+  files.set(PLAYGROUND, page({ ...chrome, title: 'Playground · strict-ts', description: 'strict-ts in a page: change a program, and read what is refused and why.', base: '', active: 'playground', body: play, kind: 'app', scripts: ['assets/typescript.js', 'assets/playground.js'] }));
+  files.set('assets/typescript.js', readFileSync(playground.compiler));
+  files.set('assets/playground.js', playground.script);
 
   const lost = `<main class="lost"><p class="eyebrow">404</p><h1>This is not a page of the site.</h1><p>Nothing answers at this address. The pages that are:</p><p class="actions"><a class="button main" href="index.html">The front page</a><a class="button" href="docs/getting-started.html">The documentation</a><a class="button" href="${PLAYGROUND}">The playground</a></p></main>`;
   // It is shown under any address that is not a page: its own addresses start at the root of the site.
@@ -254,7 +258,7 @@ export const buildSite = async () => {
   // The checker, for the sample of the front page, and what it compiles a file against: asked for when the sample
   // is changed, not before.
   files.set('assets/engine.js', engine);
-  files.set('assets/environment.js', `globalThis.StrictTsEnvironment=${JSON.stringify({ environment: playground.data.env, flags: allFlags }).replaceAll('<', '\\u003c')};\n`);
+  files.set('assets/environment.js', `globalThis.StrictTsEnvironment=${JSON.stringify({ environment, flags: allFlags }).replaceAll('<', '\\u003c')};\n`);
   files.set('assets/site.css', readFileSync(`${root}src/style.css`, 'utf8'));
   files.set('assets/mark.svg', `${mark}\n`);
   files.set('assets/logo.svg', text('assets/logo.svg'));

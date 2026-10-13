@@ -96,4 +96,5 @@ run time, the rule checks before.
 ## In the playground
 
 Each example is a scenario of the playground, classic and conforming, where it can be edited:
-`packages/playground/dist/playground.html` after `pnpm build`.
+<https://strict-ts.adserver.fr/playground.html>, or `packages/site/dist/playground.html` after
+`pnpm build && pnpm site`.

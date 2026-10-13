@@ -42,9 +42,9 @@ node packages/cli/dist/main.js -p examples/invoice/strict     # exit code 0, not
 node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 22 refusals
 ```
 
-`pnpm build` also writes the playground to `packages/playground/dist`: open `index.html` in a browser to edit five
-scenarios and read their diagnostics. It needs no server and no network. The same page is on the website,
-<https://strict-ts.adserver.fr/playground/>.
+The playground is a page of the website, <https://strict-ts.adserver.fr/playground.html>: eleven scenarios to edit,
+with their diagnostics as they are typed. The checker runs in the page, and nothing is sent anywhere. `pnpm site`
+writes the same site to `packages/site/dist`.
 
 ## Examples
 

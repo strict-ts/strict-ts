@@ -26,7 +26,7 @@ describe('the website', () => {
   test('has a front page, the playground and a page for each document, each package and each example', () => {
     const examples = readdirSync(join(repo, 'examples'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => `docs/examples/${entry.name}.html`);
     expect(examples).toContain('docs/examples/invoice.html');
-    expect(pages().toSorted()).toEqual(['404.html', 'index.html', 'playground/index.html', ...examples, ...DOCS.map((doc: { out: string }) => doc.out)].toSorted());
+    expect(pages().toSorted()).toEqual(['404.html', 'index.html', 'playground.html', ...examples, ...DOCS.map((doc: { out: string }) => doc.out)].toSorted());
     expect(DOCS.map((doc: { out: string }) => doc.out)).toEqual(expect.arrayContaining(['docs/packages/core.html', 'docs/packages/site.html', 'docs/changelog.html']));
     for (const doc of DOCS as readonly { source: string; out: string }[]) {
       const title = /^# (.+)$/m.exec(readFileSync(join(repo, doc.source), 'utf8'))?.[1] ?? '';
@@ -105,8 +105,8 @@ describe('the website', () => {
   });
 
   test('gives the page the checker it judged the samples with, the compiler and what a file is compiled against', () => {
-    expect(pageOf('index.html')).toContain('data-engine="playground/typescript.js assets/environment.js assets/engine.js"');
-    expect(files.get('playground/typescript.js')).toBeInstanceOf(Uint8Array);
+    expect(pageOf('index.html')).toContain('data-engine="assets/typescript.js assets/environment.js assets/engine.js"');
+    expect(files.get('assets/typescript.js')).toBeInstanceOf(Uint8Array);
     expect(pageOf('assets/engine.js')).toContain('StrictTsEngine');
     const environment = pageOf('assets/environment.js');
     const held = JSON.parse(environment.slice(environment.indexOf('=') + 1, environment.lastIndexOf(';'))) as { environment: { libs: Record<string, string>; std: Record<string, string> }; flags: Record<string, boolean> };
@@ -133,17 +133,27 @@ describe('the website', () => {
     expect(front).toContain('no-param-mutation Parameter `items` is mutated by `sort`.');
   });
 
-  test('has one dress on every page but the playground, which is the page of its package with the way back', () => {
-    for (const path of pages().filter((one) => one !== 'playground/index.html')) {
+  test('has one dress: every page has the same bar and the same sheet, the playground among them', () => {
+    for (const path of pages()) {
       const text = pageOf(path);
       expect(text, path).toContain('<header class="top">');
       expect(text, path).toMatch(/<link rel="stylesheet" href="(?:(?:\.\.\/)+|\/)?assets\/site\.css">/);
-      expect(text, path).not.toContain('<style');
+      // The one sheet that is not the site's is the playground's own, inside its shadow tree.
+      if (path !== 'playground.html') expect(text, path).not.toContain('<style');
     }
-    const playground = pageOf('playground/index.html');
-    expect(playground).toContain('<nav class="site" aria-label="Site"><a href="../index.html">← The site</a><a href="../docs/getting-started.html">Docs</a>');
-    expect(playground).toContain('<script src="typescript.js"></script>');
+  });
+
+  test('shows the playground as one of its pages: what its package hands over, in a shadow tree under the bar', () => {
+    const playground = pageOf('playground.html');
+    expect(playground).toContain('<body class="k-app">');
+    expect(playground).toContain('<a href="playground.html" aria-current="page">Playground</a>');
+    expect(playground).toContain('<main class="play" id="playground"><template shadowrootmode="open"><style>');
+    expect(playground).toContain('<select id="preset"></select>');
+    expect(playground).not.toContain('<footer class="foot">');
+    // The scenarios, then the compiler and the script that reads both, in that order.
     expect(playground).toContain('"id":"challenge"');
+    expect(playground).toMatch(/<script src="assets\/typescript\.js" defer><\/script>\n<script src="assets\/playground\.js" defer><\/script>/);
+    expect(pageOf('assets/playground.js')).toContain('document.getElementById("st-data")');
   });
 
   test('gives the search every section of the documentation, under the address of its heading', () => {

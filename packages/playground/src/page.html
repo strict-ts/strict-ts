@@ -1,13 +1,7 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>strict-ts Playground</title>
-<link rel="icon" href="<!--FAVICON-->">
 <style>
-/* Layout: a compiler's workbench: explorer | editor | rustc-style diagnostics. */
-:root {
+/* The playground: what `scripts/page.mjs` hands to the website, which shows it under its own bar.
+   Layout: a compiler's workbench: explorer | editor | rustc-style diagnostics. */
+:host {
   --paper: #e9ecef;
   --panel: #f7f8f9;
   --sunk: #eef1f3;
@@ -33,7 +27,7 @@
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :host(:not([data-theme="light"])) {
     --paper: #111418; --panel: #171b20; --sunk: #1d2228; --ink: #dde3e9; --muted: #8b96a3; --line: #2a3139;
     --oxide: #e7773f; --oxide-soft: rgba(231, 119, 63, .14); --safe: #4fc391; --safe-soft: rgba(79, 195, 145, .14);
     --err: #ff6f62; --err-soft: rgba(255, 111, 98, .12); --sel: rgba(231, 119, 63, .3);
@@ -41,7 +35,7 @@
     color-scheme: dark;
   }
 }
-:root[data-theme="dark"] {
+:host([data-theme="dark"]) {
   --paper: #111418; --panel: #171b20; --sunk: #1d2228; --ink: #dde3e9; --muted: #8b96a3; --line: #2a3139;
   --oxide: #e7773f; --oxide-soft: rgba(231, 119, 63, .14); --safe: #4fc391; --safe-soft: rgba(79, 195, 145, .14);
   --err: #ff6f62; --err-soft: rgba(255, 111, 98, .12); --sel: rgba(231, 119, 63, .3);
@@ -49,8 +43,9 @@
   color-scheme: dark;
 }
 
-html, body { height: 100%; margin: 0; }
-body { background: var(--paper); color: var(--ink); font: 14px/1.5 var(--f-body); }
+/* The page is a part of a page of the site, in a shadow tree: nothing of the site's sheet reaches it, and nothing of
+   this one leaves. The host is as high as what the site leaves under its bar. */
+:host { display: block; min-height: 0; overflow: auto; background: var(--paper); color: var(--ink); font: 14px/1.5 var(--f-body); }
 * { box-sizing: border-box; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--oxide); outline-offset: 2px; }
@@ -61,15 +56,8 @@ code, .mono { font-family: var(--f-mono); }
 /* Header */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; min-width: 0; }
-.brand .mark { align-self: center; display: flex; }
-.brand .mark svg { width: 28px; height: 28px; }
-.brand h1 { margin: 0; font: 800 26px/1 var(--f-display); letter-spacing: -.02em; }
-.brand h1 span { color: var(--oxide); }
+.brand h1 { margin: 0; font: 800 22px/1 var(--f-display); letter-spacing: -.02em; }
 .brand p { margin: 0; color: var(--muted); font-size: 13px; }
-/* The links back to the site, when the page is one of its pages. */
-.site { display: flex; gap: 16px; font-size: 13px; }
-.site a { color: var(--muted); text-decoration: none; }
-.site a:hover { color: var(--oxide); }
 .field-inline { display: flex; align-items: center; gap: 8px; }
 .field-inline label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 select, .text-input { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
@@ -201,7 +189,6 @@ select { padding-right: 28px; }
   .pane.side { grid-column: 1 / 3; }
 }
 @media (max-width: 760px) {
-  html, body { height: auto; }
   .app { height: auto; }
   .work { grid-template-columns: 1fr; grid-template-rows: auto; }
   .pane.side { grid-column: auto; }
@@ -214,17 +201,13 @@ select { padding-right: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
-</head>
-<body>
 <div class="app">
   <header>
     <div class="top">
       <div class="brand">
-        <span class="mark" aria-hidden="true"><!--MARK--></span>
-        <h1>strict<span>-ts</span></h1>
-        <p>TypeScript checked like Rust</p>
+        <h1>Playground</h1>
+        <p>The checker runs in this page: nothing is sent anywhere.</p>
       </div>
-      <!--SITE-->
       <div class="field-inline">
         <label for="preset">Scenario</label>
         <select id="preset"></select>
@@ -270,9 +253,3 @@ select { padding-right: 28px; }
 
   <footer class="foot" id="foot"></footer>
 </div>
-
-<script id="st-data" type="application/json"><!--DATA--></script>
-<script src="typescript.js"></script>
-<script><!--APP--></script>
-</body>
-</html>
