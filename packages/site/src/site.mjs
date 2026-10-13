@@ -178,11 +178,14 @@ const figureOf = (readme, pattern) => {
 
 export const figures = () => {
   const readme = text('README.md');
+  const found = (pattern, title, said) => {
+    const value = figureOf(readme, pattern);
+    return { value, title, label: said(value) };
+  };
   return [
-    { value: String(rules.length), label: 'rules. Each refusal comes with what to write instead.' },
-    { value: figureOf(readme, /(\d+) for safe typing/), label: 'attacks found on safe typing. All are refused now.' },
-    { value: figureOf(readme, /(\d+) for errors in the types/), label: 'attacks found on errors in the types. All are refused now.' },
-    { value: figureOf(readme, /from 2 known ways refused to (\d+) in/), label: 'attacks on explicit mutability refused. More are still being found: this guarantee is a prototype.' },
+    found(/(\d+) for safe typing/, 'A value that is not what its type says', (count) => `${count} ways to write one were found. All are blocked.`),
+    found(/(\d+) for errors in the types/, 'A crash that no type announces', (count) => `${count} ways to cause one were found. All are blocked.`),
+    found(/from 2 known ways refused to (\d+) in/, 'A function that changes your data without saying so', (count) => `${count} ways are blocked so far. We still find new ones: this part is not finished.`),
   ];
 };
 

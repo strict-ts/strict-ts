@@ -123,7 +123,6 @@ describe('the website', () => {
     expect(front).toContain(`<td>${status}</td>`);
     expect(front).toContain('<summary>Is it a new language, or a new compiler?</summary>');
     for (const figure of figures() as readonly { value: string }[]) expect(front).toContain(`<dt>${figure.value}</dt>`);
-    expect((figures() as readonly { value: string }[]).map((figure) => figure.value)).toContain(String(rules.length));
     for (const rule of rules) expect(front).toContain(`<li><code>${rule.name}</code></li>`);
     expect(front).toContain('npm install -D @strict-ts/cli @strict-ts/codemod');
     expect(front).toContain('strict-ts --update-baseline');

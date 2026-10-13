@@ -183,11 +183,12 @@ pre.code:hover .copy, .copy:focus-visible { opacity: 1; }
 .measure { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-up); overflow: hidden; }
 .measure .about { margin: 0; padding: 18px 24px; border-bottom: 1px solid var(--line); color: var(--soft); font-size: 15.5px; line-height: 1.55; }
 .measure .about b { color: var(--ink); }
-.figures dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.figures dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .figures dl > div { padding: 22px 24px; border-left: 1px solid var(--line); }
 .figures dl > div:first-child { border-left: 0; }
 .figures dt { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; }
-.figures dd { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--soft); }
+.figures dd b { display: block; color: var(--ink); font-size: 15.5px; margin-bottom: 2px; }
+.figures dd { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--soft); }
 .figures .in > p { text-align: center; color: var(--soft); font-size: 14px; margin: 14px 0 0; }
 
 .split { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 56px; align-items: center; }
@@ -314,9 +315,6 @@ body.k-app #content { flex: 1; min-height: 0; display: flex; flex-direction: col
   .doc { grid-template-columns: 210px minmax(0, 1fr); gap: 36px; }
   .here { display: none; }
   .cards.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .figures dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .figures dl > div:nth-child(3) { border-left: 0; }
-  .figures dl > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .top .find { min-width: 0; }
   .top .find span, .top .find kbd { display: none; }
 }
