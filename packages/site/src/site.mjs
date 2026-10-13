@@ -233,9 +233,8 @@ export const buildSite = async () => {
     rules: rules.map((rule) => rule.name),
     figures: figures(),
     tour: TOUR.map(idea),
-    scenarios: playground.scenarios,
   });
-  files.set('index.html', page({ ...chrome, title: 'strict-ts: TypeScript as safe as Rust', description: 'A checker that makes TypeScript and JavaScript as safe as Rust: a program it accepts must not be able to fail for a reason its types do not announce.', base: '', active: 'home', body, kind: 'home' }));
+  files.set('index.html', page({ ...chrome, title: 'strict-ts: catch the bugs TypeScript lets through', description: 'A checker you run in place of tsc --noEmit. It refuses TypeScript that compiles and still fails when it runs: any, casts, null, hidden exceptions.', base: '', active: 'home', body, kind: 'home' }));
 
   const found = [];
   const titles = DOCS.map((doc) => render(text(doc.source)).title);
