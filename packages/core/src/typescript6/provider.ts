@@ -288,22 +288,22 @@ export function createTypeScript6Provider(
    * Whether what a list, a map or a set holds may be written into, by the type written for it: `Mut<…>` around the
    * container says the container, `Mut<…>` inside says what it holds.
    */
-  const elementsOf = (written: ts.TypeNode | undefined): 'writable' | 'readonly' | 'unknown' => {
+  const elementsOf = (written: ts.TypeNode | undefined, under = true): 'writable' | 'readonly' | 'unknown' => {
     if (written === undefined) return 'unknown';
     const inner = peeled(written);
     // A tuple says it of each thing it holds: one that does not is not written.
-    if (api.isTupleTypeNode(inner)) return (inner.elements.length > 0 && inner.elements.every((element) => mentionsMut(element))) || isUnderMut(written) ? 'writable' : 'readonly';
+    if (api.isTupleTypeNode(inner)) return (inner.elements.length > 0 && inner.elements.every((element) => mentionsMut(element))) || (under && isUnderMut(written)) ? 'writable' : 'readonly';
     const name = api.isTypeReferenceNode(inner) && api.isIdentifier(inner.typeName) && !isMut(inner) ? inner.typeName.text : undefined;
     // `Partial<…>`, `Readonly<…>`: the same thing, seen another way.
     const [first] = api.isTypeReferenceNode(inner) ? (inner.typeArguments ?? []) : [];
-    if (name !== undefined && SEEN_AS.includes(name) && first !== undefined) return elementsOf(first) === 'writable' || isUnderMut(written) ? 'writable' : 'readonly';
+    if (name !== undefined && SEEN_AS.includes(name) && first !== undefined) return elementsOf(first, under) === 'writable' || (under && isUnderMut(written)) ? 'writable' : 'readonly';
     // A list says it of what it holds; a map, of its values, which is what `get` and a loop over it hand out.
     const held = api.isArrayTypeNode(inner) ? inner.elementType : name !== undefined && api.isTypeReferenceNode(inner) ? inner.typeArguments?.[HOLDS[name] ?? -1] : undefined;
     // A type of the project that is given types (`Pair<Cart, Mut<Cart>>`): nothing says which part is which, so
     // every one of them has to say it.
     const given = api.isTypeReferenceNode(inner) && !isMut(inner) ? (inner.typeArguments ?? []) : [];
     const says = held !== undefined ? mentionsMut(held) : name !== undefined && HOLDS[name] !== undefined ? false : given.length > 0 ? given.every((one) => mentionsMut(one)) : mentionsMut(inner);
-    return says || isUnderMut(written) ? 'writable' : 'readonly';
+    return says || (under && isUnderMut(written)) ? 'writable' : 'readonly';
   };
   /** A number, a text, a boolean, nothing: there is nothing in it to write. */
   const isPlainValue = (type: ts.Type): boolean =>
@@ -322,6 +322,26 @@ export function createTypeScript6Provider(
       ? inner.members
       : (target?.declarations ?? []).flatMap((declaration): readonly ts.Node[] => (api.isInterfaceDeclaration(declaration) || api.isClassDeclaration(declaration) ? declaration.members : []));
     return members.some((member) => (api.isPropertySignature(member) || api.isPropertyDeclaration(member)) && member.type !== undefined && mentionsMut(member.type) && !isPlainValue(checker.getTypeFromTypeNode(member.type)));
+  };
+  /** The type written for what a list, a map or a set holds, when the type written for it is one. */
+  const heldOf = (written: ts.TypeNode | undefined): ts.TypeNode | undefined => {
+    if (written === undefined) return undefined;
+    const inner = peeled(written);
+    if (api.isArrayTypeNode(inner)) return inner.elementType;
+    if (!api.isTypeReferenceNode(inner) || !api.isIdentifier(inner.typeName)) return undefined;
+    const [first] = inner.typeArguments ?? [];
+    if (SEEN_AS.includes(inner.typeName.text)) return heldOf(first);
+    return inner.typeArguments?.[HOLDS[inner.typeName.text] ?? -1];
+  };
+  /** Whether what is held may be written, at each list further in: of the list, of the lists it holds, of theirs. */
+  const elementsDeepOf = (written: ts.TypeNode | undefined): readonly ('writable' | 'readonly' | 'unknown')[] => {
+    const first = elementsOf(written);
+    const held = heldOf(written);
+    // A list inside a list is inside its `Mut<…>` by being written there: that says nothing of what it holds.
+    const second = held === undefined || heldOf(held) === undefined ? [] : [elementsOf(held, false)];
+    const below = held === undefined ? undefined : heldOf(held);
+    const third = below === undefined || heldOf(below) === undefined ? [] : [elementsOf(below, false)];
+    return [first, ...second, ...third];
   };
   /** `readonly Line[]`, `ReadonlyMap<…>`, `Readonly<…>`: a type that says itself it is not written. */
   const saysReadonly = (written: ts.Node): boolean =>
@@ -916,6 +936,10 @@ export function createTypeScript6Provider(
             const owner = node.parent;
             return elementsOf(declaredType(api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node)));
           },
+          get elementsDeep() {
+            const owner = node.parent;
+            return elementsDeepOf(declaredType(api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node)));
+          },
           get leftOut() {
             const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
             if (declaration === undefined || !api.isBindingElement(declaration) || declaration.dotDotDotToken === undefined) return [];
@@ -989,6 +1013,9 @@ export function createTypeScript6Provider(
           },
           get elements() {
             return elementsOf(declaredType(checker.getSymbolAtLocation(node.name)));
+          },
+          get elementsDeep() {
+            return elementsDeepOf(declaredType(checker.getSymbolAtLocation(node.name)));
           },
           get fromModule() {
             const declaration = checker.getSymbolAtLocation(node.name)?.valueDeclaration;

@@ -31,8 +31,8 @@ const PRIMITIVES: readonly string[] = ['string', 'number', 'bigint', 'boolean', 
 const DEPTH = 8;
 
 /** The name at the start of `a.b[c].d`, when there is one, and how many steps lead from it to the place. */
-const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: number } =>
-  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1) : { root: node, steps };
+const rootOf = (node: Node, steps = 0, lists = 0): { readonly root: Node; readonly steps: number; readonly lists: number } =>
+  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1, lists + (node.kind === 'element-access' ? 1 : 0)) : { root: node, steps, lists };
 
 /** The kinds of expression that are a root themselves: asked directly. */
 const ROOTS: readonly string[] = ['identifier', 'this', 'call', 'new', 'literal', 'function', 'string-literal', 'template'];
@@ -89,8 +89,13 @@ export const ownerOf = (
   below = 0,
   /** A list of numbers or texts: a new list of them holds nothing of the first. */
   isListOfCopies: (node: Node) => boolean = () => false,
+  /** How many lists the object is inside of, counted from the names it was reached through. */
+  inLists = 0,
 ): Owner | undefined => {
-  const { root, steps } = rootOf(object);
+  const { root, steps, lists } = rootOf(object);
+  // A list of lists says `Mut<…>` at each level: of the lists it holds, and of what those hold.
+  const deep = root.kind === 'identifier' ? root.elementsDeep : [];
+  if (lists + inLists >= 2 && deep[lists + inLists - 1] === 'readonly' && root.kind === 'identifier') return { kind: 'elements', name: root.text };
   // A name for a number or a text names nothing that can be written: it was copied when it was given.
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
@@ -150,7 +155,7 @@ export const ownerOf = (
       if (!gives(alias.place)) return { kind: 'giver', call: alias.place };
       continue;
     }
-    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0), isListOfCopies);
+    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0), isListOfCopies, lists + inLists + (alias.as === 'element' ? 1 : 0));
     if (found !== undefined) return found;
     // One of the things a list holds: the list has to say they may be written.
     const list = alias.as === 'element' ? closedElements(alias.place) : undefined;
@@ -262,7 +267,7 @@ export const noParamMutation: Rule = {
     const { name, object } = node.callee;
     const [first] = node.arguments;
     // `reset.call(given)`: a function that says it writes its object, given its object as an argument.
-    if ((name === 'call' || name === 'apply') && first !== undefined && typeOf(object).mutableReceiver !== undefined) {
+    if ((name === 'call' || name === 'apply' || name === 'bind') && first !== undefined && typeOf(object).mutableReceiver !== undefined) {
       refuse(node, first, ` by \`${name}\` of a function that says \`this: Mut<…>\``);
       return;
     }
@@ -278,6 +283,10 @@ export const noParamMutation: Rule = {
       return;
     }
     const [, second] = node.arguments;
+    if (object.kind === 'identifier' && object.text === 'Reflect' && name === 'apply' && first !== undefined && second !== undefined && typeOf(first).mutableReceiver !== undefined) {
+      refuse(node, second, ' by `Reflect.apply` of a function that says `this: Mut<…>`');
+      return;
+    }
     if (object.kind === 'identifier' && object.text === 'Reflect' && name === 'apply' && first?.kind === 'property-access' && second !== undefined && changes(first.name)) {
       refuse(node, second, ` by \`Reflect.apply\` of \`${first.name}\``);
       return;

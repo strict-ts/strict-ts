@@ -2676,6 +2676,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('type Quiet = (cart: Cart) => number;', 'const read: Quiet = (cart) => cart.total;', 'const call = (f: Quiet, cart: Cart): number => f(cart);', 'export async function all(cart: Cart): Promise<number> {', '  const map: ReadonlyMap<string, Quiet> = new Map([["a", read]]);', '  const kept: Promise<Quiet> = Promise.resolve(read);', '  const run: (f: Quiet, cart: Cart) => number = call;', '  return run(await kept, cart) + (map.get("a")?.(cart) ?? 0);', '}')).toEqual([]);
   });
 
+  test('a list of lists that says `Mut<…>` at each level', () => {
+    expect(found('export function zero(grid: Mut<Mut<Mut<Cart>[]>[]>, rows: readonly (readonly Mut<Cart>[])[]): void {', '  for (const row of grid) for (const cell of row) cell.total = 0;', '  for (const row of rows) for (const cell of row) cell.total = 0;', '  const first = grid[0]?.[0];', '  if (first !== undefined) first.total = 1;', '  grid.push([]);', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });

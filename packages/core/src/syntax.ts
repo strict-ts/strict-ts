@@ -71,6 +71,8 @@ export type Node = NodeBase &
          * when no type is written for it.
          */
         readonly elements: 'writable' | 'readonly' | 'unknown';
+        /** The same, one list further in at each position: of what the lists it holds hold, and so on. */
+        readonly elementsDeep: readonly ('writable' | 'readonly' | 'unknown')[];
         /**
          * What a local name may stand for, when it was made from other places: `const a = b.c`, a piece taken out
          * by a pattern, the variable of a `for … of`, a variable assigned to later. Empty for a parameter, and for
@@ -205,6 +207,8 @@ export type Node = NodeBase &
         readonly madeFrom: readonly Alias[];
         /** The same question as `elements` of a name, for a field that is a list, a map or a set. */
         readonly elements: 'writable' | 'readonly' | 'unknown';
+        /** The same, one list further in at each position: of what the lists it holds hold, and so on. */
+        readonly elementsDeep: readonly ('writable' | 'readonly' | 'unknown')[];
         /** For a getter written in the project: the file it is written in, as diagnostics show it. */
         readonly getterIn: string | undefined;
       }
