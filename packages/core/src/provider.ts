@@ -57,6 +57,8 @@ export interface Type {
    * it says it writes into.
    */
   readonly mutableParameters: readonly number[];
+  /** For a function: the types of the parameters of its first signature, without `this`. */
+  readonly parameterTypes: readonly Type[];
   /**
    * For a function type: whether it is written in the project (a function, or a type of function such as
    * `(cart: Cart) => void`). One of the library says nothing of `Mut<…>` either way.

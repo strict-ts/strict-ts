@@ -63,8 +63,23 @@ const louder = (given: Type, wanted: Type, depth = 0, returns = true): string | 
     // And it hands out something to change only if it says so: one that does not is not given where one that
     // does is asked.
     const less = (one: Type): boolean => returns && one.mutableReturn && !given.mutableReturn;
-    return functions.some((one) => one.isWrittenInProject && (more(one) || less(one))) ? '' : undefined;
+    if (functions.some((one) => one.isWrittenInProject && (more(one) || less(one)))) return '';
+    // Further in: what it hands out is compared the same way; what it takes, the other way round, since it is
+    // the one asked for that will be given a function, and the one given that will call it.
+    for (const one of functions) {
+      const [handsOut] = given.returns;
+      const [asksOut] = one.returns;
+      if (handsOut !== undefined && asksOut !== undefined && louder(handsOut, asksOut, depth + 1, returns) !== undefined) return '';
+      if (given.parameterTypes.some((taken, index) => { const asks = one.parameterTypes[index]; return asks !== undefined && louder(asks, taken, depth + 1, returns) !== undefined; })) return '';
+    }
+    return undefined;
   }
+  // A promise, by what it resolves to; a map or a set, by what `forEach` gives its function first.
+  if (given.isPromise && wanted.isPromise) return louder(given.awaited, wanted.awaited, depth + 1, returns) === undefined ? undefined : '';
+  const each = (of: Type): Type | undefined => of.property('forEach')?.parameterTypes[0]?.parameterTypes[0];
+  const heldBy = given.element === undefined ? each(given) : undefined;
+  const askedBy = wanted.element === undefined ? each(wanted) : undefined;
+  if (heldBy !== undefined && askedBy !== undefined && louder(heldBy, askedBy, depth + 1, returns) !== undefined) return '[…]';
   if (given.text === wanted.text) return undefined;
   const held = given.element;
   const asked = wanted.element;
