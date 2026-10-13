@@ -108,6 +108,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .card h3 { margin: 0 0 8px; font-size: 19px; }
 .card p { margin: 0; color: var(--soft); font-size: 15px; line-height: 1.6; }
 .card span { margin-top: auto; padding-top: 16px; color: var(--link); font-weight: 700; font-size: 15px; }
+.card .step { width: 36px; height: 36px; border-radius: 10px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 17px; margin-bottom: 16px; }
+.status.after { margin: 26px 0 0; }
 .card .glyph { width: 40px; height: 40px; padding: 9px; border-radius: 10px; background: var(--tint); color: var(--brand); margin-bottom: 16px; }
 .card.go { position: relative; transition: transform 0.14s, box-shadow 0.14s, border-color 0.14s; }
 .card.go:hover { transform: translateY(-3px); box-shadow: var(--shadow-up); border-color: var(--brand); }

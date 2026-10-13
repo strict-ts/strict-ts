@@ -1,6 +1,6 @@
-// The front page, in the order of typescriptlang.org: what strict-ts is beside a sample the checker judges, what it
-// is in a few cards, what it refuses, how to start, the examples, how it is run, where it fits, and what is claimed
-// and what is not.
+// The front page, for someone who never heard of strict-ts: what it does beside a sample the checker judges, how we
+// know it works, how it is used in three steps, what it gives, what it refuses, the examples, how it is run, what
+// comes with it, and what is claimed and what is not.
 import { PLAYGROUND } from './layout.mjs';
 import { escape, paint } from './markdown.mjs';
 
@@ -31,11 +31,18 @@ export const code = (name, source, { painted = true } = {}) => `<figure class="w
 
 const icon = (path) => `<svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
 
+/** The three steps of using it, as someone who never saw it reads them. */
+const STEPS = [
+  { title: 'Run one command', text: '<code>npx strict-ts -p .</code>, where <code>tsc --noEmit</code> ran. It reports the errors of the compiler, and adds its own.' },
+  { title: 'Read what it refuses', text: 'One line per problem, with the file and the place, and a <code>help:</code> line that says what to write instead.' },
+  { title: 'Fix it, or fence it off', text: 'Make the code conform, or move what cannot to an <code>unsafe/</code> directory, with a reason. On existing code, a baseline lets you start today: only new problems fail.' },
+];
+
 const WHAT = [
-  { title: 'A checker, not a language', glyph: '<path d="M8 4H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1M16 4h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>', text: 'The code stays standard TypeScript that <code>tsc</code> compiles as is, and the JavaScript that comes out is the same.' },
-  { title: 'In place of tsc --noEmit', glyph: '<path d="M4 6h16v12H4z"/><path d="M7.5 10l2.5 2-2.5 2M12.5 14.5h4"/>', text: 'One command in the CI: it reports the errors of the compiler and adds its own rules, one line per refusal with what to write instead.' },
-  { title: 'Unsafe has one place', glyph: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2.2 2.4L15.5 9.5"/>', text: 'A cast, <code>any</code>, <code>throw</code> or an external import live in the unsafe directories, each with a <code>// SAFETY:</code> reason. No comment silences a rule.' },
-  { title: 'Not sure means refused', glyph: '<path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.2v.3"/>', text: 'An analysis that is not sure refuses the code. It never declares it safe.' },
+  { title: 'Types that tell the truth', glyph: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2.2 2.4L15.5 9.5"/>', text: 'No <code>any</code>, no cast, no <code>@ts-ignore</code>: a value is what its type says it is.' },
+  { title: 'Errors you cannot forget', glyph: '<path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.2v.3"/>', text: 'No <code>throw</code>, no <code>null</code>: what may fail returns a <code>Result</code>. A call that throws without saying so, like <code>JSON.parse</code>, is caught where it is written.' },
+  { title: 'No change behind your back', glyph: '<path d="M4 6h16v12H4z"/><path d="M7.5 10l2.5 2-2.5 2M12.5 14.5h4"/>', text: 'Data is read-only unless a signature says <code>Mut&lt;T&gt;</code>: the call shows what a function may change. This part is still in progress.' },
+  { title: 'Still plain TypeScript', glyph: '<path d="M8 4H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1M16 4h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>', text: 'No new language and no new compiler: <code>tsc</code> builds the same JavaScript. What you write with is an ordinary library.' },
 ];
 
 const FITS = [
@@ -51,17 +58,17 @@ const FITS = [
 
 const head = (eyebrow, title, lead = '') => `<header class="head"><p class="eyebrow">${eyebrow}</p><h2>${title}</h2>${lead === '' ? '' : `<p class="lead">${lead}</p>`}</header>`;
 
-export const home = ({ demos, engine, run, adopt, guarantees, questions, inline, rules, figures, tour, scenarios }) => `
+export const home = ({ demos, engine, run, adopt, guarantees, questions, inline, rules, figures, tour }) => `
 <section class="hero">
   <div class="hero-in">
     <div class="pitch">
-      <p class="status"><a href="docs/known-limits.html"><b>Two guarantees are « Acquired ».</b> It is a list of attacks and not a proof. <span>→</span></a></p>
-      <h1>strict-ts makes TypeScript <strong>as safe as Rust.</strong></h1>
-      <p class="sub">A program it accepts must not be able to fail for a reason its types do not announce. It is a checker, not a language: the code stays standard TypeScript.</p>
+      <h1>Catch the bugs <strong>TypeScript lets through.</strong></h1>
+      <p class="sub">strict-ts is a checker you run in place of <code>tsc --noEmit</code>. It refuses code that compiles and still fails when it runs: <code>any</code>, casts, <code>null</code>, hidden exceptions, data changed behind your back. Your code stays standard TypeScript.</p>
       <div class="actions">
         <a class="button main" href="${PLAYGROUND}">Try strict-ts now<small>In your browser</small></a>
         <a class="button" href="docs/getting-started.html">Get started<small>In a project</small></a>
       </div>
+      <p class="status after"><a href="docs/known-limits.html"><b>Where it stands:</b> typing and errors have no known hole. Mutability and ownership are in progress. <span>→</span></a></p>
     </div>
     <div class="window demo" data-demo data-engine="${engine.join(' ')}">
       <div class="tabs" role="tablist" aria-label="Samples">
@@ -100,17 +107,26 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section>
   <div class="in">
-    ${head('The idea', 'What is strict-ts?')}
+    ${head('How it works', 'One command, where tsc ran')}
+    <div class="cards three steps">
+      ${STEPS.map((step, index) => `<div class="card"><b class="step">${index + 1}</b><h3>${step.title}</h3><p>${step.text}</p></div>`).join('\n      ')}
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="in">
+    ${head('What you get', 'TypeScript, as safe as Rust')}
     <div class="cards four">
       ${WHAT.map((one) => `<div class="card">${icon(one.glyph)}<h3>${one.title}</h3><p>${one.text}</p></div>`).join('\n      ')}
     </div>
   </div>
 </section>
 
-<section class="band">
+<section>
   <div class="in split">
     <div>
-      ${head('The rules', `${rules.length} rules, and what conforming code says instead`, 'Each refuses where the code is written, with a line that says what to write. What stands in their place is an ordinary library.')}
+      ${head('The rules', `What it refuses, in ${rules.length} rules`, 'Each rule names one way a TypeScript program goes wrong, and says what to write instead. What you write instead comes from an ordinary library.')}
       <p class="more"><a href="docs/rules.html">The rules →</a></p>
     </div>
     <div class="words">
@@ -120,20 +136,9 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
   </div>
 </section>
 
-<section>
-  <div class="in">
-    ${head('Start', 'Get started')}
-    <div class="cards three">
-      <a class="card go" href="docs/rules.html"><h3>The rules</h3><p>What each rule refuses, by the guarantee it serves.</p><span>Read them →</span></a>
-      <a class="card go" href="${PLAYGROUND}"><h3>Playground</h3><p>The checker in a page, with ${scenarios} scenarios to change. Nothing is sent anywhere.</p><span>Try it in your browser →</span></a>
-      <a class="card go" href="docs/getting-started.html"><h3>In a project</h3><p>Where <code>tsc --noEmit</code> ran, with Node 22.13 or later and a <code>tsconfig.json</code>.</p><span>Get started →</span></a>
-    </div>
-  </div>
-</section>
-
 <section class="band">
   <div class="in">
-    ${head('A tour', `Four guarantees, in ${tour.length} examples`, 'Each sample is the one of a document, where the rest is said. The examples are written twice: as <code>tsc --strict</code> accepts them, and conforming.')}
+    ${head('A tour', `See it on ${tour.length} small programs`, 'Each is TypeScript that <code>tsc --strict</code> accepts, with what strict-ts says of it. The links lead to the same program once it conforms.')}
     <div class="tour">
       ${tour.map((idea) => `<article><div><h3>${idea.title}</h3><p>${inline(idea.text)}</p><a href="${idea.to}">${escape(idea.heading)} →</a></div>${code(idea.file, idea.source)}${idea.said === undefined ? '' : `<pre class="refusal">${escape(idea.said)}</pre>`}</article>`).join('\n      ')}
     </div>
@@ -142,7 +147,7 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section>
   <div class="in">
-    ${head('In a project', 'It runs where tsc --noEmit ran', 'These are the blocks of the README: how it is installed, what it prints, and the one file that configures it.')}
+    ${head('In a project', 'Three things to know: install, run, configure', 'How it is installed, what it prints, and the one file that configures it.')}
     <div class="becomes">
       ${code('install', run.install, { painted: false })}
       ${code('check', `$ ${run.command}\n\n${run.printed}`, { painted: false })}
@@ -161,7 +166,7 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section class="band">
   <div class="in">
-    ${head('Around it', 'Where it fits', 'Adapters around the one rule engine, with no rule in them. Each document says what was tried, and what was not.')}
+    ${head('Around it', 'What comes with it', 'Each document says what was tried, and what was not.')}
     <div class="cards four">
       ${FITS.map((fit) => `<a class="card go" href="${fit.to}"><h3>${fit.name}</h3><p>${fit.text}</p></a>`).join('\n      ')}
     </div>
@@ -170,7 +175,7 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section>
   <div class="in">
-    ${head('The scoreboard', 'The five guarantees')}
+    ${head('The scoreboard', 'The five guarantees of Rust, and where each stands')}
     <div class="prose scoreboard">${guarantees}</div>
   </div>
 </section>
@@ -186,8 +191,8 @@ export const home = ({ demos, engine, run, adopt, guarantees, questions, inline,
 
 <section class="closing">
   <div class="in">
-    <h2>Try to write a failure its types do not announce.</h2>
-    <p>The checker is in the page, and nothing is sent anywhere.</p>
+    <h2>Try to get a bug past it.</h2>
+    <p>Write TypeScript that compiles and fails when it runs, and see whether strict-ts lets it through. The checker is in the page, and nothing is sent anywhere.</p>
     <div class="actions">
       <a class="button main" href="${PLAYGROUND}">Open the playground</a>
       <a class="button" href="docs/rules.html">Read the rules</a>
