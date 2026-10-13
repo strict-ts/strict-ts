@@ -3,6 +3,7 @@
 import type ts from '@typescript/typescript6';
 import { type Diagnostic, diagnosticAt, locator, type Position } from '../diagnostic.js';
 import type { Mut } from '../mut.js';
+import { mut } from '../mut.js';
 import { pattern, wholeNumber } from '../unsafe/run.js';
 import { record } from '../record.js';
 import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../provider.js';
@@ -628,8 +629,8 @@ export function createTypeScript6Provider(
     api.isTypeElement(node);
 
   // Each compiler node is converted once, children first, so a parent finds its parts already converted.
-  const converted = new Map<ts.Node, Node>();
-  const origin = new Map<Node, ts.Node>();
+  const converted = mut(new Map<ts.Node, Node>());
+  const origin = mut(new Map<Node, ts.Node>());
 
   const convert = (node: ts.Node, sourceFile: ts.SourceFile): Node => {
     const children: Mut<Node[]> = mut([]);
@@ -798,9 +799,9 @@ export function createTypeScript6Provider(
         return declarations.length > 0 && declarations.every((declaration) => program.isSourceFileDefaultLibrary(declaration.getSourceFile()));
       });
     };
-    const assignedTo = new Map<ts.Symbol, readonly ts.Expression[]>();
+    const assignedTo = mut(new Map<ts.Symbol, readonly ts.Expression[]>());
     /** What a pattern on the left of an assignment took the variable out of. */
-    const takenFrom = new Map<ts.Symbol, readonly ts.Expression[]>();
+    const takenFrom = mut(new Map<ts.Symbol, readonly ts.Expression[]>());
     /** What is assigned to a variable after its declaration, in the function that declares it. */
     const laterValues = (symbol: ts.Symbol, declaration: ts.Node): readonly ts.Expression[] => {
       const known = assignedTo.get(symbol);
@@ -822,7 +823,7 @@ export function createTypeScript6Provider(
       takenFrom.set(symbol, taken);
       return found;
     };
-    const keptIn = new Map<ts.Symbol, readonly ts.Expression[]>();
+    const keptIn = mut(new Map<ts.Symbol, readonly ts.Expression[]>());
     /** What is put into a variable after its declaration: by `push` and its kin, by a write to a property or a position. */
     const storedIn = (symbol: ts.Symbol, declaration: ts.Node): readonly ts.Expression[] => {
       const known = keptIn.get(symbol);
@@ -1270,7 +1271,7 @@ export function createTypeScript6Provider(
     return result;
   };
 
-  const sources = new Map<SourceFile, ts.SourceFile>();
+  const sources = mut(new Map<SourceFile, ts.SourceFile>());
   const files = program
     .getSourceFiles()
     .filter((sourceFile) => isChecked(sourceFile) && (options.only?.(sourceFile.fileName) ?? true))
@@ -1292,7 +1293,7 @@ export function createTypeScript6Provider(
     )
     .map((sourceFile) => displayName(sourceFile.fileName));
 
-  const locators = new Map<ts.SourceFile, (offset: number) => Position>();
+  const locators = mut(new Map<ts.SourceFile, (offset: number) => Position>());
   const locatorOf = (sourceFile: ts.SourceFile): ((offset: number) => Position) => {
     const known = locators.get(sourceFile);
     if (known !== undefined) return known;

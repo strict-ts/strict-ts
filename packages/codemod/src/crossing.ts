@@ -243,7 +243,7 @@ export function comparer(api: typeof ts, before: Side, named: Names) {
       isOpen: wanted !== undefined && (wanted.isUnion() ? wanted.types : [wanted]).some((member) => (member.flags & api.TypeFlags.TypeParameter) !== 0),
     };
   };
-  const first = new Map<string, readonly Seen[]>();
+  const first = mut(new Map<string, readonly Seen[]>());
   const firstOf = (fileName: string): readonly Seen[] => {
     const known = first.get(fileName);
     if (known !== undefined) return known;

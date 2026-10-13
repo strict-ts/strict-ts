@@ -1,4 +1,5 @@
 import type { Span } from './syntax.js';
+import { mut } from './mut.js';
 
 /** 1-based; `column` counts UTF-16 code units. A diagnostic without a place in a file has line 0. */
 export interface Position {
@@ -18,7 +19,7 @@ export interface Diagnostic {
 
 /** Turns offsets in `text` into positions. */
 export function locator(text: string): (offset: number) => Position {
-  const lineStarts = [0];
+  const lineStarts = mut([0]);
   for (let i = 0; i < text.length; i++) {
     if (text.charCodeAt(i) === 10) lineStarts.push(i + 1);
   }

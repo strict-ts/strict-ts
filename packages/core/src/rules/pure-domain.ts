@@ -1,5 +1,6 @@
 import { isPure } from '../config.js';
 import type { Rule } from '../rule.js';
+import { mut } from '../mut.js';
 
 /** What reaches outside the program, or depends on when and where it runs. */
 const EFFECTS: Readonly<Record<string, string>> = {
@@ -29,7 +30,7 @@ const help = 'Take the value as a parameter, and let the code outside the pure d
 
 /** `a/b/../c` as `a/c`; undefined when the path leaves the project. */
 const resolved = (from: string, specifier: string): string | undefined => {
-  const parts = from.split('/').slice(0, -1);
+  const parts = mut(from.split('/').slice(0, -1));
   for (const part of specifier.split('/')) {
     if (part === '.' || part === '') continue;
     if (part !== '..') parts.push(part);

@@ -2,6 +2,7 @@
 // for the search and never a verdict: what is kept is compiled again.
 import type ts from '@typescript/typescript6';
 import type { Fix, Placed } from './fix.js';
+import { mut } from '@strict-ts/std';
 
 /** How far a declaration with no written type is followed into what it is made from. */
 const DEPTH = 4;
@@ -28,8 +29,8 @@ export function blamedFixes(
   if (file === undefined || from === undefined) return [];
   const to = from + (diagnostic.length ?? 0);
 
-  const found = new Set<Fix>();
-  const seen = new Set<ts.Node>();
+  const found = mut(new Set<Fix>());
+  const seen = mut(new Set<ts.Node>());
   const take = (sourceFile: ts.SourceFile, start: number, end: number): void => {
     for (const placed of placedIn(sourceFile.fileName)) if (start <= placed.at && placed.at <= end) found.add(placed.fix);
   };

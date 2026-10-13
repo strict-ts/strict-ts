@@ -33,7 +33,7 @@ const STD_PREFIX = `${STD_NAME}/`;
 // An element of the page, to write into.
 // The page is in the shadow tree of one element of the site's page: what it looks for is looked for there.
 const page = document.getElementById('playground')?.shadowRoot ?? document;
-const $ = (id: string): Mut<HTMLElement> => page.getElementById(id) ?? document.body;
+const $ = (id: string): Mut<HTMLElement> => mut(page.getElementById(id) ?? document.body);
 const esc = (text: string): string =>
   text.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
 const split = (list: string): readonly string[] =>
@@ -53,7 +53,7 @@ let checkTimer = 0;
 const scenarioById = (id: string): Scenario | undefined => DATA.scenarios.find((scenario) => scenario.id === id);
 
 function freshWorkspace(scenario: Scenario | undefined): Mut<Workspace> {
-  const files = { ...scenario?.files };
+  const files = mut({ ...scenario?.files });
   const depth = (path: string): number => path.split('/').length;
   const first = Object.keys(files).toSorted((a, b) => depth(a) - depth(b) || a.localeCompare(b))[0] ?? '';
   return mut({
@@ -103,7 +103,7 @@ const isUnsafePath = (path: string): boolean =>
 const diagnostics = (): readonly Diagnostic[] => outcome?.diagnostics ?? [];
 const diagnosticsOf = (path: string): readonly Diagnostic[] => diagnostics().filter((d) => d.file === path);
 const countsByRule = (): ReadonlyMap<string, number> => {
-  const counts = new Map<string, number>();
+  const counts = mut(new Map<string, number>());
   for (const d of diagnostics()) counts.set(d.rule, (counts.get(d.rule) ?? 0) + 1);
   return counts;
 };
@@ -165,7 +165,7 @@ function renderHeader(): void {
 
 function renderFoot(): void {
   const lines = Object.values(workspace().files).reduce((sum, text) => sum + text.trimEnd().split('\n').length, 0);
-  const parts = [`TypeScript ${esc(playground?.version ?? DATA.tsVersion)}`, `Project: ${plural(lines, 'line')}`];
+  const parts = mut([`TypeScript ${esc(playground?.version ?? DATA.tsVersion)}`, `Project: ${plural(lines, 'line')}`]);
   if (outcome !== undefined) {
     parts.push(`${plural(outcome.filesChecked, 'file')} checked`, `${Math.round(outcome.durationMs)} ms`);
   }
@@ -203,7 +203,7 @@ function renderFiles(): void {
 
 // ── Rendering: editor ────────────────────────────────
 function lineStarts(text: string): readonly number[] {
-  const starts = [0];
+  const starts = mut([0]);
   for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
   return starts;
 }
@@ -223,7 +223,7 @@ function renderHighlight(): void {
   const here = diagnosticsOf(path).filter((d) => d.start.line > 0);
   const ranges = here.map((d) => range(d, starts, text.length));
 
-  const points = new Set([0, text.length]);
+  const points = mut(new Set([0, text.length]));
   for (const [start, end] of [...tokens, ...ranges]) {
     points.add(start);
     points.add(end);

@@ -1,4 +1,5 @@
 import type { Mut } from '../mut.js';
+import { mut } from '../mut.js';
 import type { FileContext, Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
 

@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '@strict-ts/std';
+import { mut } from '@strict-ts/std';
 
 export type Format = 'text' | 'json' | 'sarif';
 
@@ -50,7 +51,7 @@ export function parseArgs(argv: readonly string[]): Result<Command, string> {
   let project: string | undefined;
   let format: Format | undefined;
   let output: string | undefined;
-  const flags = new Set<string>();
+  const flags = mut(new Set<string>());
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? '';
     if (arg === '-h' || arg === '--help') return ok({ kind: 'help' });

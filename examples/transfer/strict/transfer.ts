@@ -1,8 +1,8 @@
 // The same transfer, conforming: a transaction has one owner, and is ended exactly once.
-import { end, err, ok, type Mut, type Once, type Result } from "@strict-ts/std";
+import { end, err, mut, ok, type Mut, type Once, type Result } from "@strict-ts/std";
 
 export class Transaction {
-  private readonly entries: Mut<string[]> = [];
+  private readonly entries: Mut<string[]> = mut([]);
 
   debit(this: Mut<Transaction>, account: string, cents: number): void {
     this.entries.push(`${account} -${cents}`);
@@ -16,7 +16,7 @@ export class Transaction {
 }
 
 /** The one way to get a transaction: it comes with its duty. */
-export const begin = (): Once<Mut<Transaction>> => new Transaction();
+export const begin = (): Once<Mut<Transaction>> => mut(new Transaction());
 
 /** Takes the transaction for good. Nobody can use it after. */
 export const commit = (tx: Once<Transaction>): readonly string[] => end(tx).written();

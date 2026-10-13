@@ -1,5 +1,3 @@
-import { mut, type Mut } from '../mut.js';
-
 /** A place where a pattern matches: where it starts, the whole match and its groups. */
 export interface Match {
   readonly index: number;
@@ -8,18 +6,14 @@ export interface Match {
 }
 
 /**
- * Every match of a global pattern in a text, without `matchAll`, which throws on a pattern that lacks the `g` flag.
- * A pattern without it gives no match here rather than an exception. The pattern's own position is used and left at
- * its end: hence `Mut`.
+ * Every match of a global pattern in a text. `matchAll` throws on a pattern that lacks the `g` flag: one without
+ * it gives no match here rather than an exception. It works on a copy of the pattern, which is left as it was.
  */
-export function matchesOf(text: string, pattern: Mut<RegExp>): readonly Match[] {
+export function matchesOf(text: string, pattern: RegExp): readonly Match[] {
   if (!pattern.global) return [];
-  const found: Mut<Match[]> = mut([]);
-  pattern.lastIndex = 0;
-  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
-    found.push({ index: match.index, text: match[0], groups: match.slice(1) });
-    // An empty match does not move the pattern forward: step over it.
-    if (match[0] === '') pattern.lastIndex += 1;
+  try {
+    return [...text.matchAll(pattern)].map((match) => ({ index: match.index, text: match[0], groups: match.slice(1) }));
+  } catch {
+    return [];
   }
-  return found;
 }

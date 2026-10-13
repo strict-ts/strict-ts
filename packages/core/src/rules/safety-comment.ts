@@ -1,5 +1,6 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { mut } from '../mut.js';
 
 /** What the typing rules refuse outside unsafe/, and how the diagnostic names it. */
 const unchecked = (node: Node): string | undefined => {
@@ -26,7 +27,7 @@ const SAFETY = /^\s*\/\/\s*SAFETY:\s*\S/;
  * line of code ends the search: the comment must touch what it justifies.
  */
 function isJustified(text: string, offset: number): boolean {
-  const above = text.slice(0, text.lastIndexOf('\n', offset - 1) + 1).split('\n');
+  const above = mut(text.slice(0, text.lastIndexOf('\n', offset - 1) + 1).split('\n'));
   above.pop();
   for (let i = above.length - 1; i >= 0; i--) {
     const line = above[i] ?? '';

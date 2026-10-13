@@ -1,6 +1,7 @@
 import { type Config, defaultConfig, isTest, isUnsafe } from './config.js';
 import { compareDiagnostics, type Diagnostic, diagnosticAt, locator } from './diagnostic.js';
 import type { Mut } from './mut.js';
+import { mut } from './mut.js';
 import type { TypeProvider } from './provider.js';
 import type { FileContext, Rule } from './rule.js';
 import { rules as allRules } from './rules/index.js';

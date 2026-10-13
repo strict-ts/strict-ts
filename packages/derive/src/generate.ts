@@ -40,7 +40,7 @@ export function deriveSchemas(api: typeof ts, sourceFile: ts.SourceFile, from: s
   };
 
   type Declared = ts.TypeAliasDeclaration | ts.InterfaceDeclaration;
-  const declared = new Map<string, Declared>();
+  const declared = mut(new Map<string, Declared>());
   for (const statement of sourceFile.statements) {
     if (api.isTypeAliasDeclaration(statement) || api.isInterfaceDeclaration(statement)) declared.set(statement.name.text, statement);
   }
@@ -48,8 +48,8 @@ export function deriveSchemas(api: typeof ts, sourceFile: ts.SourceFile, from: s
 
   // The schemas in the order they must be written: one that another names comes first.
   const written: Mut<string[]> = mut([]);
-  const done = new Set<string>();
-  const inProgress = new Set<string>();
+  const done = mut(new Set<string>());
+  const inProgress = mut(new Set<string>());
 
   const literalOf = (node: ts.TypeNode): string | undefined => {
     if (!api.isLiteralTypeNode(node)) return undefined;

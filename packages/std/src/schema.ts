@@ -7,6 +7,7 @@
  *   User.parse(json) // Result<User, SchemaError>
  */
 import type { Mut } from './mut.js';
+import { mut } from './mut.js';
 import { Err, Ok, type Result } from './result.js';
 
 export type SchemaError = { readonly path: string; readonly expected: string };

@@ -46,7 +46,7 @@ const ENV = '/env/env.d.ts';
 export const STD_NAME = '@strict-ts/std';
 
 export function createPlayground(api: typeof ts, environment: Environment): Playground {
-  const parsed = new Map<string, { readonly text: string; readonly sourceFile: ts.SourceFile }>();
+  const parsed = mut(new Map<string, { readonly text: string; readonly sourceFile: ts.SourceFile }>());
   let previous: ts.Program | undefined;
 
   const parse = (fileName: string, text: string): ts.SourceFile => {
@@ -59,12 +59,12 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
 
   const run = (request: Request): Outcome => {
     const started = performance.now();
-    const files = new Map<string, string>();
+    const files = mut(new Map<string, string>());
     for (const [name, text] of Object.entries(environment.libs)) files.set(`${LIB}/${name}`, text);
     for (const [name, text] of Object.entries(environment.std)) files.set(`${STD}/${name}`, text);
     // The ambient globals sit outside the project, as a dependency's types would.
     files.set(ENV, environment.ambient);
-    const rootNames = [ENV];
+    const rootNames = mut([ENV]);
     for (const [name, text] of Object.entries(request.files)) {
       files.set(`${PROJECT}/${name}`, text);
       rootNames.push(`${PROJECT}/${name}`);

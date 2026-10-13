@@ -174,7 +174,7 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
   }
 
   const back: Mut<Set<Fix>> = mut(new Set(floor));
-  const settled = new Set(floor);
+  const settled = mut(new Set(floor));
   const unsure: Mut<Set<Fix>> = mut(new Set());
   let proven = true;
   for (let before = -1, passes = 0; before < back.size && passes < PASSES; passes++) {

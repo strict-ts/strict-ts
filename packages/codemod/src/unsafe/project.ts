@@ -6,6 +6,7 @@ import { CONFIG_FILE, readSettings } from '@strict-ts/cli/settings';
 import { check, type Config, isUnsafe } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
 import { attempt, err, type Mut, none, ok, type Option, type Result, some, textOf } from '@strict-ts/std';
+import { mut } from '@strict-ts/std';
 import ts from '@typescript/typescript6';
 import { blamedFixes } from '../blame.js';
 import { applyEdits, type Fix, keepUnblamed, type Placed, placesAfter, type Trial } from '../fix.js';
@@ -316,7 +317,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
         const inserts = new Map<string, Mut<{ at: number; text: string }[]>>();
         const seen = new Set<ts.Node>();
         const insert = (file: ts.SourceFile, at: number, text: string): void => {
-          const here = inserts.get(file.fileName) ?? [];
+          const here = inserts.get(file.fileName) ?? mut([]);
           inserts.set(file.fileName, here);
           here.push({ at, text });
         };

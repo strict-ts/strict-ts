@@ -1,5 +1,6 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { mut } from '../mut.js';
 
 const isAssignment = (operator: string): boolean => operator.endsWith('=') && !['==', '===', '!=', '!==', '<=', '>='].includes(operator);
 
@@ -43,7 +44,7 @@ export const noParamMutation: Rule = {
   name: 'no-param-mutation',
   guarantee: 'mutability',
   description:
-    'What is changed is typed `Mut<…>`: the object a property is assigned in or deleted from, the list an element is written in, the object a method of the platform changes, the first argument of a function of the platform that writes into it. Each step says so: under `order: Mut<Order>`, `order.cart.total = 0` asks that `cart` be declared `Mut<Cart>`. `this` is the object being made in a constructor, a setter and the value a field starts with; and a part of a thing of the platform that says `Mut<…>` may be written.',
+    'What is changed is typed `Mut<…>`: the object a property is assigned in or deleted from, the list an element is written in, the object a method of the platform changes, the first argument of a function of the platform that writes into it. Each step says so: under `order: Mut<Order>`, `order.cart.total = 0` asks that `cart` be declared `Mut<Cart>`. `this` is the object being made in a constructor, a setter and the value a field starts with; a part of a thing of the platform that says `Mut<…>` may be written, and so may what the platform holds for everyone (`document`, `process`).',
   scope: 'safe',
   visit(node, { typeOf, report }) {
     /** Whether the object may be written through, by what its type says. */
@@ -51,6 +52,8 @@ export const noParamMutation: Rule = {
       if (typeOf(object).isMut) return true;
       // The object being made: nobody else holds it yet.
       if (object.kind === 'this') return object.receiver === 'mutable';
+      // What the platform itself holds for everyone (`document`, `process`, `localStorage`): nobody gave it.
+      if (object.kind === 'identifier' && object.declaredOutside) return true;
       if (depth > 8) return false;
       // `element.style.color`: the types of the platform cannot say `Mut<…>` inside, and its parts go with it.
       if (object.kind === 'property-access' && object.ofPlatform) return writable(object.object, depth + 1);
@@ -87,7 +90,10 @@ export const noParamMutation: Rule = {
       if (index.kind === 'property-access' && index.object.kind === 'identifier' && index.object.text === 'Symbol') return;
       const key = index.kind === 'string-literal' ? index.text : undefined;
       const reached = typeOf(node.callee);
-      if (!reached.isImplemented && (key === undefined || changes(key)) && !typeOf(node.callee.object).kinds.every((kind) => PRIMITIVES.includes(kind))) {
+      const holder = typeOf(node.callee.object);
+      // A function kept in a table is called, not a method of the table: what it writes, its own type says.
+      if (key === undefined && holder.isIndexed && !holder.isArray && !holder.isTuple) return;
+      if (!reached.isImplemented && (key === undefined || changes(key)) && !holder.kinds.every((kind) => PRIMITIVES.includes(kind))) {
         refuse(node, node.callee.object, key === undefined ? ' by a method reached by a key that is computed' : ` by \`${key}\``);
       }
       return;

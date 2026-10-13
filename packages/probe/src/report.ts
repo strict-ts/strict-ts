@@ -29,8 +29,8 @@ const where = (site: Site): string => `${site.file}:${site.line}:${site.column}`
 
 export function summarise(events: readonly Event[], ledger: Ledger): Report {
   // What was seen, and how many times: the count is kept apart, so that nothing that holds a site is written.
-  const groups = new Map<string, { readonly bucket: keyof Omit<Report, 'quiet'>; readonly site: Site; readonly detail: string }>();
-  const counts = new Map<string, number>();
+  const groups = mut(new Map<string, { readonly bucket: keyof Omit<Report, 'quiet'>; readonly site: Site; readonly detail: string }>());
+  const counts = mut(new Map<string, number>());
   const note = (bucket: keyof Omit<Report, 'quiet'>, site: Site, detail: string): void => {
     const key = `${bucket} ${where(site)} ${detail}`;
     if (!groups.has(key)) groups.set(key, { bucket, site, detail });

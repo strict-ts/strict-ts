@@ -1,5 +1,6 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { mut } from '../mut.js';
 
 /**
  * The functions of the platform that make something new: a new list or map of the same things, a copy, a thing of

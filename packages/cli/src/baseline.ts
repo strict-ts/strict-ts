@@ -23,9 +23,9 @@ const sorted = <T>(entries: readonly (readonly [string, T])[]): Readonly<Record<
 
 /** Counts the recordable diagnostics per rule per file, files and rules sorted. */
 export function toBaseline(found: readonly Diagnostic[]): Baseline {
-  const counts = new Map<string, Mut<Map<string, number>>>();
+  const counts = mut(new Map<string, Mut<Map<string, number>>>());
   for (const { file, rule } of found.filter(isRecordable)) {
-    const rules = counts.get(file) ?? new Map<string, number>();
+    const rules = counts.get(file) ?? mut(new Map<string, number>());
     rules.set(rule, (rules.get(rule) ?? 0) + 1);
     counts.set(file, rules);
   }

@@ -1,4 +1,5 @@
 import type { Mut } from '../mut.js';
+import { mut } from '../mut.js';
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
 
@@ -32,7 +33,7 @@ export const noEarlyRead: Rule = {
     if (functions.size === 0 || variables.size === 0) return;
 
     // For each function: the variables of the top it reads, and the other functions of the top it names.
-    const uses = new Map<number, { readonly reads: ReadonlySet<number>; readonly names: ReadonlySet<number> }>();
+    const uses = mut(new Map<number, { readonly reads: ReadonlySet<number>; readonly names: ReadonlySet<number> }>());
     for (const [at, body] of functions) {
       const reads: Mut<Set<number>> = mut(new Set());
       const names: Mut<Set<number>> = mut(new Set());
