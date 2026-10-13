@@ -636,16 +636,16 @@ export function createTypeScript6Provider(
     const base = { start: node.getStart(sourceFile), end: node.getEnd(), children, isUnit: isUnit(node) };
 
     /** The places an expression may be, or hold a part or a copy of. */
-    const sourcesOf = (given: ts.Expression, as: Alias['as']): readonly Alias[] => {
+    const sourcesOf = (given: ts.Expression, as: Alias['as'], levels = 0): readonly Alias[] => {
       let expression = given;
       while (api.isParenthesizedExpression(expression) || api.isNonNullExpression(expression) || api.isAsExpression(expression) || api.isSatisfiesExpression(expression) || api.isAwaitExpression(expression)) {
         expression = expression.expression;
       }
       // A part of a copy is a part; a copy of a part is a copy.
       const under = (inner: Alias['as']): Alias['as'] => (as === 'part' || as === 'element' ? as : inner === 'same' ? as : inner);
-      if (api.isIdentifier(expression) || api.isPropertyAccessExpression(expression) || api.isElementAccessExpression(expression)) return [{ place: part(expression), as }];
+      if (api.isIdentifier(expression) || api.isPropertyAccessExpression(expression) || api.isElementAccessExpression(expression)) return [{ place: part(expression), as, levels: levels + (as === 'element' ? 1 : 0) }];
       // `const self = this`: another name for the object.
-      if (expression.kind === api.SyntaxKind.ThisKeyword) return [{ place: part(expression), as }];
+      if (expression.kind === api.SyntaxKind.ThisKeyword) return [{ place: part(expression), as, levels: levels + (as === 'element' ? 1 : 0) }];
       // `new Map(other)`, `new Set(list)`: a new collection of the same things.
       if (api.isNewExpression(expression)) {
         const [first] = expression.arguments ?? [];
@@ -658,28 +658,29 @@ export function createTypeScript6Provider(
             api.forEachChild(inner, look);
           };
           look(first.body);
-          return kept.flatMap((value) => sourcesOf(value, as === 'same' ? 'part' : as));
+          return kept.flatMap((value) => sourcesOf(value, as === 'same' ? 'part' : as, levels));
         }
         // `new Proxy(target, …)` is the target, seen through.
-        if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Proxy') return sourcesOf(first, as);
-        return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy')) : [];
+        if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Proxy') return sourcesOf(first, as, levels);
+        return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy'), levels) : [];
       }
-      if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as), ...sourcesOf(expression.whenFalse, as)];
+      if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as, levels), ...sourcesOf(expression.whenFalse, as, levels)];
       if (api.isBinaryExpression(expression)) {
         const operator = expression.operatorToken.kind;
-        if (operator === api.SyntaxKind.CommaToken) return sourcesOf(expression.right, as);
+        if (operator === api.SyntaxKind.CommaToken) return sourcesOf(expression.right, as, levels);
         const chooses = operator === api.SyntaxKind.QuestionQuestionToken || operator === api.SyntaxKind.BarBarToken || operator === api.SyntaxKind.AmpersandAmpersandToken;
-        return chooses ? [...sourcesOf(expression.left, as), ...sourcesOf(expression.right, as)] : [];
+        return chooses ? [...sourcesOf(expression.left, as, levels), ...sourcesOf(expression.right, as, levels)] : [];
       }
       if (api.isArrayLiteralExpression(expression)) {
         // One of the things an array written in place holds is one of the things written there.
+        // What is written in the array is one level in already: a name for the array is one list out of it.
         return expression.elements.flatMap((element) =>
-          api.isSpreadElement(element) ? sourcesOf(element.expression, as === 'element' ? 'element' : under('copy')) : sourcesOf(element, as === 'element' ? 'same' : under('copy')),
+          api.isSpreadElement(element) ? sourcesOf(element.expression, as === 'element' ? 'element' : under('copy'), levels) : sourcesOf(element, as === 'element' ? 'same' : under('copy'), as === 'element' ? levels : levels - 1),
         );
       }
       if (api.isObjectLiteralExpression(expression)) {
         return expression.properties.flatMap((member) =>
-          api.isSpreadAssignment(member) ? sourcesOf(member.expression, under('copy')) : api.isPropertyAssignment(member) ? sourcesOf(member.initializer, under('copy')) : api.isShorthandPropertyAssignment(member) ? sourcesOf(member.name, under('copy')) : [],
+          api.isSpreadAssignment(member) ? sourcesOf(member.expression, under('copy'), levels) : api.isPropertyAssignment(member) ? sourcesOf(member.initializer, under('copy'), levels) : api.isShorthandPropertyAssignment(member) ? sourcesOf(member.name, under('copy'), levels) : [],
         );
       }
       if (api.isCallExpression(expression)) {
@@ -690,28 +691,31 @@ export function createTypeScript6Provider(
           const [first] = expression.arguments;
           // `Object.values(place)`, `Array.from(place)`: asked first, `Object` and `Array` hold nothing themselves.
           if (first !== undefined && api.isIdentifier(holder) && ((holder.text === 'Object' && ['values', 'entries'].includes(name)) || (holder.text === 'Array' && name === 'from'))) {
-            return sourcesOf(first, under('copy'));
+            return sourcesOf(first, under('copy'), levels);
           }
           // What a method of a place gives back may be a part of it, or a new container of what it holds.
-          if (GIVES_A_PART.includes(name)) return sourcesOf(callee.expression, 'element');
-          if (GIVES_A_COPY.includes(name)) return sourcesOf(callee.expression, under('copy'));
+          // One of the things it holds; one level further in when what is asked is already one of the things of the result.
+          if (GIVES_A_PART.includes(name)) return sourcesOf(callee.expression, 'element', levels + (as === 'element' ? 1 : 0));
+          // `flat` gives a list of what the lists it holds hold: one level further in.
+          if (GIVES_A_COPY.includes(name)) return sourcesOf(callee.expression, under('copy'), levels + (name === 'flat' ? 1 : 0));
           // `map` gives what its function gives: a new thing for each, or the same ones.
           if (name === 'map' || name === 'flatMap') {
             const [each] = expression.arguments;
             // New for each, and holding nothing of what it was made from: `(cart) => ({ total: cart.total })`. Not
             // `(cart) => [cart]` nor `(cart) => ({ cart })`, which are new wrappers of the same things.
             const makes = each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body) && !keeps(each.body);
-            return makes ? [] : sourcesOf(callee.expression, under('copy'));
+            // `flatMap` whose function gives a list that is not written in place gives what that list holds.
+            return makes ? [] : sourcesOf(callee.expression, under('copy'), levels + (name === 'flatMap' && !(each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body)) ? 1 : 0));
           }
         }
         // `list[Symbol.iterator]()`: a new thing that goes through what the list holds, as `values()` is.
         if (api.isElementAccessExpression(callee) && api.isPropertyAccessExpression(callee.argumentExpression) && api.isIdentifier(callee.argumentExpression.expression) && callee.argumentExpression.expression.text === 'Symbol') {
-          return sourcesOf(callee.expression, under('copy'));
+          return sourcesOf(callee.expression, under('copy'), levels);
         }
         // What a function of the project gives back is the callee's to say: its return type does.
         // A part of it is the callee's too; so is what a new container of what it gave holds.
         const declaration = checker.getResolvedSignature(expression)?.getDeclaration();
-        if (declaration === undefined || isChecked(declaration.getSourceFile())) return [{ place: part(expression), as: as === 'same' ? 'result' : as }];
+        if (declaration === undefined || isChecked(declaration.getSourceFile())) return [{ place: part(expression), as: as === 'same' ? 'result' : as, levels: levels + (as === 'element' ? 1 : 0) }];
         // A function of the library says nothing. What it gives back may be what it was given, or a part of it
         // (`Promise.resolve(value)`, `Array.of(value)`, `weak.deref()`): unless it is a number or a text, or a
         // function known to make something new.
@@ -732,7 +736,7 @@ export function createTypeScript6Provider(
           return checker.isArrayType(type) || checker.isTupleType(type) || HOLDS[type.getSymbol()?.getName() ?? ''] !== undefined;
         };
         // A new container made of what it gave is still a new container.
-        return given.flatMap((one) => (isPlainValue(checker.getTypeAtLocation(one)) || api.isFunctionLike(one) ? [] : sourcesOf(one, as === 'copy' ? 'copy' : holds(one) ? 'element' : 'part')));
+        return given.flatMap((one) => (isPlainValue(checker.getTypeAtLocation(one)) || api.isFunctionLike(one) ? [] : sourcesOf(one, as === 'copy' ? 'copy' : holds(one) ? 'element' : 'part', levels)));
       }
       return [];
     };
@@ -827,7 +831,13 @@ export function createTypeScript6Provider(
       // A variable declared `Mut<…>` says it may be written: what it is given is checked where it is given.
       if (isMut(holder.type)) return [];
       const loop = holder.parent.parent;
-      const first = api.isForOfStatement(loop) ? sourcesOf(loop.expression, 'element') : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as);
+      // Each array pattern, or table read by a pattern, on the way to the name is one more list gone into.
+      let patterns = 0;
+      for (let inner: ts.Node = declaration; inner !== holder; inner = inner.parent) {
+        if (api.isBindingElement(inner) && inner.dotDotDotToken === undefined && api.isArrayBindingPattern(inner.parent)) patterns += 1;
+      }
+      const inLoop = api.isForOfStatement(loop);
+      const first = inLoop ? sourcesOf(loop.expression, 'element', patterns) : holder.initializer === undefined ? [] : sourcesOf(holder.initializer, as, Math.max(0, patterns - (as === 'element' ? 1 : 0)));
       const later = laterValues(symbol, holder).flatMap((value) => sourcesOf(value, 'same'));
       return [...first, ...later, ...(takenFrom.get(symbol) ?? []).flatMap((value) => sourcesOf(value, 'element')), ...storedIn(symbol, holder).flatMap((value) => sourcesOf(value, 'copy'))];
     };

@@ -85,7 +85,8 @@ describe('the attacks on explicit mutability', () => {
     ]) {
       expect(refusedBy(name), name).toEqual(['no-param-mutation']);
     }
-    expect(refusedBy('m30-elements-of-a-list.ts')).toEqual(['mut-from-readonly']);
+    // And the write itself, since what the first list holds is followed to the second.
+    expect(refusedBy('m30-elements-of-a-list.ts')).toEqual(['mut-from-readonly', 'no-param-mutation']);
     // An iterator is used up by being read; and its `next` may throw, which is another rule's.
     expect(refusedBy('m36-iterator-of-a-parameter.ts')).toContain('no-param-mutation');
   });
@@ -160,6 +161,10 @@ describe('the attacks on explicit mutability', () => {
 
   test('the eleventh round: lists of lists in a field or given back, a table read by a pattern', () => {
     expect(refusedBy('m75-lists-of-lists-elsewhere.ts')).toEqual(['no-param-mutation']);
+  }, 180_000);
+
+  test('the twelfth round: several levels of lists gone into in one step', () => {
+    expect(refusedBy('m76-several-levels-in-one-step.ts')).toEqual(['no-param-mutation']);
   }, 180_000);
 
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
