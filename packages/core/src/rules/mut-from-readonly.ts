@@ -128,7 +128,7 @@ export const mutFromReadonly: Rule = {
       const callee = calleeOf(call);
       return callee === undefined || callee.origin.kind !== 'project' || typeOf(call.callee).mutableReturn;
     };
-    const frozenIn = (given: Node, wanted: Type, where: string, isReceiver = false): boolean => {
+    const frozenIn = (given: Node, wanted: Type | undefined, where: string, isReceiver = false): boolean => {
       if (isCopied(typeOf(given))) return false;
       const root = rootOf(given);
       // A receiver that is a parameter is no-param-mutation's to refuse: it follows other names for it too.
@@ -138,7 +138,7 @@ export const mutFromReadonly: Rule = {
       }
       // What the types say first: a value typed read-only. A container written in place has no holder: what is
       // put in it is looked at where it is put.
-      const paths = isWritten(given) ? [] : thawed(typeOf(given), wanted);
+      const paths = isWritten(given) || wanted === undefined ? [] : thawed(typeOf(given), wanted);
       if (paths.length > 0) {
         report(given, `A value typed read-only (${shown(paths)}) is given ${where}: a write there would change what its holder was told cannot change.`, HELP);
         return true;
@@ -223,6 +223,26 @@ export const mutFromReadonly: Rule = {
       // Even when it is the only one here: another `return` may hand back one that says nothing.
       if (all.some((one) => typeOf(one).mutableParameters.length > 0 || typeOf(one).mutableReceiver !== undefined)) {
         report(node, 'A function that asks for `Mut<…>` is handed back by a function with no written return type: two functions that differ only by `Mut<…>` are one type for the compiler, and a caller may see the one that says nothing.', 'Write the return type, with `Mut<…>` on the parameter; or hand back functions that say the same.');
+      }
+    }
+    // Put in a place by a pattern or by a loop: `[slot.c] = list`, `({ c: slot.c } = holder)`, `for (slot.c of list)`.
+    // The place is not asked one name at a time here: what the right side holds has to be the function's own
+    // when one of the places may be written through.
+    const placesOf = (pattern: Node): readonly Node[] => (pattern.kind === 'property-access' || pattern.kind === 'element-access' ? [pattern] : pattern.kind === 'identifier' ? [] : pattern.children.flatMap(placesOf));
+    const putBy = node.kind === 'binary' && node.operator === '=' && node.left.kind === 'literal' ? { places: placesOf(node.left), from: node.right } : node.kind === 'loop' && node.target !== undefined && node.once !== undefined ? { places: placesOf(node.target), from: node.once } : undefined;
+    if (putBy !== undefined && putBy.places.some((place) => place.kind === 'element-access' || (place.kind === 'property-access' && place.holds !== 'readonly'))) {
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      if (ownerOf(putBy.from, gives, copied, 0, 1, plain) !== undefined) {
+        report(putBy.from, 'What this holds is put, by a pattern or by a loop, in a place that may be written through, and it is not this function\'s to change.', 'Assign it by its name (`place = value`), where the place says what it asks; or put a copy.');
+      }
+    }
+    // `Object.assign(target, source)` puts in the target what the source holds.
+    if (node.kind === 'call' && node.callee.kind === 'property-access' && node.callee.object.kind === 'identifier' && node.callee.object.text === 'Object' && node.callee.name === 'assign') {
+      const [target, ...sources] = node.arguments;
+      const followed = target?.kind === 'identifier' && target.parameter === 'none' && target.elements === 'unknown';
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      if (target !== undefined && !followed && sources.some((source) => source.kind !== 'literal' && ownerOf(source, gives, copied, 0, 1, plain) !== undefined)) {
+        report(node, '`Object.assign` puts in its first argument what the others hold, and that is not this function\'s to change.', 'Assign the properties by their names, where each place says what it asks; or put copies.');
       }
     }
     // What a generator is sent by `next(value)` is given from wherever it is called, and nothing there says so.
@@ -334,7 +354,8 @@ export const mutFromReadonly: Rule = {
         return;
       }
     }
-    if (node.kind === 'function' || wanted === undefined || !asksForMutation(node)) return;
+    // The place may be one the compiler says nothing of: each of the things spread into `push(...list)`.
+    if (node.kind === 'function' || !asksForMutation(node)) return;
     if (isContainer && !asksForMutationInside(node)) return;
     frozenIn(node, wanted, 'where `Mut<…>` is asked for');
   },

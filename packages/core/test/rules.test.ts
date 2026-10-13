@@ -2708,6 +2708,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('class Bag {', '  private readonly items: readonly Cart[] = [{ total: 1 }];', '  [Symbol.iterator](): IterableIterator<Cart> {', '    return this.items.values();', '  }', '}', 'export function sum(): number {', '  let total = 0;', '  for (const cart of new Bag()) total += cart.total;', '  const all = [...new Bag()];', '  all.reverse();', '  return total + all.length;', '}')).toEqual([]);
   });
 
+  test('its own things, or things to read, put in a list or a place by any of the ways there are', () => {
+    expect(found('type Slot = { c: Mut<Cart | undefined> };', 'export function fill(carts: readonly Cart[]): number {', '  const all: Mut<Cart[]> = [];', '  all.push(...carts);', '  const own: Mut<Mut<Cart>[]> = [];', '  own.push(...[{ total: 1 }]);', '  const slot: Mut<Slot> = { c: undefined };', '  slot.c ??= { total: 2 };', '  [slot.c] = [{ total: 3 }];', '  const plain = { n: 0 };', '  [plain.n] = [carts.length];', '  return all.length + own.length + plain.n;', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });
