@@ -2563,7 +2563,7 @@ describe('a name for a Mut type, imported', () => {
   const user = (type: string) =>
     `import type { ${type} } from "./store.js";\nexport function clear(store: ${type}, id: string): void {\n  const inner = store.get(id);\n  if (inner === undefined) return;\n  inner.delete("a");\n  store.delete(id);\n}\n`;
   const found = (type: string) =>
-    checkFiles({ 'src/store.ts': store, 'src/a.ts': user(type) })
+    checkEverything({ 'src/store.ts': store, 'src/a.ts': user(type) })
       .filter((d) => d.file === 'src/a.ts' && d.rule !== undefined)
       .map((d) => `${d.rule}:${d.start.line}`);
 
@@ -2590,7 +2590,7 @@ describe('no-unbound-method: a method that is written', () => {
 
 describe('a parameter that is Mut, or nothing', () => {
   const found = (type: string) =>
-    checkSafe(`import type { Mut } from "@strict-ts/std";\ntype Cart = { total: number };\ntype Note = { text: string };\nexport function add(cart: ${type}): void {\n  if (cart !== undefined && "total" in cart) cart.total += 1;\n}\nexport type { Note };\n`)
+    checkSafeEverything(`import type { Mut } from "@strict-ts/std";\ntype Cart = { total: number };\ntype Note = { text: string };\nexport function add(cart: ${type}): void {\n  if (cart !== undefined && "total" in cart) cart.total += 1;\n}\nexport type { Note };\n`)
       .filter((d) => d.rule === 'no-param-mutation')
       .map((d) => d.start.line);
 
@@ -2613,7 +2613,7 @@ describe('explicit mutability: what stays accepted', () => {
     'const reverse = <T>(list: Mut<T[]>): void => { list.reverse(); };',
   ];
   const found = (...lines: readonly string[]) =>
-    checkSafe([...head, ...lines, ''].join('\n'))
+    checkSafeEverything([...head, ...lines, ''].join('\n'))
       .filter((d) => d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')
       .map((d) => `${d.start.line} ${d.rule}`);
 
@@ -2628,6 +2628,10 @@ describe('explicit mutability: what stays accepted', () => {
   test('a list that says `Mut<…>` of what it holds: the elements are written, the list is not', () => {
     expect(found('export function zero(list: readonly Mut<Cart>[], carts: ReadonlyMap<string, Mut<Cart>>): void {', '  for (const cart of list) cart.total = 0;', '  for (const cart of carts.values()) bump(cart);', '}')).toEqual([]);
     expect(found('export function grow(list: readonly Mut<Cart>[]): void {', '  list.at(0);', '  const same: Mut<Cart[]> = [];', '  same.push(...list);', '}')).toEqual([]);
+  });
+
+  test('going through a list by hand, and making new things out of it', () => {
+    expect(found('export function count(carts: readonly Cart[], names: ReadonlyMap<string, Cart>): number {', '  const first = carts[Symbol.iterator]().next();', '  const totals = carts.map((cart) => ({ total: cart.total }));', '  for (const one of totals) one.total += 1;', '  const keys = [...names.keys()];', '  keys.sort();', '  return first.done === true ? 0 : totals.length + keys.length;', '}')).toEqual([]);
   });
 
   test('what the library makes new: a list of texts, a clone', () => {
@@ -2653,6 +2657,12 @@ describe('explicit mutability: what stays accepted', () => {
     ).toEqual([]);
   });
 
+  test('a part that says itself read-only, inside a `Mut<…>`: it is given another list, and that list is not written', () => {
+    const lines = ['export function keep(initial: readonly Cart[]): number {', '  const state: Mut<{ carts: readonly Cart[]; count: number }> = { carts: initial, count: 0 };', '  state.carts = [...initial];', '  state.count += 1;', '  return state.carts.length + state.count;', '}'];
+    expect(found(...lines)).toEqual([]);
+    expect(found(...lines.slice(0, 4), '  const first = state.carts[0];', '  if (first !== undefined) first.total = 0;', '  return 0;', '}')).toEqual(['10 no-param-mutation']);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });
@@ -2661,7 +2671,7 @@ describe('explicit mutability: what stays accepted', () => {
 describe('explicit mutability: what another module made', () => {
   const state = 'import type { Mut } from "@strict-ts/std";\nexport const settings = { level: 1, tags: ["a"] };\nexport const open: Mut<{ level: number }> = { level: 1 };\nexport const raise = (): void => {\n  settings.level += 1;\n};\n';
   const user = 'import { open, settings } from "./state.js";\nexport function a(): void {\n  settings.level += 1;\n  settings.tags.push("b");\n}\nexport function b(): void {\n  open.level += 1;\n}\n';
-  const found = checkFiles({ 'src/state.ts': state, 'src/a.ts': user })
+  const found = checkEverything({ 'src/state.ts': state, 'src/a.ts': user })
     .filter((d) => d.rule === 'no-param-mutation')
     .map((d) => `${d.file}:${d.start.line}`);
 
@@ -2669,10 +2679,16 @@ describe('explicit mutability: what another module made', () => {
     expect(found).toEqual(['src/a.ts:3', 'src/a.ts:4']);
   });
 
+  test('what is put in a place it declares inside a `Mut<…>` has to be something to change', () => {
+    const slot = 'import type { Mut } from "@strict-ts/std";\nexport type Cart = { total: Mut<number> };\nexport const slot: Mut<{ cart: Cart | undefined }> = { cart: undefined };\n';
+    const user = 'import { slot, type Cart } from "./slot.js";\nexport function hold(cart: Cart): void {\n  slot.cart = cart;\n}\nexport function zero(): void {\n  if (slot.cart !== undefined) slot.cart.total = 0;\n}\n';
+    expect(checkEverything({ 'src/slot.ts': slot, 'src/a.ts': user }).filter((d) => d.file === 'src/a.ts' && (d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')).map((d) => `${d.rule}:${d.start.line}`)).toEqual(['mut-from-readonly:3']);
+  });
+
   test('a new list of its texts is nobody else\'s', () => {
     const names = 'export const NAMES: readonly string[] = ["a", "b"];\n';
     const taker = 'import type { Mut } from "@strict-ts/std";\nimport { NAMES } from "./names.js";\ntype Meta = { readonly names: Mut<string[]>; count: Mut<number> };\nconst grow = (meta: Mut<Meta>): void => {\n  meta.names.push("c");\n  meta.count += 1;\n};\nexport function make(): number {\n  const meta = { names: [...NAMES], count: 0 };\n  grow(meta);\n  return meta.count;\n}\n';
-    expect(checkFiles({ 'src/names.ts': names, 'src/a.ts': taker }).filter((d) => d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')).toEqual([]);
+    expect(checkEverything({ 'src/names.ts': names, 'src/a.ts': taker }).filter((d) => d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')).toEqual([]);
   });
 });
 
