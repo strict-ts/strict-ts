@@ -818,7 +818,9 @@ export function createTypeScript6Provider(
       let holder: ts.Node = declaration;
       let as: Alias['as'] = 'same';
       while (api.isBindingElement(holder) || api.isObjectBindingPattern(holder) || api.isArrayBindingPattern(holder)) {
-        if (api.isBindingElement(holder)) as = holder.dotDotDotToken !== undefined && as === 'same' ? 'copy' : api.isArrayBindingPattern(holder.parent) ? 'element' : 'part';
+        // A name a pattern reads out of a table (`Record<string, T>`) is one of the things the table holds.
+        const outOfTable = api.isBindingElement(holder) && api.isObjectBindingPattern(holder.parent) && checker.getIndexInfoOfType(checker.getTypeAtLocation(holder.parent), api.IndexKind.String) !== undefined;
+        if (api.isBindingElement(holder)) as = holder.dotDotDotToken !== undefined && as === 'same' ? 'copy' : api.isArrayBindingPattern(holder.parent) || outOfTable ? 'element' : 'part';
         holder = holder.parent;
       }
       if (!api.isVariableDeclaration(holder)) return [];
@@ -831,13 +833,13 @@ export function createTypeScript6Provider(
     };
 
     /** What the return type of the function a call runs says of what the collection it gives holds. */
-    const resultElements = (call: ts.CallExpression): 'writable' | 'readonly' | 'unknown' => {
+    const resultElements = (call: ts.CallExpression): readonly ('writable' | 'readonly' | 'unknown')[] => {
       const declaration = checker.getResolvedSignature(call)?.getDeclaration();
-      if (declaration === undefined || !isChecked(declaration.getSourceFile()) || declaration.type === undefined) return 'unknown';
+      if (declaration === undefined || !isChecked(declaration.getSourceFile()) || declaration.type === undefined) return ['unknown'];
       // `Promise<readonly Mut<Line>[]>`: what is awaited.
       const written = declaration.type;
       const promised = api.isTypeReferenceNode(written) && api.isIdentifier(written.typeName) && written.typeName.text === 'Promise' ? written.typeArguments?.[0] : undefined;
-      return elementsOf(promised ?? written);
+      return elementsDeepOf(promised ?? written);
     };
 
     /** The members a method of a class stands for under the types the class extends or implements. */
@@ -979,12 +981,12 @@ export function createTypeScript6Provider(
       }
       if (api.isStringLiteralLike(node)) return { ...base, kind: 'string-literal', text: node.text };
       if (api.isCallExpression(node)) {
-        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part), hasSpread: node.arguments.some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same').filter((alias) => alias.as !== 'result'); }, get elements() { return resultElements(node); } };
+        return { ...base, kind: 'call', callee: part(node.expression), arguments: node.arguments.map(part), hasSpread: node.arguments.some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same').filter((alias) => alias.as !== 'result'); }, get elements() { return resultElements(node)[0] ?? 'unknown'; }, get elementsDeep() { return resultElements(node); } };
       }
       if (api.isTaggedTemplateExpression(node)) {
         const template = node.template;
         const substitutions = api.isTemplateExpression(template) ? template.templateSpans.map((span) => part(span.expression)) : [];
-        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions], hasSpread: false, madeFrom: [], elements: 'unknown' };
+        return { ...base, kind: 'call', callee: part(node.tag), arguments: [part(template), ...substitutions], hasSpread: false, madeFrom: [], elements: 'unknown', elementsDeep: [] };
       }
       if (api.isTemplateExpression(node) && !api.isTaggedTemplateExpression(node.parent)) {
         return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
@@ -1016,6 +1018,9 @@ export function createTypeScript6Provider(
           },
           get elementsDeep() {
             return elementsDeepOf(declaredType(checker.getSymbolAtLocation(node.name)));
+          },
+          get byIndex() {
+            return checker.getSymbolAtLocation(node.name) === undefined && checker.getIndexInfoOfType(checker.getNonNullableType(checker.getTypeAtLocation(node.expression)), api.IndexKind.String) !== undefined;
           },
           get fromModule() {
             const declaration = checker.getSymbolAtLocation(node.name)?.valueDeclaration;

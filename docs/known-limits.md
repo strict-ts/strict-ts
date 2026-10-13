@@ -20,13 +20,13 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- **Explicit mutability is a list of known ways too.** Of 73 known ways to change what a function did not make and
-  that does not say `Mut`, the rules refuse 72. The last is outside the guarantee: whoever made a value may change
+- **Explicit mutability is a list of known ways too.** Of 74 known ways to change what a function did not make and
+  that does not say `Mut`, the rules refuse 73. The last is outside the guarantee: whoever made a value may change
   it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
   list.push(2)`). That is aliasing, which Rust refuses with its borrow checker and strict-ts does not. Each is a
-  file of `packages/core/test/fixtures/mutations`. Ten rounds found them: the third twelve more after an
-  application had already been made to pass, then eight, nine, eight, nine, six, six and four more, each a few
-  hours after the one before. No round has yet found nothing: this list is younger than the two above, and still moving.
+  file of `packages/core/test/fixtures/mutations`. Eleven rounds found them: the third twelve more after an
+  application had already been made to pass, then eight, nine, eight, nine, six, six, four and three more, each
+  a few hours after the one before. No round has yet found nothing: this list is younger than the two above, and still moving.
 - **What a function of the library gives back is taken to be, perhaps, what it was given.** `Promise.resolve(value)`,
   `Array.of(value)`, `weak.deref()` hand back their argument or a part of it, and no type says so. So what such a
   call gives is followed back to everything it was given, unless it is a number or a text, a new list of them, or
