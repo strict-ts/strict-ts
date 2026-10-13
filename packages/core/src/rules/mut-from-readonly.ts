@@ -52,22 +52,27 @@ const thawed = (given: Type, wanted: Type, depth = 0): readonly string[] => {
  * Where a function of `given` says more of `Mut<…>` than the one `wanted` has in the same place: the path to it,
  * `''` for the value itself. Looked for in the value, in what a list of it holds, and in its properties.
  */
-const louder = (given: Type, wanted: Type, depth = 0): string | undefined => {
-  if (depth > DEPTH || given.text === wanted.text) return undefined;
-  // Only a function type the project wrote says something by saying nothing.
+const louder = (given: Type, wanted: Type, depth = 0, returns = true): string | undefined => {
+  if (depth > DEPTH) return undefined;
+  // Only a function type the project wrote says something by saying nothing. Two function types read the same
+  // as text whether they say `Mut<…>` or not: they are compared before the texts are.
   // `Quiet | undefined`: the function among them.
   const functions = wanted.returns.length > 0 ? [wanted] : wanted.members.filter((member) => member.returns.length > 0);
   if (functions.length > 0 && given.returns.length > 0) {
     const more = (one: Type): boolean => given.mutableParameters.some((index) => !one.mutableParameters.includes(index)) || (given.mutableReceiver !== undefined && one.mutableReceiver === undefined);
-    return functions.some((one) => one.isWrittenInProject && more(one)) ? '' : undefined;
+    // And it hands out something to change only if it says so: one that does not is not given where one that
+    // does is asked.
+    const less = (one: Type): boolean => returns && one.mutableReturn && !given.mutableReturn;
+    return functions.some((one) => one.isWrittenInProject && (more(one) || less(one))) ? '' : undefined;
   }
+  if (given.text === wanted.text) return undefined;
   const held = given.element;
   const asked = wanted.element;
-  if (held !== undefined && asked !== undefined) return louder(held, asked, depth + 1) === undefined ? undefined : '[…]';
+  if (held !== undefined && asked !== undefined) return louder(held, asked, depth + 1, returns) === undefined ? undefined : '[…]';
   for (const name of wanted.propertyNames) {
     const inner = given.property(name);
     const outer = wanted.property(name);
-    if (inner !== undefined && outer !== undefined && louder(inner, outer, depth + 1) !== undefined) return name;
+    if (inner !== undefined && outer !== undefined && louder(inner, outer, depth + 1, returns) !== undefined) return name;
   }
   return undefined;
 };
@@ -248,12 +253,13 @@ export const mutFromReadonly: Rule = {
     // An object given under a type whose members say less of `Mut<…>` than its own: a method that says
     // `this: Mut<…>` where the type asked says none, a parameter that asks for it where the type asked does not.
     // Who holds it under that type calls them with what was not theirs to change.
-    if (wanted !== undefined && node.kind !== 'function' && typeOf(node).text !== wanted.text) {
-      const where = louder(typeOf(node), wanted);
+    if (wanted !== undefined && node.kind !== 'function' && (typeOf(node).text !== wanted.text || typeOf(node).returns.length > 0)) {
+      // What a function written in place gives back is looked at where it gives it.
+      const where = louder(typeOf(node), wanted, 0, node.kind !== 'literal');
       if (where !== undefined) {
         report(
           node,
-          `${where === '' ? 'What is given' : `\`${where}\` of what is given`} is a function that says \`Mut<…>\` of its object or of a parameter, and the type it is given under says a function that does not: called through that type, it changes what its caller was told cannot change.`,
+          `${where === '' ? 'What is given' : `\`${where}\` of what is given`} is a function that does not say of \`Mut<…>\` what the function of the type it is given under says: it writes its object or a parameter where that one does not, or hands out without \`Mut<…>\` what that one hands out to be changed.`,
           'Say `Mut<…>` in the type that is asked for too; or give a function that does not write.',
         );
         return;

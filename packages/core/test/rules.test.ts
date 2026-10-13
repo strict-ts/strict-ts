@@ -2668,6 +2668,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('export function draw(ctx: Mut<CanvasRenderingContext2D>): void {', '  ctx.save();', '  ctx.fillRect(0, 0, 1, 1);', '  ctx.restore();', '}')).toEqual([]);
   });
 
+  test('a function written in place that makes what it hands out, where one that says `Mut<…>` in its return type is asked', () => {
+    expect(found('type Opens = { readonly open: () => Mut<Cart> };', 'export function make(): number {', '  const get: () => Mut<Cart> = () => ({ total: 1 });', '  const shop: Opens = { open: () => ({ total: 2 }) };', '  get().total += 1;', '  shop.open().total += 1;', '  return 0;', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });
@@ -2688,6 +2692,12 @@ describe('explicit mutability: what another module made', () => {
     const slot = 'import type { Mut } from "@strict-ts/std";\nexport type Cart = { total: Mut<number> };\nexport const slot: Mut<{ cart: Cart | undefined }> = { cart: undefined };\n';
     const user = 'import { slot, type Cart } from "./slot.js";\nexport function hold(cart: Cart): void {\n  slot.cart = cart;\n}\nexport function zero(): void {\n  if (slot.cart !== undefined) slot.cart.total = 0;\n}\n';
     expect(checkEverything({ 'src/slot.ts': slot, 'src/a.ts': user }).filter((d) => d.file === 'src/a.ts' && (d.rule === 'no-param-mutation' || d.rule === 'mut-from-readonly')).map((d) => `${d.rule}:${d.start.line}`)).toEqual(['mut-from-readonly:3']);
+  });
+
+  test('reached through a namespace, or as a static field of its class, it is still that module\'s', () => {
+    const state = 'export const settings = { level: 1 };\nexport class Shop {\n  static shared = { total: 0 };\n  static bump(): void {\n    Shop.shared.total += 1;\n  }\n}\n';
+    const user = 'import * as state from "./state.js";\nimport { Shop } from "./state.js";\nexport function a(): void {\n  state.settings.level = 2;\n}\nexport function b(): void {\n  Shop.shared.total = 1;\n}\n';
+    expect(checkEverything({ 'src/state.ts': state, 'src/a.ts': user }).filter((d) => d.rule === 'no-param-mutation').map((d) => `${d.file}:${d.start.line}`)).toEqual(['src/a.ts:4', 'src/a.ts:7']);
   });
 
   test('a new list of its texts is nobody else\'s', () => {

@@ -196,6 +196,13 @@ export type Node = NodeBase &
          * property of a library, of an object written in place, or one that is not declared as a property.
          */
         readonly holds: 'writable' | 'readonly' | 'unknown';
+        /**
+         * For a value another file of the project made, reached as a property: of a namespace (`import * as state`)
+         * or of a class (`Shop.shared`, a static field). Whether its declaration says `Mut<…>`; absent otherwise.
+         */
+        readonly fromModule: 'mutable' | 'readonly' | undefined;
+        /** For a field declared with no type: the places whose content the value it is declared with shares. */
+        readonly madeFrom: readonly Alias[];
         /** The same question as `elements` of a name, for a field that is a list, a map or a set. */
         readonly elements: 'writable' | 'readonly' | 'unknown';
         /** For a getter written in the project: the file it is written in, as diagnostics show it. */

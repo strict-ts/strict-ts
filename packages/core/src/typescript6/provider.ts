@@ -984,6 +984,18 @@ export function createTypeScript6Provider(
           get elements() {
             return elementsOf(declaredType(checker.getSymbolAtLocation(node.name)));
           },
+          get fromModule() {
+            const declaration = checker.getSymbolAtLocation(node.name)?.valueDeclaration;
+            if (declaration === undefined || !isChecked(declaration.getSourceFile()) || declaration.getSourceFile() === node.getSourceFile()) return undefined;
+            const isStatic = api.isPropertyDeclaration(declaration) && (api.getCombinedModifierFlags(declaration) & api.ModifierFlags.Static) !== 0;
+            if (!api.isVariableDeclaration(declaration) && !isStatic) return undefined;
+            return mentionsMut(declaration.type) ? 'mutable' : 'readonly';
+          },
+          get madeFrom() {
+            const declaration = checker.getSymbolAtLocation(node.name)?.valueDeclaration;
+            if (declaration === undefined || !api.isPropertyDeclaration(declaration) || !isChecked(declaration.getSourceFile()) || declaration.type !== undefined || declaration.initializer === undefined) return [];
+            return sourcesOf(declaration.initializer, 'same');
+          },
           get holds() {
             for (const declaration of checker.getSymbolAtLocation(node.name)?.declarations ?? []) {
               if (!isChecked(declaration.getSourceFile())) continue;
@@ -1314,7 +1326,11 @@ export function createTypeScript6Provider(
     if (api.isReturnStatement(holder) || (api.isArrowFunction(holder) && holder.body === place)) {
       let owner: ts.Node | undefined = holder;
       while (owner !== undefined && !api.isFunctionLike(owner)) owner = owner.parent;
-      return owner !== undefined && api.isFunctionLike(owner) ? owner.type : undefined;
+      if (owner === undefined || !api.isFunctionLike(owner)) return undefined;
+      if (owner.type !== undefined) return owner.type;
+      // A function written in place with no return type gives what the place it is written in says it gives.
+      const asked = api.isArrowFunction(owner) || api.isFunctionExpression(owner) ? checker.getContextualType(owner)?.getCallSignatures()[0]?.getDeclaration() : undefined;
+      return asked !== undefined && isChecked(asked.getSourceFile()) ? asked.type : undefined;
     }
     // `yield value` in a generator: what its return type says it gives, the first of the types it is given.
     if (api.isYieldExpression(holder)) {

@@ -141,6 +141,12 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m66-a-part-of-a-type-given-types.ts')).toEqual(['no-param-mutation']);
   }, 180_000);
 
+  test('the eighth round: what a function says it hands out, and a field with no written type', () => {
+    expect(refusedBy('m67-a-quieter-return.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m68-returned-by-an-arrow-in-place.ts')).toEqual(['mut-from-readonly']);
+    expect(refusedBy('m69-field-made-around-a-part.ts')).toContain('no-param-mutation');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

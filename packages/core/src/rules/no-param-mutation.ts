@@ -102,11 +102,31 @@ export const ownerOf = (
   // What a call gave, written with no name for it.
   if (root.kind === 'call' && !gives(root)) return { kind: 'giver', call: root };
   /**
+   * What the path to the object goes through that is someone else's: a value another module made, reached as a
+   * property of a namespace or of a class; a field declared with no type, made around something that is not the
+   * object's own. `under` counts the steps from there down to the object.
+   */
+  const alongTheWay = (node: Node, under: number): Owner | undefined => {
+    if (node.kind === 'element-access') return alongTheWay(node.object, under + 1);
+    if (node.kind !== 'property-access') return undefined;
+    const above = alongTheWay(node.object, under + 1);
+    if (above !== undefined) return above;
+    if (node.fromModule === 'readonly') return { kind: 'module', name: node.name };
+    for (const alias of node.madeFrom) {
+      if (isCopied(alias.place) || (alias.as === 'copy' && (under === 0 || isListOfCopies(alias.place)))) continue;
+      const found = ownerOf(alias.place, gives, isCopied, depth + 1, under + below, isListOfCopies);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  /**
    * On the way down from a root that may be written: to write into what a field holds, the field says so, and to
    * write into what a list holds, the list says so inside its `Mut<…>`. What they were given then had to be
    * something to change. Asked last: whose the object is says more, when it is someone's.
    */
   const closed = (): Owner | undefined => {
+    const reached = depth > DEPTH ? undefined : alongTheWay(object, 0);
+    if (reached !== undefined) return reached;
     const field = closedField(object);
     if (field !== undefined) return { kind: 'field', name: field };
     const list = closedList(object);
