@@ -1,6 +1,6 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
-import { MAKERS } from './mut-fresh.js';
+import { mayBeWritten } from './mutable.js';
 
 const isAssignment = (operator: string): boolean => operator.endsWith('=') && !['==', '===', '!=', '!==', '<=', '>='].includes(operator);
 
@@ -47,27 +47,7 @@ export const noParamMutation: Rule = {
     'What is changed is typed `Mut<…>`: the object a property is assigned in or deleted from, the list an element is written in, the object a method of the platform changes, the first argument of a function of the platform that writes into it. Each step says so: under `order: Mut<Order>`, `order.cart.total = 0` asks that `cart` be declared `Mut<Cart>`. `this` is the object being made in a constructor, a setter and the value a field starts with; a part of a thing of the platform that says `Mut<…>` may be written, and so may what the platform holds for everyone (`document`, `process`).',
   scope: 'safe',
   visit(node, { typeOf, report }) {
-    /** Whether the object may be written through, by what its type says. */
-    const writable = (object: Node, depth = 0): boolean => {
-      if (typeOf(object).isMut) return true;
-      // The object being made: nobody else holds it yet.
-      if (object.kind === 'this') return object.receiver === 'mutable';
-      // What the platform itself holds for everyone (`document`, `process`, `localStorage`): nobody gave it.
-      if (object.kind === 'identifier' && object.declaredOutside) return true;
-      if (depth > 8) return false;
-      // Written in place, or just made by a function of the platform that makes something new: `[...list].sort()`,
-      // `list.slice().reverse()`. It has no name yet, and nobody else holds it.
-      if (object.kind === 'literal' || object.kind === 'new') return true;
-      if (object.kind === 'call' && !typeOf(object.callee).isImplemented && !typeOf(object.callee).isWrittenInProject) {
-        const made = object.callee.kind === 'property-access' ? object.callee.name : object.callee.kind === 'identifier' ? object.callee.text : '';
-        if (MAKERS.has(made)) return true;
-      }
-      // `element.style.color`: the types of the platform cannot say `Mut<…>` inside, and its parts go with it.
-      if (object.kind === 'property-access' && object.ofPlatform) return writable(object.object, depth + 1);
-      // Parentheses, `!`, `satisfies`: the one thing written inside.
-      const seen = ['sequence', 'other', 'as'].includes(object.kind) ? object.children[0] : undefined;
-      return seen !== undefined && writable(seen, depth + 1);
-    };
+    const writable = (object: Node): boolean => mayBeWritten(object, typeOf);
     const named = (object: Node): string => (object.kind === 'identifier' ? `\`${object.text}\`` : object.kind === 'this' ? '`this`' : object.kind === 'property-access' ? `\`${object.name}\`` : 'This');
     const refuse = (at: Node, object: Node, how: string): boolean => {
       if (writable(object)) return false;
@@ -123,6 +103,11 @@ export const noParamMutation: Rule = {
       return;
     }
     // A method the project wrote says itself whether it writes its object, and the compiler asks it of the call.
+    // Not of `super.method()`, where it asks nothing: the object is this one.
+    if (object.kind === 'this' && typeOf(node.callee).mutableReceiver !== undefined) {
+      refuse(node, object, ` by \`${name}\`, which says \`this: Mut<…>\``);
+      return;
+    }
     if (typeOf(node.callee).isImplemented) return;
     if (!changes(name)) return;
     // A text or a number has no method that changes it.

@@ -1,6 +1,8 @@
 import type { Type } from '../provider.js';
 import type { Rule } from '../rule.js';
+import { mayBeWritten } from './mutable.js';
 
+const PLAIN: readonly string[] = ['string', 'number', 'bigint', 'boolean', 'symbol', 'undefined', 'null'];
 /** How deep the properties of a type are compared. */
 const DEPTH = 3;
 
@@ -58,7 +60,7 @@ export const mutFromReadonly: Rule = {
   description:
     'A method says no more of `Mut<…>` than the member it stands for: not `this: Mut<…>`, nor `Mut<…>` of a parameter, where the class it extends or the interface it implements does not; nor is an object given under a type whose methods say less. A method the language calls by itself (a loop, a conversion to text or to JSON, `await`) does not say `this: Mut<…>`. The compiler compares the parameters of methods both ways, and calls those of the language on whatever it is given.',
   scope: 'safe',
-  visit(node, { typeOf, expectedOf, report }) {
+  visit(node, { typeOf, expectedOf, calleeOf, report }, parent) {
     // A method the language calls by itself runs on whatever is looped over, converted or awaited: nobody gave
     // it something to change.
     if (node.kind === 'function' && node.isProtocol && typeOf(node).mutableReceiver !== undefined) {
@@ -78,6 +80,14 @@ export const mutFromReadonly: Rule = {
           report(node, `Parameter ${more + 1} of \`${node.name ?? ''}\` asks for \`Mut<…>\`, and the member it stands for in a type its class extends or implements does not: called through that type, it is given what its caller was told cannot change.`, 'Ask for `Mut<…>` on the member there too; or do not write into the parameter here.');
           break;
         }
+      }
+    }
+    // A function that says `this: Mut<…>`, given to a function of the platform with its object after it
+    // (`forEach(f, thisArg)`): the library types that object loosely, and the compiler asks nothing.
+    if (parent?.kind === 'call' && parent.arguments.includes(node) && calleeOf(parent) !== undefined && calleeOf(parent)?.origin.kind !== 'project' && typeOf(node).mutableReceiver !== undefined) {
+      const others = parent.arguments.filter((argument) => argument !== node && argument.kind !== 'function');
+      if (others.some((other) => !typeOf(other).kinds.every((kind) => PLAIN.includes(kind)) && !mayBeWritten(other, typeOf))) {
+        report(node, 'A function that says `this: Mut<…>` is given to a function of the platform with, as its object, something that is not typed `Mut<…>`.', 'Give it an object typed `Mut<…>`; or a function that does not write its object.');
       }
     }
     // An object given under a type whose methods say less of `Mut<…>` than its own.

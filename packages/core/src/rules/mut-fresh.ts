@@ -1,17 +1,7 @@
 import type { Rule } from '../rule.js';
 import type { Node } from '../syntax.js';
+import { isViewOf, MAKERS, mayBeWritten } from './mutable.js';
 
-/**
- * The functions of the platform that make something new: a new list or map of the same things, a copy, a thing of
- * the page that did not exist. The mark of `Mut<…>` is one level, so a new container is safe to mark whatever it
- * holds: what it holds says `Mut<…>` for itself, or is read.
- */
-export const MAKERS = new Set([
-  'slice', 'map', 'filter', 'concat', 'flat', 'flatMap', 'toSorted', 'toReversed', 'toSpliced', 'with', 'from', 'of', 'fromEntries', 'entries', 'keys', 'values', 'groupBy',
-  'structuredClone', 'parse', 'split', 'match', 'matchAll', 'subarray',
-  'createElement', 'createElementNS', 'createTextNode', 'createDocumentFragment', 'cloneNode', 'getImageData', 'createImageData', 'getBoundingClientRect',
-  'createRadialGradient', 'createLinearGradient', 'createPattern',
-]);
 
 /**
  * `mut(…)` says of something that it may be changed, and the compiler believes it. So it is given only what was
@@ -31,6 +21,8 @@ export const mutFresh: Rule = {
     const isGlobal = (named: Node): boolean => named.kind === 'identifier' && (named.declaredOutside || named.text === 'globalThis');
     const fresh = (value: Node, depth = 0): boolean => {
       if (depth > 6) return false;
+      // A view over bytes that exist is theirs: it is marked when they are.
+      if (isViewOf(value, typeOf)) return value.kind === 'new' && value.arguments[0] !== undefined && mayBeWritten(value.arguments[0], typeOf);
       if (value.kind === 'literal' || value.kind === 'new' || value.kind === 'function') return true;
       // Already something to change: saying it again changes nothing.
       if (typeOf(value).isMut) return true;
