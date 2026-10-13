@@ -527,7 +527,10 @@ export function createTypeScript6Provider(
         return signature.getParameters().map((parameter) => wrapType(checker.getTypeOfSymbolAtLocation(parameter, declaration)));
       },
       get mutableParameters() {
-        const declaration = type.getCallSignatures()[0]?.getDeclaration();
+        // One of several functions: what any of them asks, since any of them may be the one that runs.
+        if (type.isUnion()) return [...new Set(type.types.flatMap((member) => wrapType(member).mutableParameters))];
+        // Of a class, what its constructor asks.
+        const declaration = (type.getCallSignatures()[0] ?? type.getConstructSignatures()[0])?.getDeclaration();
         const written = (declaration?.parameters ?? []).filter((parameter) => !isThis(parameter));
         // `Mut<Cart>`, a name the project gives to one, `Mut<Cart> | undefined`, `readonly Mut<Cart>[]`.
         return written.flatMap((parameter, index) => (mentionsMut(parameter.type) ? [index] : []));
@@ -557,6 +560,7 @@ export function createTypeScript6Provider(
         return written !== undefined && (says(written) || mentionsMut(written));
       },
       get mutableReceiver() {
+        if (type.isUnion()) return type.types.flatMap((member) => wrapType(member).mutableReceiver ?? [])[0];
         const self = type.getCallSignatures()[0]?.getDeclaration()?.parameters.find(isThis);
         return self?.type !== undefined && isMut(self.type) ? wrapType(checker.getTypeFromTypeNode(self.type)) : undefined;
       },
@@ -691,7 +695,9 @@ export function createTypeScript6Provider(
           const [first] = expression.arguments;
           // `Object.values(place)`, `Array.from(place)`: asked first, `Object` and `Array` hold nothing themselves.
           if (first !== undefined && api.isIdentifier(holder) && ((holder.text === 'Object' && ['values', 'entries'].includes(name)) || (holder.text === 'Array' && name === 'from'))) {
-            return sourcesOf(first, under('copy'), levels);
+            // `Array.from(place, each)` holds what `each` hands back, as `map` does.
+            const [, each] = expression.arguments;
+            return [...sourcesOf(first, under('copy'), levels), ...(each === undefined || holder.text !== 'Array' ? [] : handedBack(each, under('copy'), levels - 1))];
           }
           // What a method of a place gives back may be a part of it, or a new container of what it holds.
           // One of the things it holds; one level further in when what is asked is already one of the things of the result.
@@ -705,7 +711,10 @@ export function createTypeScript6Provider(
             // `(cart) => [cart]` nor `(cart) => ({ cart })`, which are new wrappers of the same things.
             const makes = each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body) && !keeps(each.body);
             // `flatMap` whose function gives a list that is not written in place gives what that list holds.
-            return makes ? [] : sourcesOf(callee.expression, under('copy'), levels + (name === 'flatMap' && !(each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body)) ? 1 : 0));
+            if (makes) return [];
+            // What the function hands back, which need not be what it was given: `() => other`.
+            const back = each === undefined ? [] : handedBack(each, under('copy'), levels - 1);
+            return [...sourcesOf(callee.expression, under('copy'), levels + (name === 'flatMap' && !(each !== undefined && api.isArrowFunction(each) && !api.isBlock(each.body) && isMadeInPlace(each.body)) ? 1 : 0)), ...back];
           }
         }
         // `list[Symbol.iterator]()`: a new thing that goes through what the list holds, as `values()` is.
@@ -739,6 +748,22 @@ export function createTypeScript6Provider(
         return given.flatMap((one) => (isPlainValue(checker.getTypeAtLocation(one)) || api.isFunctionLike(one) ? [] : sourcesOf(one, as === 'copy' ? 'copy' : holds(one) ? 'element' : 'part', levels)));
       }
       return [];
+    };
+    /** What a function written in place hands back, other than its own parameters: the places it shares. */
+    const handedBack = (each: ts.Expression, as: Alias['as'], levels: number): readonly Alias[] => {
+      if (!api.isArrowFunction(each) && !api.isFunctionExpression(each)) return [];
+      const own = new Set(each.parameters.flatMap((parameter) => (api.isIdentifier(parameter.name) ? [checker.getSymbolAtLocation(parameter.name)] : [])));
+      const values: Mut<ts.Expression[]> = [];
+      if (!api.isBlock(each.body)) values.push(each.body);
+      const look = (inner: ts.Node): void => {
+        if (api.isFunctionLike(inner)) return;
+        if (api.isReturnStatement(inner) && inner.expression !== undefined) values.push(inner.expression);
+        api.forEachChild(inner, look);
+      };
+      if (api.isBlock(each.body)) look(each.body);
+      // What it was given is what the list holds already: followed there.
+      const isOwn = (value: ts.Expression): boolean => api.isIdentifier(value) && own.has(checker.getSymbolAtLocation(value));
+      return values.filter((value) => !isOwn(value) && !isPlainValue(checker.getTypeAtLocation(value))).flatMap((value) => sourcesOf(value, as, levels));
     };
     /** Whether something written in place holds anything but numbers, texts and other things written in place. */
     const keeps = (written: ts.Node): boolean => {
@@ -1188,7 +1213,7 @@ export function createTypeScript6Provider(
         const isDeclared =
           api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
         const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
-        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined, isProtocol: node.name !== undefined && ((api.isComputedPropertyName(node.name) && api.isPropertyAccessExpression(node.name.expression) && api.isIdentifier(node.name.expression.expression) && node.name.expression.expression.text === 'Symbol') || ((api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) && PROTOCOLS.includes(node.name.text))), get overridden() { return overriddenBy(node); } };
+        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined, isSentMut: node.type !== undefined && api.isTypeReferenceNode(node.type) && api.isIdentifier(node.type.typeName) && ['Generator', 'AsyncGenerator'].includes(node.type.typeName.text) && mentionsMut(node.type.typeArguments?.[2]), isProtocol: node.name !== undefined && ((api.isComputedPropertyName(node.name) && api.isPropertyAccessExpression(node.name.expression) && api.isIdentifier(node.name.expression.expression) && node.name.expression.expression.text === 'Symbol') || ((api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) && PROTOCOLS.includes(node.name.text))), get overridden() { return overriddenBy(node); } };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

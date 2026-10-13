@@ -133,6 +133,8 @@ export type Node = NodeBase &
          * `toJSON`, `then`. A loop, a template, `JSON.stringify` or `await` runs it on whatever object it is given.
          */
         readonly isProtocol: boolean;
+        /** A generator whose return type says `Mut<…>` of what it is sent by `next(value)`: the third type it is given. */
+        readonly isSentMut: boolean;
         /**
          * For a method of a class: what the members of the same name say of `Mut<…>` in the classes it extends and
          * the interfaces it implements. A caller that holds the object under one of those types sees only that.

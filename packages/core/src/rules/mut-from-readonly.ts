@@ -109,6 +109,18 @@ export const mutFromReadonly: Rule = {
   scope: 'safe',
   visit(node, { typeOf, expectedOf, asksForMutation, asksForMutationInside, calleeOf, report }, parent) {
     // As no-param-mutation asks it: a function of the project hands out something to write only if it says so.
+    // Two functions that differ only by `Mut<…>` are one type for the compiler: the names are followed instead,
+    // to each function the one that is called may be.
+    const candidates = (callee: Node, depth: number): readonly Node[] => {
+      if (depth > 4) return [];
+      if (callee.kind === 'conditional') return [...candidates(callee.whenTrue, depth + 1), ...candidates(callee.whenFalse, depth + 1)];
+      if (callee.kind === 'binary' && ['??', '||', '&&', ','].includes(callee.operator)) return [...candidates(callee.left, depth + 1), ...candidates(callee.right, depth + 1)];
+      if (callee.kind === 'identifier') return [callee, ...callee.aliasOf.flatMap((alias) => candidates(alias.place, depth + 1))];
+      if (callee.kind === 'literal' || callee.kind === 'new') return callee.madeFrom.flatMap((alias) => candidates(alias.place, depth + 1));
+      if (callee.kind === 'call') return [callee, ...callee.madeFrom.flatMap((alias) => candidates(alias.place, depth + 1))];
+      if (callee.kind === 'element-access') return [callee, ...candidates(callee.object, depth + 1)];
+      return callee.children.length === 1 ? candidates(callee.children[0] ?? callee, depth + 1) : [callee];
+    };
     const plain = (named: Node): boolean => typeOf(named).element !== undefined && isCopied(typeOf(named).element ?? typeOf(named));
     const gives = (call: Node): boolean => {
       if (call.kind !== 'call') return true;
@@ -202,8 +214,31 @@ export const mutFromReadonly: Rule = {
         report(node, `A function that asks for \`Mut<…>\` is given, by \`${node.callee.name}\`, what this function may not change.`, HELP);
       }
     }
-    // `zero(...list)`: what the list holds is given where `Mut<…>` may be asked.
-    if (node.kind === 'call' && node.hasSpread && typeOf(node.callee).mutableParameters.length > 0) {
+    // A function that makes no written promise of what it hands back, and hands back one of several functions,
+    // one of which asks for `Mut<…>`: its caller sees a type that says nothing of it.
+    const handsBack = parent?.kind === 'return' || (parent?.kind === 'function' && parent.body === node);
+    if (handsBack && node.kind !== 'function' && expectedOf(node) === undefined && typeOf(node).returns.length > 0) {
+      const all = candidates(node, 0);
+      // Even when it is the only one here: another `return` may hand back one that says nothing.
+      if (all.some((one) => typeOf(one).mutableParameters.length > 0 || typeOf(one).mutableReceiver !== undefined)) {
+        report(node, 'A function that asks for `Mut<…>` is handed back by a function with no written return type: two functions that differ only by `Mut<…>` are one type for the compiler, and a caller may see the one that says nothing.', 'Write the return type, with `Mut<…>` on the parameter; or hand back functions that say the same.');
+      }
+    }
+    // What a generator is sent by `next(value)` is given from wherever it is called, and nothing there says so.
+    if (node.kind === 'function' && node.isSentMut) {
+      report(node, 'A generator says `Mut<…>` of what it is sent: `next(value)` is a function of the library, and gives it whatever it is given.', 'Take what is to be changed as a parameter of the generator, typed `Mut<…>`; or change a copy.');
+    }
+    // One of several functions, chosen when it runs: an argument one of them may write is asked like any other.
+    if (node.kind === 'call' && !node.hasSpread && node.callee.kind !== 'property-access') {
+      const copied = (named: Node): boolean => isCopied(typeOf(named));
+      const asked = [...new Set(candidates(node.callee, 0).flatMap((one) => typeOf(one).mutableParameters))];
+      const loose = asked.flatMap((index) => node.arguments[index] ?? []).filter((given) => !asksForMutation(given));
+      if (loose.some((given) => ownerOf(given, gives, copied, 0, 0, plain) !== undefined)) {
+        report(node, 'What is called is one of several functions, and one of them asks for `Mut<…>` of an argument that this function may not change.', HELP);
+      }
+    }
+    // `zero(...list)`, `new Holder(...list)`: what the list holds is given where `Mut<…>` may be asked.
+    if ((node.kind === 'call' || node.kind === 'new') && node.hasSpread && typeOf(node.callee).mutableParameters.length > 0) {
       const copied = (named: Node): boolean => isCopied(typeOf(named));
       // What is spread is the one thing written under `...`.
       const spread = (one: Node): Node => (HELD.includes(one.kind) ? one : (one.children[0] ?? one));

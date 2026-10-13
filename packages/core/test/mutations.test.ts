@@ -167,6 +167,14 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m76-several-levels-in-one-step.ts')).toEqual(['no-param-mutation']);
   }, 180_000);
 
+  test('the thirteenth round: one of several functions, a generator that is sent things, a constructor, a mapper', () => {
+    expect(refusedBy('m77-one-of-several-functions.ts')).toContain('mut-from-readonly');
+    expect(refusedBy('m78-sent-to-a-generator.ts')).toContain('mut-from-readonly');
+    const both = refusedBy('m79-a-constructor-and-a-mapper.ts');
+    expect(both).toContain('mut-from-readonly');
+    expect(both).toContain('no-param-mutation');
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

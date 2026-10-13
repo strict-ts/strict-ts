@@ -20,19 +20,24 @@ strict-ts refuses when it is not sure, but these are accepted today although the
   where a locale or a flag of a regular expression is missing.
 - The reading of the specification still holds three short lists that are a judgement: the operations taken to run
   the caller's own code (a callback, a getter), the checks of the receiver's class, the sizes no machine holds.
-- **Explicit mutability is a list of known ways too.** Of 75 known ways to change what a function did not make and
-  that does not say `Mut`, the rules refuse 74. The last is outside the guarantee: whoever made a value may change
+- **Explicit mutability is a list of known ways too.** Of 78 known ways to change what a function did not make and
+  that does not say `Mut`, the rules refuse 77. The last is outside the guarantee: whoever made a value may change
   it while someone else reads it as read-only (`const list = [1]; const view: readonly number[] = list;
   list.push(2)`). That is aliasing, which Rust refuses with its borrow checker and strict-ts does not. Each is a
-  file of `packages/core/test/fixtures/mutations`. Twelve rounds found them: the third twelve more after an
-  application had already been made to pass, then eight, nine, eight, nine, six, six, four, three and six more,
-  each a few hours after the one before. No round has yet found nothing: this list is younger than the two above, and still moving.
+  file of `packages/core/test/fixtures/mutations`. Thirteen rounds found them: the third twelve more after an
+  application had already been made to pass, then eight, nine, eight, nine, six, six, four, three, six and six
+  more, each a few hours after the one before. No round has yet found nothing: this list is younger than the two above, and still moving.
 - **What a function of the library gives back is taken to be, perhaps, what it was given.** `Promise.resolve(value)`,
   `Array.of(value)`, `weak.deref()` hand back their argument or a part of it, and no type says so. So what such a
   call gives is followed back to everything it was given, unless it is a number or a text, a new list of them, or
   one of a short list of functions known to make something new (`structuredClone`, `JSON.parse`, `Object.keys`,
   `createElement`, …). That list is a judgement. The other way round, code that changes what a library function
   made out of a parameter is refused though it is right: `carts.reduce(…)` into an accumulator, then written.
+- **`Mut<T>` is `T` for the compiler**, so two functions that differ only by `Mut<…>` are one type, and where the
+  compiler merges them (a choice between two, a list of them, a function with no written return type that hands
+  one back) it keeps one of the two at random. The rules follow the names to each function instead of the type,
+  and ask for a written return type where a function hands one back. A way to merge them that is not followed
+  would go unseen.
 - **Which methods of the platform change their object is a list of names**: those of arrays, maps and sets, of
   the nodes of a page, of a canvas that is drawn on, and any method named `set…`. A method that changes its object
   and is not on the list is taken to read it. A method the project wrote says it itself, with `this: Mut<…>`.
