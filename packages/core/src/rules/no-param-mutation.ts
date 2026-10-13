@@ -112,10 +112,6 @@ export const ownerOf = (
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
   if (root.kind === 'this' && root.receiver === 'readonly') return { kind: 'this' };
-  // An object that is one of several, or seen through something: `(flag ? x : y)`, `(x ?? y)`, `(kept = x)`,
-  // `(await p)`, `(x satisfies Cart)`. Each of them is asked.
-  const seenThrough = depth > DEPTH ? [] : through(root);
-  if (seenThrough.length > 0) return seenThrough.flatMap((one) => ownerOf(one, gives, isCopied, depth + 1, below + steps, isListOfCopies) ?? []).at(0);
   // What a call gave, written with no name for it.
   if (root.kind === 'call' && !gives(root)) return { kind: 'giver', call: root };
   /**
@@ -152,6 +148,10 @@ export const ownerOf = (
     const list = closedList(object);
     return list === undefined ? undefined : { kind: 'elements', name: list };
   };
+  // An object that is one of several, or seen through something: `(flag ? x : y)`, `(x ?? y)`, `(kept = x)`,
+  // `(await p)`, `(x satisfies Cart)`. Each of them is asked; and then the fields read on the way down from it.
+  const seenThrough = depth > DEPTH ? [] : through(root);
+  if (seenThrough.length > 0) return seenThrough.flatMap((one) => ownerOf(one, gives, isCopied, depth + 1, below + steps, isListOfCopies) ?? []).at(0) ?? closed();
   // What a name was made from; or, with no name for it, what a method of a collection hands out of what it holds.
   const aliases = root.kind === 'identifier' ? root.aliasOf : root.kind === 'call' || root.kind === 'new' || root.kind === 'literal' ? root.madeFrom : undefined;
   if (aliases === undefined || depth > DEPTH) return closed();
