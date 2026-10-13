@@ -1,5 +1,5 @@
 import { type Ledger, threatOf } from '@strict-ts/core';
-import { type Mut, record } from '@strict-ts/std';
+import { mut, type Mut, record } from '@strict-ts/std';
 import type { Event, Site } from './events.js';
 
 /** What the runs showed, sorted by what it means for what strict-ts took on trust. */
@@ -36,7 +36,7 @@ export function summarise(events: readonly Event[], ledger: Ledger): Report {
     if (!groups.has(key)) groups.set(key, { bucket, site, detail });
     counts.set(key, (counts.get(key) ?? 0) + 1);
   };
-  const quiet: Mut<Record<string, number>> = {};
+  const quiet: Mut<Record<string, number>> = mut({});
 
   for (const event of events) {
     if (event.type === 'escaped') note('escapes', event.site, event.error);

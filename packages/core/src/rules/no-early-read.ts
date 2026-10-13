@@ -15,9 +15,9 @@ export const noEarlyRead: Rule = {
   scope: 'safe',
   file({ file, report }) {
     // What the file declares at its top, in the order written: its variables, and its functions with their bodies.
-    const variables: Mut<Map<number, string>> = new Map();
-    const functions: Mut<Map<number, Node>> = new Map();
-    const statements: Mut<Node[]> = [];
+    const variables: Mut<Map<number, string>> = mut(new Map());
+    const functions: Mut<Map<number, Node>> = mut(new Map());
+    const statements: Mut<Node[]> = mut([]);
     const top = (node: Node): void => {
       // A `let` at the top of a file is a statement of its own kind: what it declares is read as early as a constant.
       if (node.kind === 'sequence' || node.kind === 'block' || node.kind === 'module-state') for (const child of node.children) top(child);
@@ -34,8 +34,8 @@ export const noEarlyRead: Rule = {
     // For each function: the variables of the top it reads, and the other functions of the top it names.
     const uses = new Map<number, { readonly reads: ReadonlySet<number>; readonly names: ReadonlySet<number> }>();
     for (const [at, body] of functions) {
-      const reads: Mut<Set<number>> = new Set();
-      const names: Mut<Set<number>> = new Set();
+      const reads: Mut<Set<number>> = mut(new Set());
+      const names: Mut<Set<number>> = mut(new Set());
       const look = (node: Node): void => {
         if (node.kind === 'type-query') return;
         if (node.kind === 'identifier' && node.declaredAt !== undefined && node.declaredAt !== at) {
@@ -49,9 +49,9 @@ export const noEarlyRead: Rule = {
     }
     /** Every variable a function can reach, through the functions it names. */
     const reach = (start: number): ReadonlySet<number> => {
-      const seen: Mut<Set<number>> = new Set([start]);
-      const found: Mut<Set<number>> = new Set();
-      const queue: Mut<number[]> = [start];
+      const seen: Mut<Set<number>> = mut(new Set([start]));
+      const found: Mut<Set<number>> = mut(new Set());
+      const queue: Mut<number[]> = mut([start]);
       for (let next = queue.pop(); next !== undefined; next = queue.pop()) {
         const used = uses.get(next);
         for (const read of used?.reads ?? []) found.add(read);
@@ -87,8 +87,8 @@ export const noEarlyRead: Rule = {
   project({ imports, report }) {
     // The files that can reach themselves by following imports.
     const reaches = (from: string): boolean => {
-      const seen: Mut<Set<string>> = new Set();
-      const queue: Mut<string[]> = [...(imports[from] ?? [])];
+      const seen: Mut<Set<string>> = mut(new Set());
+      const queue: Mut<string[]> = mut([...(imports[from] ?? [])]);
       for (let next = queue.pop(); next !== undefined; next = queue.pop()) {
         if (next === from) return true;
         if (!seen.has(next)) {

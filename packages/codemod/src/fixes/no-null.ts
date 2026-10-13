@@ -1,6 +1,6 @@
 // The fixes of the rule no-null: `undefined` in place of `null`, as a value and as a type. Unlike the other fixes
 // it changes what the program does, so it is only kept where nothing can tell the two apart: see crossing.ts.
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Fix } from '../fix.js';
 
@@ -16,7 +16,7 @@ const admitsUndefined = (api: typeof ts, type: ts.Type): boolean =>
  * two are two states, and the fix would make them one.
  */
 export function nullFixes(api: typeof ts, checker: ts.TypeChecker, sourceFile: ts.SourceFile, file: string): readonly Fix[] {
-  const fixes: Mut<Fix[]> = [];
+  const fixes: Mut<Fix[]> = mut([]);
   const isNull = (node: ts.Node | undefined): boolean => node !== undefined && node.kind === api.SyntaxKind.NullKeyword;
   const add = (node: ts.Node): void => {
     const start = node.getStart(sourceFile);

@@ -11,5 +11,5 @@ export * from './web.js';
 export { resultEquality } from './testing.js';
 export * from './bigint.js';
 export * as s from './schema.js';
-export type { Mut } from './mut.js';
+export { mut, type Mut } from './mut.js';
 export { end, type Once } from './once.js';

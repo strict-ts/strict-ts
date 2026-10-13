@@ -176,7 +176,7 @@ export function createTypeScript6Provider(
    * `hiddenDefaults` in the syntax. `root` is a parameter or a declared variable.
    */
   const hiddenDefaults = (root: ts.ParameterDeclaration | ts.VariableDeclaration): readonly ts.Node[] => {
-    const found: Mut<ts.Node[]> = [];
+    const found: Mut<ts.Node[]> = mut([]);
     if (api.isParameter(root) && root.initializer !== undefined && !isUndefinedWritten(root.initializer)) {
       if (root.type === undefined ? expectedParameters(root).some(takesUndefined) : admitsUndefined(checker.getTypeFromTypeNode(root.type))) found.push(root);
     }
@@ -425,8 +425,8 @@ export function createTypeScript6Provider(
       return known.length === items.length ? combinations(known) : undefined;
     }
     if (api.isObjectLiteralExpression(expression)) {
-      const names: Mut<string[]> = [];
-      const lists: Mut<(readonly unknown[])[]> = [];
+      const names: Mut<string[]> = mut([]);
+      const lists: Mut<(readonly unknown[])[]> = mut([]);
       for (const property of expression.properties) {
         const value = api.isPropertyAssignment(property) ? property.initializer : api.isShorthandPropertyAssignment(property) ? property.name : undefined;
         const name = property.name !== undefined && (api.isIdentifier(property.name) || api.isStringLiteral(property.name)) ? property.name.text : undefined;
@@ -548,6 +548,10 @@ export function createTypeScript6Provider(
       get undefinedParameters() {
         return (type.getCallSignatures()[0]?.getParameters() ?? []).flatMap((parameter, index) => (takesUndefined(parameter) ? [index] : []));
       },
+      get isMut() {
+        const some = (type.isUnion() ? type.types : [type]).filter((member) => (member.flags & (api.TypeFlags.Undefined | api.TypeFlags.Null)) === 0);
+        return some.length > 0 && some.every((member) => member.getProperties().some((property) => property.getName().startsWith('__@MUT')));
+      },
       get isImplemented() {
         const declaration = type.getCallSignatures()[0]?.getDeclaration();
         if (declaration === undefined || !isChecked(declaration.getSourceFile())) return false;
@@ -628,7 +632,7 @@ export function createTypeScript6Provider(
   const origin = new Map<Node, ts.Node>();
 
   const convert = (node: ts.Node, sourceFile: ts.SourceFile): Node => {
-    const children: Mut<Node[]> = [];
+    const children: Mut<Node[]> = mut([]);
     api.forEachChild(node, (child) => {
       children.push(convert(child, sourceFile));
     });
@@ -658,7 +662,7 @@ export function createTypeScript6Provider(
         // `new Promise((resolve) => resolve(value))` holds what its function gives to `resolve`.
         if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Promise' && (api.isArrowFunction(first) || api.isFunctionExpression(first))) {
           const resolve = first.parameters[0]?.name;
-          const kept: Mut<ts.Expression[]> = [];
+          const kept: Mut<ts.Expression[]> = mut([]);
           const look = (inner: ts.Node): void => {
             if (api.isCallExpression(inner) && api.isIdentifier(inner.expression) && resolve !== undefined && api.isIdentifier(resolve) && inner.expression.text === resolve.text) kept.push(...inner.arguments.filter((argument) => !api.isSpreadElement(argument)));
             api.forEachChild(inner, look);
@@ -764,7 +768,7 @@ export function createTypeScript6Provider(
     const handedBack = (each: ts.Expression, as: Alias['as'], levels: number): readonly Alias[] => {
       if (!api.isArrowFunction(each) && !api.isFunctionExpression(each)) return [];
       const own = new Set(each.parameters.flatMap((parameter) => (api.isIdentifier(parameter.name) ? [checker.getSymbolAtLocation(parameter.name)] : [])));
-      const values: Mut<ts.Expression[]> = [];
+      const values: Mut<ts.Expression[]> = mut([]);
       if (!api.isBlock(each.body)) values.push(each.body);
       const look = (inner: ts.Node): void => {
         if (api.isFunctionLike(inner)) return;
@@ -803,8 +807,8 @@ export function createTypeScript6Provider(
       if (known !== undefined) return known;
       let scope: ts.Node = declaration;
       while (!api.isSourceFile(scope) && !api.isFunctionLike(scope)) scope = scope.parent;
-      const found: Mut<ts.Expression[]> = [];
-      const taken: Mut<ts.Expression[]> = [];
+      const found: Mut<ts.Expression[]> = mut([]);
+      const taken: Mut<ts.Expression[]> = mut([]);
       const isIt = (name: ts.Node): boolean => api.isIdentifier(name) && (api.isShorthandPropertyAssignment(name.parent) ? checker.getShorthandAssignmentValueSymbol(name.parent) : checker.getSymbolAtLocation(name)) === symbol;
       const names = (pattern: ts.Node): boolean => isIt(pattern) || (api.forEachChild(pattern, names) ?? false);
       const look = (inner: ts.Node): void => {
@@ -825,7 +829,7 @@ export function createTypeScript6Provider(
       if (known !== undefined) return known;
       let scope: ts.Node = declaration;
       while (!api.isSourceFile(scope) && !api.isFunctionLike(scope)) scope = scope.parent;
-      const found: Mut<ts.Expression[]> = [];
+      const found: Mut<ts.Expression[]> = mut([]);
       const isIt = (name: ts.Node): boolean => api.isIdentifier(name) && checker.getSymbolAtLocation(name) === symbol;
       const look = (inner: ts.Node): void => {
         if (api.isCallExpression(inner) && api.isPropertyAccessExpression(inner.expression) && STORES.includes(inner.expression.name.text) && isIt(inner.expression.expression)) {
@@ -1086,6 +1090,12 @@ export function createTypeScript6Provider(
           get elementsDeep() {
             return elementsDeepOf(declaredType(checker.getSymbolAtLocation(node.name)));
           },
+          get ofPlatform() {
+            const declarations = checker.getSymbolAtLocation(node.name)?.declarations ?? [];
+            if (declarations.length === 0 || declarations.some((declaration) => isChecked(declaration.getSourceFile()))) return false;
+            const holder = checker.getNonNullableType(checker.getTypeAtLocation(node.expression));
+            return !checker.isArrayType(holder) && !checker.isTupleType(holder) && HOLDS[holder.getSymbol()?.getName() ?? ''] === undefined;
+          },
           get byIndex() {
             return checker.getSymbolAtLocation(node.name) === undefined && checker.getIndexInfoOfType(checker.getNonNullableType(checker.getTypeAtLocation(node.expression)), api.IndexKind.String) !== undefined;
           },
@@ -1316,7 +1326,7 @@ export function createTypeScript6Provider(
   const slashed = (fileName: string): string => fileName.replace(/\\/g, '/');
   const unread = new Set((options.unreadSources ?? []).map(slashed));
   const joined = (directory: string, path: string): string => {
-    const parts: Mut<string[]> = [];
+    const parts: Mut<string[]> = mut([]);
     for (const part of (path.startsWith('/') ? path : `${directory}/${path}`).split('/')) {
       if (part === '..') parts.pop();
       else if (part !== '.' && part !== '') parts.push(part);
@@ -1401,6 +1411,7 @@ export function createTypeScript6Provider(
     defaultedParameters: [],
     undefinedParameters: [],
     isImplemented: false,
+    isMut: false,
     mutableReturn: false,
     mutableReceiver: undefined,
   };
@@ -1641,7 +1652,7 @@ export function createTypeScript6Provider(
       const sourceFile = sources.get(file);
       const module = sourceFile === undefined ? undefined : checker.getSymbolAtLocation(sourceFile);
       if (sourceFile === undefined || module === undefined) return [];
-      const exported: Mut<ExportedValue[]> = [];
+      const exported: Mut<ExportedValue[]> = mut([]);
       for (const symbol of checker.getExportsOfModule(module)) {
         const target = (symbol.flags & api.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
         if ((target.flags & api.SymbolFlags.Value) === 0) continue;

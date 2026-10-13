@@ -51,7 +51,7 @@ export function array<T>(item: Schema<T>): Schema<readonly T[]> {
   return {
     parse: (input) => {
       if (!Array.isArray(input)) return fail('array');
-      const out: Mut<T[]> = [];
+      const out: Mut<T[]> = mut([]);
       for (const [i, raw] of (input as readonly unknown[]).entries()) {
         const r = item.parse(raw);
         if (!r.ok) return new Err({ path: `[${i}]${r.error.path}`, expected: r.error.expected });
@@ -85,7 +85,7 @@ export const unknown: Schema<unknown> = { parse: (input) => new Ok(input) };
 export function union<const S extends readonly [Schema<unknown>, Schema<unknown>, ...(readonly Schema<unknown>[])]>(...members: S): Schema<Infer<S[number]>> {
   return {
     parse: (input) => {
-      const expected: Mut<string[]> = [];
+      const expected: Mut<string[]> = mut([]);
       for (const member of members) {
         const r = member.parse(input);
         if (r.ok) return new Ok(r.value as Infer<S[number]>);
@@ -109,7 +109,7 @@ export function object<S extends Shape>(shape: S): Schema<ObjectOf<S>> {
     parse: (input) => {
       if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
       const record = input as Readonly<Record<string, unknown>>;
-      const out: Mut<Record<string, unknown>> = {};
+      const out: Mut<Record<string, unknown>> = mut({});
       for (const [key, schema] of Object.entries(shape)) {
         const r = schema.parse(record[key]);
         if (!r.ok) return new Err({ path: `.${key}${r.error.path}`, expected: r.error.expected });
@@ -131,7 +131,7 @@ export function loose<S extends Shape>(shape: S): Schema<Prettify<ObjectOf<S> & 
     parse: (input) => {
       if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
       const given = input as Readonly<Record<string, unknown>>;
-      const out: Mut<Record<string, unknown>> = {};
+      const out: Mut<Record<string, unknown>> = mut({});
       // The keys stay in the order they came in: what is given back reads like what was taken.
       const names = [...Object.keys(given), ...Object.keys(shape).filter((key) => !Object.hasOwn(given, key))];
       for (const key of names) {
@@ -159,7 +159,7 @@ export function record<V>(value: Schema<V>): Schema<Readonly<Record<string, V>>>
     parse: (input) => {
       if (typeof input !== 'object' || input === null || Array.isArray(input)) return fail('object');
       const given = input as Readonly<Record<string, unknown>>;
-      const out: Mut<Record<string, V>> = {};
+      const out: Mut<Record<string, V>> = mut({});
       for (const key of Object.keys(given)) {
         if (key === '__proto__') continue;
         const r = value.parse(given[key]);

@@ -1,6 +1,6 @@
 // The page: an explorer, an editor and rustc-style diagnostics around the engine. It decides nothing about the code.
 import type { Diagnostic } from '@strict-ts/core';
-import { attempt, type Mut, record, textOf, toJson } from '@strict-ts/std';
+import { attempt, mut, type Mut, record, textOf, toJson } from '@strict-ts/std';
 import type { Data, Scenario } from './data.js';
 import { createPlayground, type Outcome, type Playground, STD_NAME } from './engine.js';
 import { compiler, pageData, parseJson } from './unsafe/page.js';
@@ -56,17 +56,17 @@ function freshWorkspace(scenario: Scenario | undefined): Mut<Workspace> {
   const files = { ...scenario?.files };
   const depth = (path: string): number => path.split('/').length;
   const first = Object.keys(files).toSorted((a, b) => depth(a) - depth(b) || a.localeCompare(b))[0] ?? '';
-  return {
+  return mut({
     files,
     active: first,
     flags: { ...scenario?.flags },
     unsafeDirs: 'src/unsafe',
     allowedImports: STD_NAME,
     disabled: [],
-  };
+  });
 }
 
-const state: State = { scenario: DATA.scenarios[0]?.id ?? '', workspaces: {}, tab: 'problems', filter: undefined };
+const state: State = mut({ scenario: DATA.scenarios[0]?.id ?? '', workspaces: {}, tab: 'problems', filter: undefined });
 try {
   const saved = parseJson(localStorage.getItem(STORE) ?? 'null').unwrapOr(undefined);
   if (typeof saved === 'object' && saved !== null && 'scenario' in saved && 'workspaces' in saved) {

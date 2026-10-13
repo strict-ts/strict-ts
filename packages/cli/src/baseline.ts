@@ -1,5 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
-import { err, type Mut, ok, record, type Result } from '@strict-ts/std';
+import { err, mut, type Mut, ok, record, type Result } from '@strict-ts/std';
 import { json } from './json.js';
 import { asRecord } from './unsafe/record.js';
 
@@ -45,11 +45,11 @@ export function parseBaseline(content: unknown): Result<Baseline, string> {
   if (root.value['version'] !== 1) return err('"version": 1 expected');
   const files = asRecord(root.value['files']);
   if (!files.some) return err('"files": object expected');
-  const checked: Mut<Record<string, Readonly<Record<string, number>>>> = {};
+  const checked: Mut<Record<string, Readonly<Record<string, number>>>> = mut({});
   for (const [file, content] of Object.entries(files.value)) {
     const rules = asRecord(content);
     if (!rules.some) return err(`"${file}": object expected`);
-    const counts: Mut<Record<string, number>> = {};
+    const counts: Mut<Record<string, number>> = mut({});
     for (const [rule, count] of Object.entries(rules.value)) {
       if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return err(`"${file}" "${rule}": a positive whole number expected`);
       counts[rule] = count;

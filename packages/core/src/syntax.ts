@@ -212,6 +212,11 @@ export type Node = NodeBase &
          * property of a library, of an object written in place, or one that is not declared as a property.
          */
         readonly holds: 'writable' | 'readonly' | 'unknown';
+        /**
+         * The property is declared by the platform or by a package, on something that is no list, map or set:
+         * a part of that thing (`element.style`), which its types cannot say `Mut<…>` of.
+         */
+        readonly ofPlatform: boolean;
         /** The name is not one the type declares: it is read out of a table (`Record<string, T>`), as `table[name]` is. */
         readonly byIndex: boolean;
         /**

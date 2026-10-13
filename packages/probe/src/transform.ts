@@ -1,7 +1,7 @@
 // The compile-time half: a TypeScript transformer that puts probes where strict-ts takes something on trust.
 // It changes no behaviour: a probe hands back the value it was given, and throws again what it caught.
 import { type Callee, type Config, isUnsafe } from '@strict-ts/core';
-import { type Mut, record } from '@strict-ts/std';
+import { mut, type Mut, record } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Shape, Site } from './events.js';
 
@@ -41,7 +41,7 @@ export function instrument(
   calleeOf: (call: ts.CallExpression | ts.NewExpression) => Callee | undefined,
   probes: Probes = allProbes,
 ): Instrumented {
-  const sites: Mut<Site[]> = [];
+  const sites: Mut<Site[]> = mut([]);
   const unsafe = isUnsafe(relative, config);
   const isTrusted = (name: string | undefined): boolean =>
     name !== undefined && config.allowedImports.some((allowed) => name === allowed || name.startsWith(`${allowed}/`));

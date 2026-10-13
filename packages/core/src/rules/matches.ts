@@ -1,4 +1,4 @@
-import type { Mut } from '../mut.js';
+import { mut, type Mut } from '../mut.js';
 
 /** A place where a pattern matches: where it starts, the whole match and its groups. */
 export interface Match {
@@ -14,7 +14,7 @@ export interface Match {
  */
 export function matchesOf(text: string, pattern: Mut<RegExp>): readonly Match[] {
   if (!pattern.global) return [];
-  const found: Mut<Match[]> = [];
+  const found: Mut<Match[]> = mut([]);
   pattern.lastIndex = 0;
   for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
     found.push({ index: match.index, text: match[0], groups: match.slice(1) });

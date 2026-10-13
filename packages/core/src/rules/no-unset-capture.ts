@@ -16,7 +16,7 @@ export const noUnsetCapture: Rule = {
   inTests: false,
   file({ file, typeOf, report }) {
     // The variables that wait for a value, by where they are declared.
-    const waiting: Mut<Map<number, Node>> = new Map();
+    const waiting: Mut<Map<number, Node>> = mut(new Map());
     const collect = (node: Node): void => {
       if (node.kind === 'variable' && node.waitsForValue && node.name.kind === 'identifier') {
         const type = typeOf(node.name);
@@ -27,8 +27,8 @@ export const noUnsetCapture: Rule = {
     collect(file.root);
     if (waiting.size === 0) return;
 
-    const captured: Mut<Set<number>> = new Set();
-    const functions: Mut<Node[]> = [];
+    const captured: Mut<Set<number>> = mut(new Set());
+    const functions: Mut<Node[]> = mut([]);
     const look = (node: Node): void => {
       if (node.kind === 'identifier' && node.declaredAt !== undefined && waiting.has(node.declaredAt)) {
         const at = node.declaredAt;

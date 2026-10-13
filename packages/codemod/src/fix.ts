@@ -1,4 +1,4 @@
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 
 /** A replacement of `[start, end)` in a file's text; an insertion when the two are equal. */
 export interface Edit {
@@ -129,7 +129,7 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
    * so it spells the number of its fix. All the errors are read in the same compilations.
    */
   const hunt = (base: readonly Fix[], candidates: readonly Fix[], wheres: readonly string[]): readonly Fix[] => {
-    const spelled: Mut<Map<string, number>> = new Map();
+    const spelled: Mut<Map<string, number>> = mut(new Map());
     for (let digit = 1; digit <= candidates.length; digit *= 2) {
       const trial = tryWith(inOrder([...base, ...candidates.filter((_, index) => Math.floor((index + 1) / digit) % 2 === 1)]), true);
       const present = new Set(trial.errors.map((error) => error.where));
@@ -140,8 +140,8 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
 
   // The groups of fixes an error has named together: one of them may answer for the others.
   const order = new Map(fixes.map((fix, index) => [fix, index]));
-  const known: Mut<Set<string>> = new Set();
-  const together: Mut<(readonly Fix[])[]> = [];
+  const known: Mut<Set<string>> = mut(new Set());
+  const together: Mut<(readonly Fix[])[]> = mut([]);
   const remember = (groups: readonly (readonly Fix[])[]): void => {
     for (const group of groups) {
       const key = group.map((fix) => order.get(fix)).join(' ');
@@ -152,7 +152,7 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
     }
   };
 
-  const dropped: Mut<Set<Fix>> = new Set();
+  const dropped: Mut<Set<Fix>> = mut(new Set());
   let floor = fixes;
   for (let first = true, hunts = 0; ; first = false) {
     const trial = tryWith(floor);
@@ -173,13 +173,13 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
     floor = floor.filter((fix) => !out.has(fix));
   }
 
-  const back: Mut<Set<Fix>> = new Set(floor);
+  const back: Mut<Set<Fix>> = mut(new Set(floor));
   const settled = new Set(floor);
-  const unsure: Mut<Set<Fix>> = new Set();
+  const unsure: Mut<Set<Fix>> = mut(new Set());
   let proven = true;
   for (let before = -1, passes = 0; before < back.size && passes < PASSES; passes++) {
     before = back.size;
-    const refused: Mut<Set<Fix>> = new Set();
+    const refused: Mut<Set<Fix>> = mut(new Set());
     // What came back and is not yet proven to hold: an error that names one of these takes it out again.
     const returned = (): readonly Fix[] => [...back].filter((fix) => !settled.has(fix));
     const open = (): readonly Fix[] => fixes.filter((fix) => !dropped.has(fix) && !back.has(fix) && !unsure.has(fix) && !refused.has(fix));
@@ -193,8 +193,8 @@ export function keepUnblamed(fixes: readonly Fix[], tryWith: (kept: readonly Fix
         .map((group) => group.filter((fix) => still.has(fix)))
         .filter((group) => group.length > 1)
         .toSorted((a, b) => a.length - b.length);
-      const held: Mut<Set<Fix>> = new Set();
-      const tried: Mut<Set<Fix>> = new Set();
+      const held: Mut<Set<Fix>> = mut(new Set());
+      const tried: Mut<Set<Fix>> = mut(new Set());
       for (const group of pending) {
         if (!group.some((fix) => held.has(fix))) for (const fix of group.slice(0, Math.floor(group.length / 2))) tried.add(fix);
         for (const fix of group) held.add(fix);

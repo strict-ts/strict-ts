@@ -1,6 +1,6 @@
 // The fixes of the rule readonly-types: `readonly` in front of arrays and properties, the read-only names of Map,
 // Set and Array, Readonly<…> around a Record. What sits under Mut<…> has asked for mutation and is left alone.
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Fix } from '../fix.js';
 
@@ -8,7 +8,7 @@ const RULE = 'readonly-types';
 const RENAMED: Readonly<Record<string, string>> = { Array: 'ReadonlyArray', Map: 'ReadonlyMap', Set: 'ReadonlySet' };
 
 export function readonlyFixes(api: typeof ts, sourceFile: ts.SourceFile, file: string): readonly Fix[] {
-  const fixes: Mut<Fix[]> = [];
+  const fixes: Mut<Fix[]> = mut([]);
   const named = (node: ts.Node | undefined, name: string): boolean =>
     node !== undefined && api.isTypeReferenceNode(node) && api.isIdentifier(node.typeName) && node.typeName.text === name;
   const start = (node: ts.Node): number => node.getStart(sourceFile);

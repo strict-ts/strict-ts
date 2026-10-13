@@ -16,7 +16,7 @@ export function check(
   rules: readonly Rule[] = allRules,
 ): readonly Diagnostic[] {
   const enabled = rules.filter((rule) => config.rules === undefined || config.rules.includes(rule.name));
-  const found: Mut<Diagnostic[]> = [...provider.compilerDiagnostics];
+  const found: Mut<Diagnostic[]> = mut([...provider.compilerDiagnostics]);
 
   for (const rule of enabled) {
     rule.project?.({
@@ -57,7 +57,7 @@ export function check(
       });
 
     for (const { rule, context } of active) rule.file?.(context);
-    const ancestors: Mut<Node[]> = [];
+    const ancestors: Mut<Node[]> = mut([]);
     const walk = (node: Node): void => {
       for (const { rule, context } of active) rule.visit?.(node, context, ancestors.at(-1), ancestors);
       ancestors.push(node);

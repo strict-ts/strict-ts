@@ -33,7 +33,7 @@ export const noStaleNarrowing: Rule = {
   inTests: false,
   file({ file, typeOf, calleeOf, report }) {
     // The variables a function other than the one that declares them writes: a call can change them.
-    const written: Mut<Set<number>> = new Set();
+    const written: Mut<Set<number>> = mut(new Set());
     const targets = (node: Node): readonly Node[] => (node.kind === 'binary' && WRITES.includes(node.operator) ? [node.left] : node.kind === 'update' ? [node.operand] : []);
     const collect = (node: Node, functions: readonly Node[]): void => {
       for (const target of targets(node)) {
@@ -79,10 +79,10 @@ export const noStaleNarrowing: Rule = {
 
     // One function at a time: where each path was last looked at, and where the calls of the function end.
     const walk = (body: Node): void => {
-      const seen: Mut<Map<string, number>> = new Map();
-      const calls: Mut<Node[]> = [];
+      const seen: Mut<Map<string, number>> = mut(new Map());
+      const calls: Mut<Node[]> = mut([]);
       // The loops around what is being read whose turns make a call: what a turn does comes before the next one.
-      const turning: Mut<Node[]> = [];
+      const turning: Mut<Node[]> = mut([]);
       const visit = (node: Node, isTarget: boolean, isTest: boolean): void => {
         if (node.kind === 'function') {
           walk(node);

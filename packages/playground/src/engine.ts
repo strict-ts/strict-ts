@@ -2,7 +2,7 @@
 // to the rules. No rule logic lives here.
 import { check, type Diagnostic, requiredCompilerOptions, rules } from '@strict-ts/core';
 import { createTypeScript6Provider } from '@strict-ts/core/typescript6';
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 
 /** What a scenario is compiled against: the compiler's libraries, the standard library's sources, the ambient globals. */
@@ -70,7 +70,7 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
       rootNames.push(`${PROJECT}/${name}`);
     }
 
-    const options: Mut<ts.CompilerOptions> = {
+    const options: Mut<ts.CompilerOptions> = mut({
       target: api.ScriptTarget.ES2022,
       module: api.ModuleKind.ESNext,
       moduleResolution: api.ModuleResolutionKind.Bundler,
@@ -78,7 +78,7 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
       types: [],
       noEmit: true,
       paths: { [STD_NAME]: [`${STD}/index.ts`] },
-    };
+    });
     // The flags of the page are options by their names: each is written as one.
     for (const [flag, on] of Object.entries(request.compilerFlags)) options[flag] = on;
     const host: ts.CompilerHost = {
@@ -156,9 +156,9 @@ export function createPlayground(api: typeof ts, environment: Environment): Play
 
   const classify = (text: string): readonly Token[] => {
     const scanner = api.createScanner(api.ScriptTarget.Latest, false, api.LanguageVariant.Standard, text);
-    const tokens: Mut<Token[]> = [];
+    const tokens: Mut<Token[]> = mut([]);
     // The brace depth at which each open template literal resumes.
-    const templates: Mut<number[]> = [];
+    const templates: Mut<number[]> = mut([]);
     let depth = 0;
     let kind = scanner.scan();
     while (kind !== api.SyntaxKind.EndOfFileToken) {

@@ -1,6 +1,6 @@
 // The fix of the rule no-non-null: `value!` becomes `(value ?? panic("…"))`. What `!` claimed is now checked: where
 // the value is missing after all, the program stops there and says so, in place of going on with `undefined`.
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Fix } from '../fix.js';
 
@@ -8,7 +8,7 @@ import type { Fix } from '../fix.js';
 const QUOTED = 60;
 
 export function nonNullFixes(api: typeof ts, sourceFile: ts.SourceFile, file: string): readonly Fix[] {
-  const fixes: Mut<Fix[]> = [];
+  const fixes: Mut<Fix[]> = mut([]);
   const visit = (node: ts.Node): void => {
     if (api.isNonNullExpression(node)) {
       const start = node.getStart(sourceFile);

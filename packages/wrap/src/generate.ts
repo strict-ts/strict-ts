@@ -1,6 +1,6 @@
 // Turns what a module exports into the text of an unsafe/ wrapper. It reads types through the compiler it is given
 // and writes nothing: the caller decides where the text goes.
-import { err, type Mut, ok, type Result } from '@strict-ts/std';
+import { err, mut, type Mut, ok, type Result } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 
 export interface Wrapper {
@@ -28,9 +28,9 @@ export function generateWrapper(
   exported: readonly ts.Symbol[],
   location: ts.Node,
 ): Result<Wrapper, string> {
-  const wrapped: Mut<string[]> = [];
-  const skipped: Mut<string[]> = [];
-  const lines: Mut<string[]> = [];
+  const wrapped: Mut<string[]> = mut([]);
+  const skipped: Mut<string[]> = mut([]);
+  const lines: Mut<string[]> = mut([]);
   let needsPresent = false;
 
   const sorted = exported.toSorted((a, b) => (a.getName() < b.getName() ? -1 : 1));

@@ -72,6 +72,11 @@ export interface Type {
   readonly undefinedParameters: readonly number[];
   /** For a function: whether its first signature is written with a body, in the checked files: what it does can be read. */
   readonly isImplemented: boolean;
+  /**
+   * The type carries the mark of `Mut<…>`: the compiler gives nothing there that does not carry it too. Of a type
+   * that may be nothing (`Mut<Cart> | undefined`), each of the others carries it.
+   */
+  readonly isMut: boolean;
   /** For a function: whether the return type written for its first signature says `Mut<…>` somewhere. */
   readonly mutableReturn: boolean;
   /** For a function whose first signature says `this: Mut<…>`: the type it asks its receiver to have. */

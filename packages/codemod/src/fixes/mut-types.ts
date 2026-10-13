@@ -1,6 +1,6 @@
 // The other fix of the rule readonly-types, for what the first one could not make read-only because it is written:
 // `Mut<…>` around the type. The write is real; now the type says so.
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import type { Fix } from '../fix.js';
 
@@ -10,7 +10,7 @@ import type { Fix } from '../fix.js';
  * asked for mutation whole.
  */
 export function mutFixes(api: typeof ts, sourceFile: ts.SourceFile, file: string, wanted: ReadonlySet<number>): readonly Fix[] {
-  const fixes: Mut<Fix[]> = [];
+  const fixes: Mut<Fix[]> = mut([]);
   const visit = (node: ts.Node): void => {
     const at = node.getStart(sourceFile);
     if (wanted.has(at)) {

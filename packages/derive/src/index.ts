@@ -1,4 +1,4 @@
-import { err, type Mut, ok, type Result } from '@strict-ts/std';
+import { err, mut, type Mut, ok, type Result } from '@strict-ts/std';
 import { deriveFile, isCurrent, writeTarget } from './unsafe/files.js';
 
 export { deriveSchemas, type Derived, schemaName, type Unfollowed } from './generate.js';
@@ -30,7 +30,7 @@ interface Arguments {
 }
 
 function parseArgs(argv: readonly string[]): Result<Arguments | 'help', string> {
-  const plain: Mut<string[]> = [];
+  const plain: Mut<string[]> = mut([]);
   let output: string | undefined;
   let check = false;
   for (let i = 0; i < argv.length; i++) {

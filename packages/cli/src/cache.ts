@@ -1,5 +1,5 @@
 import type { Diagnostic } from '@strict-ts/core';
-import { type Mut, record } from '@strict-ts/std';
+import { mut, type Mut, record } from '@strict-ts/std';
 import { asRecord } from './unsafe/record.js';
 
 /** What decides the result of a run, as the project loader reads it. */
@@ -33,8 +33,8 @@ export interface Cache {
 export function fileKeys(files: Readonly<Record<string, FileFacts>>, hash: (text: string) => string): Readonly<Record<string, string>> {
   /** Everything `name` reaches through imports, itself included. Each file is visited once per starting point. */
   const closure = (name: string): readonly string[] => {
-    const reached: Mut<Set<string>> = new Set([name]);
-    const pending: Mut<string[]> = [name];
+    const reached: Mut<Set<string>> = mut(new Set([name]));
+    const pending: Mut<string[]> = mut([name]);
     for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
       for (const imported of files[next]?.imports ?? []) {
         if (reached.has(imported)) continue;

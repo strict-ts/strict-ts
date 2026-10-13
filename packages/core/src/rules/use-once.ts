@@ -16,7 +16,7 @@ const HELP_GIVE = 'Give it to a function whose parameter is typed `Once<…>`, o
 const HELP_PLAIN = 'Give it away in plain sequence, or in both branches of an `if`.';
 
 const join = (a: State, b: State): State => {
-  const joined: Mut<Map<number, Owned>> = new Map();
+  const joined: Mut<Map<number, Owned>> = mut(new Map());
   for (const [key, owned] of a) {
     const other = b.get(key);
     if (other !== undefined) joined.set(key, owned.status === other.status ? owned : { ...owned, status: 'maybe' });
@@ -53,7 +53,7 @@ function follow(root: Node, { typeOf, expectedOf, report }: FileContext): void {
       report(node, `\`${node.text}\` is given away where the analysis does not follow: a loop, a \`try\`, a \`switch\`, a condition inside an expression.`, HELP_PLAIN);
       return state;
     }
-    const next: Mut<Map<number, Owned>> = new Map(state);
+    const next: Mut<Map<number, Owned>> = mut(new Map(state));
     next.set(key, { ...owned, status: 'given' });
     return next;
   };
@@ -86,7 +86,7 @@ function follow(root: Node, { typeOf, expectedOf, report }: FileContext): void {
       }
       case 'block': {
         const result = inOrder(node.children, state);
-        const kept: Mut<Map<number, Owned>> = new Map();
+        const kept: Mut<Map<number, Owned>> = mut(new Map());
         for (const [key, owned] of result.state) {
           // A name declared in this block ends with it.
           if (state.has(key)) kept.set(key, owned);
@@ -99,7 +99,7 @@ function follow(root: Node, { typeOf, expectedOf, report }: FileContext): void {
         const name = node.name;
         if (name.kind !== 'identifier' || name.declaredAt === undefined || !typeOf(name).isOnce) return result;
         if (!node.isConst) report(name, `\`${name.text}\` has one owner and is declared with \`let\`: it could be given another value while the first is lost.`, 'Declare it with `const`.');
-        const next: Mut<Map<number, Owned>> = new Map(result.state);
+        const next: Mut<Map<number, Owned>> = mut(new Map(result.state));
         next.set(name.declaredAt, { name: name.text, declaration: name, depth, status: 'owned' });
         return { state: next, ended: result.ended };
       }
@@ -145,7 +145,7 @@ function follow(root: Node, { typeOf, expectedOf, report }: FileContext): void {
     }
   };
 
-  const owned: Mut<Map<number, Owned>> = new Map();
+  const owned: Mut<Map<number, Owned>> = mut(new Map());
   if (root.kind === 'function') {
     for (const parameter of root.parameters) {
       if (parameter.kind === 'identifier' && parameter.declaredAt !== undefined && typeOf(parameter).isOnce) {

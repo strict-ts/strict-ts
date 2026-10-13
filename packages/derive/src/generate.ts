@@ -1,7 +1,7 @@
 // From the types a file exports to the schemas that check them at run time. The author writes types and nothing
 // else; each generated schema is annotated `Schema<TheType>`, so the compiler itself refuses a schema that does not
 // produce the type. Read on the syntax alone: no program is compiled to generate.
-import { err, type Mut, ok, type Result, toJson } from '@strict-ts/std';
+import { err, mut, type Mut, ok, type Result, toJson } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 
 /** A type the generator cannot follow, with its place: nothing is generated for the file then. */
@@ -32,7 +32,7 @@ export const schemaName = (type: string): string => `${type}Schema`;
  * generated module imports the file (`./invoice.js`).
  */
 export function deriveSchemas(api: typeof ts, sourceFile: ts.SourceFile, from: string, names: readonly string[]): Result<Derived, readonly Unfollowed[]> {
-  const problems: Mut<Unfollowed[]> = [];
+  const problems: Mut<Unfollowed[]> = mut([]);
   const unfollowed = (node: ts.Node, what: string): string => {
     const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
     problems.push({ line: line + 1, column: character + 1, what });
@@ -47,7 +47,7 @@ export function deriveSchemas(api: typeof ts, sourceFile: ts.SourceFile, from: s
   const isExported = (declaration: Declared): boolean => (api.getCombinedModifierFlags(declaration) & api.ModifierFlags.Export) !== 0;
 
   // The schemas in the order they must be written: one that another names comes first.
-  const written: Mut<string[]> = [];
+  const written: Mut<string[]> = mut([]);
   const done = new Set<string>();
   const inProgress = new Set<string>();
 

@@ -73,7 +73,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     if (!settings.ok) return err(settings.error);
     const config: Config = settings.value.config;
 
-    const fatal: Mut<string[]> = [];
+    const fatal: Mut<string[]> = mut([]);
     const parsed = ts.getParsedCommandLineOfConfigFile(tsconfig, undefined, {
       ...ts.sys,
       onUnRecoverableConfigFileDiagnostic: (d) => fatal.push(flatten(d)),
@@ -170,7 +170,7 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
     );
     /** The fixes, and one more for each file that has to import what they write. */
     const withImports = (fixes: readonly Fix[]): readonly Fix[] => {
-      const added: Mut<Fix[]> = [];
+      const added: Mut<Fix[]> = mut([]);
       for (const [fileName, { has, after }] of importsOf) {
         const names = [...new Set(fixes.flatMap((fix) => (fix.file === fileName && fix.needs !== undefined && !has.includes(fix.needs) ? [fix.needs] : [])))].toSorted();
         if (names.length === 0) continue;
@@ -305,8 +305,8 @@ export function fixProject(cwd: string, project: string | undefined, rules: read
      */
     const sayWhatChanges = (): { readonly applied: readonly Place[]; readonly left: readonly Place[] } => {
       const start = new Map(changed);
-      const applied: Mut<Place[]> = [];
-      const left: Mut<Place[]> = [];
+      const applied: Mut<Place[]> = mut([]);
+      const left: Mut<Place[]> = mut([]);
       const saysMut = (node: ts.Node): boolean =>
         (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === 'Mut') || (ts.forEachChild(node, saysMut) ?? false);
       let program = compile();

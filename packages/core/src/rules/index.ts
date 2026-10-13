@@ -3,6 +3,7 @@ import { exhaustiveSwitch } from './exhaustive-switch.js';
 import { freezeFresh } from './freeze-fresh.js';
 import { mustUse } from './must-use.js';
 import { mutFromReadonly } from './mut-from-readonly.js';
+import { mutFresh } from './mut-fresh.js';
 import { noAmbient } from './no-ambient.js';
 import { noAny } from './no-any.js';
 import { noCast } from './no-cast.js';
@@ -57,13 +58,13 @@ export const rules: readonly Rule[] = [
   noTypePredicate,
   noAmbient,
   noParamMutation,
-  readonlyTypes,
   pureDomain,
   noThrowingCall,
   noThrowingOperator,
   useOnce,
   freezeFresh,
   mutFromReadonly,
+  mutFresh,
   unreadSources,
   noOverload,
   noMethodSignature,

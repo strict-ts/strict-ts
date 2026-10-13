@@ -1,4 +1,4 @@
-import { err, ok, type Mut, type Result } from '@strict-ts/std';
+import { err, ok, mut, type Mut, type Result } from '@strict-ts/std';
 import { FIXABLE, fixProject, ON_REQUEST } from './unsafe/project.js';
 
 export { blamedFixes } from './blame.js';
@@ -41,7 +41,7 @@ interface Arguments {
 function parseArgs(argv: readonly string[]): Result<Arguments | 'help', string> {
   let project: string | undefined;
   let dryRun = false;
-  const rules: Mut<string[]> = [];
+  const rules: Mut<string[]> = mut([]);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? '';
     if (arg === '-h' || arg === '--help') return ok('help');

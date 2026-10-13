@@ -2,7 +2,7 @@
 // given to `JSON.stringify`, to a parameter typed `unknown`, to a template, compiles as before and does something
 // else. The types of the project before and after the fixes are compared at every place where a value is handed
 // on: a fix may change the type of a value only where the type of the place that receives it changes with it.
-import type { Mut } from '@strict-ts/std';
+import { mut, type Mut } from '@strict-ts/std';
 import type ts from '@typescript/typescript6';
 import { typeArgumentsOf } from './unsafe/types.js';
 
@@ -36,8 +36,8 @@ export interface Names {
   readonly holdsNull: (name: number) => boolean;
 }
 export function names(): Names {
-  const known: Mut<Map<string, number>> = new Map();
-  const holding: Mut<Set<number>> = new Set();
+  const known: Mut<Map<string, number>> = mut(new Map());
+  const holding: Mut<Set<number>> = mut(new Set());
   return {
     of: (text, parts = [], isNull = false) => {
       const found = known.get(text);
@@ -74,7 +74,7 @@ function reader(api: typeof ts, program: ts.Program, checker: ts.TypeChecker, na
       })
     );
   };
-  const known: Mut<Map<ts.Type, number>> = new Map();
+  const known: Mut<Map<ts.Type, number>> = mut(new Map());
   let left = BUDGET;
   const read = (type: ts.Type, path: readonly ts.Type[]): number => {
     const simple = api.TypeFlags.Object | api.TypeFlags.Union | api.TypeFlags.Intersection;
@@ -84,7 +84,7 @@ function reader(api: typeof ts, program: ts.Program, checker: ts.TypeChecker, na
     if (path.includes(type) || path.length >= DEPTH || left <= 0) return named.of(`… ${checker.typeToString(type)}`, [], true);
     left -= 1;
     const under = [...path, type];
-    const parts: Mut<number[]> = [];
+    const parts: Mut<number[]> = mut([]);
     const part = (inner: ts.Type): number => {
       const made = read(inner, under);
       parts.push(made);
@@ -163,7 +163,7 @@ const EQUALITIES = (api: typeof ts): readonly ts.SyntaxKind[] => [api.SyntaxKind
 
 /** The places of a file where a value is handed on, in the order they are written: the same in every compilation. */
 function placesOf(api: typeof ts, sourceFile: ts.SourceFile): readonly Place[] {
-  const found: Mut<Place[]> = [];
+  const found: Mut<Place[]> = mut([]);
   const isUndefined = (node: ts.Node): boolean => api.isIdentifier(node) && node.text === 'undefined';
   const isNull = (node: ts.Node): boolean => node.kind === api.SyntaxKind.NullKeyword;
   /**
@@ -285,8 +285,8 @@ export function comparer(api: typeof ts, before: Side, named: Names) {
     /** The places where the fixes of `after` are told apart from what they replace, and the comparisons to rewrite. */
     compare(after: Side, files: readonly string[]): { readonly crossings: readonly Crossing[]; readonly compared: readonly Compared[] } {
       const now = reader(api, after.program, after.checker, named);
-      const crossings: Mut<Crossing[]> = [];
-      const compared: Mut<Compared[]> = [];
+      const crossings: Mut<Crossing[]> = mut([]);
+      const compared: Mut<Compared[]> = mut([]);
       for (const fileName of files) {
         const sourceFile = after.program.getSourceFile(fileName);
         const original = before.program.getSourceFile(fileName);
@@ -334,9 +334,9 @@ export function declaredBehind(api: typeof ts, checker: ts.TypeChecker, sourceFi
       : undefined;
   const start = whole === undefined ? from : whole.getStart(sourceFile);
   const end = whole === undefined ? to : whole.getEnd();
-  const found: Mut<{ readonly file: string; readonly start: number; readonly end: number }[]> = [{ file: sourceFile.fileName, start, end }];
-  const seen: Mut<Set<ts.Type>> = new Set();
-  const declared: Mut<Set<ts.Node>> = new Set();
+  const found: Mut<{ readonly file: string; readonly start: number; readonly end: number }[]> = mut([{ file: sourceFile.fileName, start, end }]);
+  const seen: Mut<Set<ts.Type>> = mut(new Set());
+  const declared: Mut<Set<ts.Node>> = mut(new Set());
   const take = (declaration: ts.Node): void => {
     if (declared.has(declaration)) return;
     declared.add(declaration);
