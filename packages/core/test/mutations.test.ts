@@ -185,6 +185,11 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m81-functions-in-one-list.ts')).toEqual(['mut-from-readonly']);
   }, 180_000);
 
+  test('the sixteenth and seventeenth rounds: another view of the same bytes, an object given as `thisArg`', () => {
+    expect(refusedBy('m82-another-view-of-the-bytes.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m83-object-given-as-this-arg.ts')).toEqual(['mut-from-readonly']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

@@ -9,6 +9,8 @@ import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../p
 import type { Alias, Node } from '../syntax.js';
 
 /** The methods that give back something their receiver holds. */
+/** The constructors that make a view over bytes they are given. */
+const VIEWS = /^(?:(?:Int|Uint|Float|BigInt|BigUint)\d+(?:Clamped)?Array|DataView)$/;
 /** The methods the language calls by itself, on whatever it converts, writes as JSON or awaits. */
 const PROTOCOLS: readonly string[] = ['toString', 'toLocaleString', 'valueOf', 'toJSON', 'then'];
 /** The collections of the library, and which of the types they are given is the type of what they hold. */
@@ -664,6 +666,10 @@ export function createTypeScript6Provider(
           look(first.body);
           return kept.flatMap((value) => sourcesOf(value, as === 'same' ? 'part' : as, levels));
         }
+        // `new Uint8Array(buffer)`, `new DataView(buffer)`: another view of the same bytes, not a copy of them.
+        if (first !== undefined && api.isIdentifier(expression.expression) && VIEWS.test(expression.expression.text) && isBuffer(checker.getTypeAtLocation(first))) {
+          return sourcesOf(first, as, levels);
+        }
         // `new Proxy(target, …)` is the target, seen through.
         if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Proxy') return sourcesOf(first, as, levels);
         return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy'), levels) : [];
@@ -749,6 +755,8 @@ export function createTypeScript6Provider(
       }
       return [];
     };
+    /** `ArrayBuffer`, `SharedArrayBuffer`, or one of the two: the bytes themselves. */
+    const isBuffer = (type: ts.Type): boolean => (type.isUnion() ? type.types : [type]).every((member) => ['ArrayBuffer', 'SharedArrayBuffer'].includes(member.getSymbol()?.getName() ?? ''));
     /** What a function written in place hands back, other than its own parameters: the places it shares. */
     const handedBack = (each: ts.Expression, as: Alias['as'], levels: number): readonly Alias[] => {
       if (!api.isArrowFunction(each) && !api.isFunctionExpression(each)) return [];
