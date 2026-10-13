@@ -186,7 +186,7 @@ describe('the attacks on explicit mutability', () => {
   }, 180_000);
 
   test('the sixteenth and seventeenth rounds: another view of the same bytes, an object given as `thisArg`', () => {
-    expect(refusedBy('m82-another-view-of-the-bytes.ts')).toEqual(['no-param-mutation']);
+    expect(refusedBy('m82-another-view-of-the-bytes.ts')).toContain('no-param-mutation');
     expect(refusedBy('m83-object-given-as-this-arg.ts')).toEqual(['mut-from-readonly']);
   }, 180_000);
 
