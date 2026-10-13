@@ -181,6 +181,10 @@ describe('the attacks on explicit mutability', () => {
     expect(found).toContain('mut-from-readonly');
   }, 180_000);
 
+  test('the fifteenth round: functions in one list', () => {
+    expect(refusedBy('m81-functions-in-one-list.ts')).toEqual(['mut-from-readonly']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)
