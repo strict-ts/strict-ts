@@ -43,7 +43,8 @@ node packages/cli/dist/main.js -p examples/invoice/classic    # exit code 1, 22 
 ```
 
 `pnpm build` also writes the playground to `packages/playground/dist`: open `index.html` in a browser to edit five
-scenarios and read their diagnostics. It needs no server and no network.
+scenarios and read their diagnostics. It needs no server and no network. The same page is on the website,
+<https://strict-ts.adserver.fr/playground/>.
 
 ## Examples
 

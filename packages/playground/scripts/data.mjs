@@ -16,7 +16,8 @@ function project(directory, rename = (name) => name) {
   return Object.fromEntries(names.map((name) => [rename(name), read(join(directory, name))]));
 }
 
-const allFlags = {
+/** The compiler options a conforming project sets, as the scenarios do. */
+export const allFlags = {
   strict: true,
   noUncheckedIndexedAccess: true,
   exactOptionalPropertyTypes: true,
