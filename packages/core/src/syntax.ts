@@ -181,6 +181,11 @@ export type Node = NodeBase &
         readonly hasSpread: boolean;
         /** For a collection of the library made from another one (`new Map(other)`): the places whose content it shares. */
         readonly madeFrom: readonly Alias[];
+        /**
+         * For an object of a class of the project that can be looped over: whether what the loop goes through may
+         * be written, by the return type of its `[Symbol.iterator]`. Empty for anything else.
+         */
+        readonly elementsDeep: readonly ('writable' | 'readonly' | 'unknown')[];
       }
     /** A `let` or `var` statement at the top level of a module: state every importer shares. */
     | { readonly kind: 'module-state' }

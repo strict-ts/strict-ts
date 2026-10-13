@@ -672,7 +672,10 @@ export function createTypeScript6Provider(
         }
         // `new Proxy(target, …)` is the target, seen through.
         if (first !== undefined && api.isIdentifier(expression.expression) && expression.expression.text === 'Proxy') return sourcesOf(first, as, levels);
-        return first !== undefined && !api.isSpreadElement(first) && isCollection(expression) ? sourcesOf(first, under('copy'), levels) : [];
+        if (first !== undefined && !api.isSpreadElement(first) && isCollection(expression)) return sourcesOf(first, under('copy'), levels);
+        // An object of a class of the project is the function's own; what a loop over it goes through, or a list
+        // made of that, is what its iterator hands out: asked of the object.
+        return as === 'same' || isCollection(expression) ? [] : [{ place: part(expression), as, levels: levels + (as === 'element' ? 1 : 0) }];
       }
       if (api.isConditionalExpression(expression)) return [...sourcesOf(expression.whenTrue, as, levels), ...sourcesOf(expression.whenFalse, as, levels)];
       if (api.isBinaryExpression(expression)) {
@@ -875,6 +878,17 @@ export function createTypeScript6Provider(
       return [...first, ...later, ...(takenFrom.get(symbol) ?? []).flatMap((value) => sourcesOf(value, 'element')), ...storedIn(symbol, holder).flatMap((value) => sourcesOf(value, 'copy'))];
     };
 
+    /**
+     * What a loop over an object of a class of the project goes through: its `[Symbol.iterator]` hands it out, and
+     * says `Mut<…>` in its return type when it may be written. Nothing for a list of the library.
+     */
+    const loopedOver = (expression: ts.Expression): readonly ('writable' | 'readonly' | 'unknown')[] => {
+      const type = checker.getNonNullableType(checker.getTypeAtLocation(expression));
+      const iterator = type.getProperties().find((property) => property.getName().startsWith('__@iterator'));
+      const declaration = iterator?.valueDeclaration;
+      if (declaration === undefined || !isChecked(declaration.getSourceFile()) || !api.isFunctionLike(declaration)) return [];
+      return [mentionsMut(declaration.type) ? 'writable' : 'readonly'];
+    };
     /** What the return type of the function a call runs says of what the collection it gives holds. */
     const resultElements = (call: ts.CallExpression): readonly ('writable' | 'readonly' | 'unknown')[] => {
       const declaration = checker.getResolvedSignature(call)?.getDeclaration();
@@ -991,7 +1005,9 @@ export function createTypeScript6Provider(
           },
           get elementsDeep() {
             const owner = node.parent;
-            return elementsDeepOf(declaredType(api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node)));
+            // An object of a class of the project that is looped over says it by its iterator, not by its type.
+            const looped = api.isExpression(node) && !api.isShorthandPropertyAssignment(owner) ? loopedOver(node) : [];
+            return looped.length > 0 ? looped : elementsDeepOf(declaredType(api.isShorthandPropertyAssignment(owner) ? checker.getShorthandAssignmentValueSymbol(owner) : checker.getSymbolAtLocation(node)));
           },
           get leftOut() {
             const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
@@ -1043,7 +1059,7 @@ export function createTypeScript6Provider(
         return { ...base, kind: 'template', parts: node.templateSpans.map((span) => part(span.expression)) };
       }
       if (api.isNewExpression(node)) {
-        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part), hasSpread: (node.arguments ?? []).some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same'); } };
+        return { ...base, kind: 'new', callee: part(unwrapped(node.expression)), argumentCount: node.arguments?.length ?? 0, arguments: (node.arguments ?? []).map(part), hasSpread: (node.arguments ?? []).some(api.isSpreadElement), get madeFrom() { return sourcesOf(node, 'same'); }, get elementsDeep() { return loopedOver(node); } };
       }
       if (api.isVariableStatement(node) && api.isSourceFile(node.parent) && (node.declarationList.flags & api.NodeFlags.Const) === 0) {
         const ambient = (api.getModifiers(node) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword);
