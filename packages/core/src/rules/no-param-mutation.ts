@@ -33,8 +33,12 @@ const DEPTH = 8;
 /** The name at the start of `a.b[c].d`, when there is one, and how many steps lead from it to the place. */
 /** `table[name]`, or `table.name` when the name is not one the type declares: one of the things a list or a table holds. */
 const isIndexed = (node: Node): boolean => node.kind === 'element-access' || (node.kind === 'property-access' && node.byIndex);
+/**
+ * The name at the start of `a.b[c].d`, the steps down from it, and how many of them, counted from the name, go
+ * into a list before a property is read: 2 for `grid[0][0].total`, 0 for `world.torches[0]`.
+ */
 const rootOf = (node: Node, steps = 0, lists = 0): { readonly root: Node; readonly steps: number; readonly lists: number } =>
-  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1, lists + (isIndexed(node) ? 1 : 0)) : { root: node, steps, lists };
+  node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1, isIndexed(node) ? lists + 1 : 0) : { root: node, steps, lists };
 
 /** The kinds of expression that are a root themselves: asked directly. */
 const ROOTS: readonly string[] = ['identifier', 'this', 'call', 'new', 'literal', 'function', 'string-literal', 'template'];
@@ -97,9 +101,13 @@ export const ownerOf = (
   const { root, steps, lists } = rootOf(object);
   // A list of lists says `Mut<…>` at each level: of the lists it holds, and of what those hold.
   const deep = root.kind === 'identifier' || root.kind === 'call' ? root.elementsDeep : [];
-  if (lists + inLists >= 2 && deep[lists + inLists - 1] === 'readonly') {
-    return { kind: 'elements', name: root.kind === 'identifier' ? root.text : root.kind === 'call' && root.callee.kind === 'identifier' ? root.callee.text : root.kind === 'call' && root.callee.kind === 'property-access' ? root.callee.name : 'the call' };
-  }
+  // The lists the object is inside of count here only when nothing but lists stands between it and the name.
+  const into = lists + (steps === lists ? inLists : 0);
+  const closedDeep: Owner | undefined = deep.slice(0, into).includes('readonly')
+    ? { kind: 'elements', name: root.kind === 'identifier' ? root.text : root.kind === 'call' && root.callee.kind === 'identifier' ? root.callee.text : root.kind === 'call' && root.callee.kind === 'property-access' ? root.callee.name : 'the call' }
+    : undefined;
+  // A parameter that does not ask for mutation is said so first: that is what there is to change.
+  if (closedDeep !== undefined && !(root.kind === 'identifier' && root.parameter === 'readonly')) return closedDeep;
   // A name for a number or a text names nothing that can be written: it was copied when it was given.
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
@@ -115,13 +123,14 @@ export const ownerOf = (
    * property of a namespace or of a class; a field declared with no type, made around something that is not the
    * object's own. `under` counts the steps from there down to the object.
    */
-  const alongTheWay = (node: Node, under: number, listsUnder = 0): Owner | undefined => {
-    if (node.kind === 'element-access') return alongTheWay(node.object, under + 1, listsUnder + 1);
+  const alongTheWay = (node: Node, under: number, listsUnder = 0, onlyLists = true): Owner | undefined => {
+    if (node.kind === 'element-access') return alongTheWay(node.object, under + 1, listsUnder + 1, onlyLists);
     if (node.kind !== 'property-access') return undefined;
-    const above = alongTheWay(node.object, under + 1, listsUnder + (node.byIndex ? 1 : 0));
+    // Above a property that is read by its name, the lists gone into below it are that property's, not this one's.
+    const above = node.byIndex ? alongTheWay(node.object, under + 1, listsUnder + 1, onlyLists) : alongTheWay(node.object, under + 1, 0, false);
     if (above !== undefined) return above;
     // A field that is a list of lists says `Mut<…>` at each level too.
-    if (listsUnder + inLists >= 2 && node.elementsDeep[listsUnder + inLists - 1] === 'readonly') return { kind: 'elements', name: node.name };
+    if (node.elementsDeep.slice(0, listsUnder + (onlyLists ? inLists : 0)).includes('readonly')) return { kind: 'elements', name: node.name };
     if (node.fromModule === 'readonly') return { kind: 'module', name: node.name };
     for (const alias of node.madeFrom) {
       if (isCopied(alias.place) || (alias.as === 'copy' && (under === 0 || isListOfCopies(alias.place)))) continue;
@@ -148,7 +157,7 @@ export const ownerOf = (
   if (aliases === undefined || depth > DEPTH) return closed();
   if (root.kind === 'identifier' && root.parameter === 'readonly') {
     // `readonly Mut<Line>[]`: the list is not the function's to change, what it holds is.
-    return steps + below > 0 && root.elements === 'writable' ? closed() : { kind: 'parameter', name: root.text };
+    return steps + below > 0 && root.elements === 'writable' ? (closedDeep ?? closed()) : { kind: 'parameter', name: root.text };
   }
   if (root.kind === 'identifier' && root.parameter === 'mutable') return closed();
   // What another module made and exports with no `Mut<…>` is that module's to change.
@@ -161,7 +170,7 @@ export const ownerOf = (
       if (!gives(alias.place)) return { kind: 'giver', call: alias.place };
       continue;
     }
-    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0), isListOfCopies, lists + inLists + (alias.as === 'element' ? 1 : 0));
+    const found = ownerOf(alias.place, gives, isCopied, depth + 1, steps + below + (alias.as === 'part' || alias.as === 'element' ? 1 : 0), isListOfCopies, into + alias.levels);
     if (found !== undefined) return found;
     // One of the things a list holds: the list has to say they may be written.
     const list = alias.as === 'element' ? closedElements(alias.place) : undefined;

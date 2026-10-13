@@ -2684,6 +2684,10 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found('export class Grid {', '  rows: Mut<Mut<Mut<Cart>[]>[]> = [];', '  zero(this: Mut<Grid>): void {', '    for (const row of this.rows) for (const cell of row) cell.total = 0;', '  }', '}', 'export function wipe(carts: Mut<Record<string, Mut<Cart>>>): void {', '  const { first } = carts;', '  if (first !== undefined) first.total = 0;', '}')).toEqual([]);
   });
 
+  test('lists that say `Mut<…>` at every level, gone into in one step; and a list under a property', () => {
+    expect(found('type Grid = Mut<Mut<Mut<Cart>[]>[]>;', 'export function zero(grid: Grid, world: Mut<{ readonly carts: Mut<Mut<Cart>[]> }>): void {', '  for (const cell of grid.flat()) cell.total = 0;', '  const first = grid.at(0)?.at(0);', '  if (first !== undefined) first.total = 0;', '  const [[cell]] = grid;', '  if (cell !== undefined) cell.total = 0;', '  for (const cart of world.carts) cart.total = 0;', '  const own = [[{ total: 1 }]];', '  for (const one of own.flat()) one.total = 0;', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });

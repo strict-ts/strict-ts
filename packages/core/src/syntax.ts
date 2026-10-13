@@ -290,6 +290,8 @@ export type NodeKind = Node['kind'];
 /** One of the places a local name may stand for. */
 export interface Alias {
   readonly place: Node;
+  /** How many lists, maps or sets are gone into, from the place to the name: 2 for `grid.at(0)?.at(0)`, for `grid.flat()[0]`. */
+  readonly levels: number;
   /**
    * `same`: the name is the place itself. `part`: it is a property of the place, taken out by a pattern.
    * `element`: it is one of the things the place holds as a list, a map or a set (the variable of a loop over
