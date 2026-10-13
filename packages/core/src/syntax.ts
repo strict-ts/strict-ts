@@ -48,6 +48,11 @@ export type Node = NodeBase &
          */
         readonly fromModule: 'mutable' | 'readonly' | undefined;
         /**
+         * For a parameter of a function written as an argument of a call: what that call is made on, and what it is
+         * given beside the function. `list` for `f` in `list.forEach((f) => …)`: what `f` is, comes from there.
+         */
+        readonly fedFrom: readonly Node[];
+        /**
          * Whether the name refers to a parameter of a function (or to a piece destructured from one), and whether
          * that parameter's type asks for mutation with `Mut<…>`.
          */

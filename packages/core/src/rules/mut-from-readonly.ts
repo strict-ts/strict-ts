@@ -115,7 +115,8 @@ export const mutFromReadonly: Rule = {
       if (depth > 4) return [];
       if (callee.kind === 'conditional') return [...candidates(callee.whenTrue, depth + 1), ...candidates(callee.whenFalse, depth + 1)];
       if (callee.kind === 'binary' && ['??', '||', '&&', ','].includes(callee.operator)) return [...candidates(callee.left, depth + 1), ...candidates(callee.right, depth + 1)];
-      if (callee.kind === 'identifier') return [callee, ...callee.aliasOf.flatMap((alias) => candidates(alias.place, depth + 1))];
+      // A parameter of a function given to `forEach` or `map` is one of the things those go through.
+      if (callee.kind === 'identifier') return [callee, ...callee.aliasOf.flatMap((alias) => candidates(alias.place, depth + 1)), ...callee.fedFrom.flatMap((from) => candidates(from, depth + 1))];
       if (callee.kind === 'literal' || callee.kind === 'new') return callee.madeFrom.flatMap((alias) => candidates(alias.place, depth + 1));
       if (callee.kind === 'call') return [callee, ...callee.madeFrom.flatMap((alias) => candidates(alias.place, depth + 1))];
       if (callee.kind === 'element-access') return [callee, ...candidates(callee.object, depth + 1)];
@@ -304,6 +305,16 @@ export const mutFromReadonly: Rule = {
     // `this: Mut<…>` where the type asked says none, a parameter that asks for it where the type asked does not.
     // Who holds it under that type calls them with what was not theirs to change.
     if (wanted !== undefined && node.kind !== 'function' && (typeOf(node).text !== wanted.text || typeOf(node).returns.length > 0)) {
+      // Functions that differ only by `Mut<…>` are one type once they are in one list: each of them is looked
+      // at by its name, against the function the type that is asked for says.
+      const quiet = wanted.returns.length > 0 ? wanted : (wanted.element?.returns.length ?? 0) > 0 ? wanted.element : undefined;
+      if (quiet !== undefined && quiet.isWrittenInProject && node.kind !== 'literal') {
+        const one = candidates(node, 0).map((each) => typeOf(each)).find((each) => each.returns.length > 0 && (each.mutableParameters.some((index) => !quiet.mutableParameters.includes(index)) || (each.mutableReceiver !== undefined && quiet.mutableReceiver === undefined)));
+        if (one !== undefined) {
+          report(node, 'One of the functions this may be asks for `Mut<…>` of its object or of a parameter, and the type it is given under says a function that does not.', 'Say `Mut<…>` in the type that is asked for too; or give functions that do not write.');
+          return;
+        }
+      }
       // What a function written in place gives back is looked at where it gives it.
       const where = louder(typeOf(node), wanted, 0, node.kind !== 'literal');
       if (where !== undefined) {

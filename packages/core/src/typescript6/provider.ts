@@ -936,6 +936,14 @@ export function createTypeScript6Provider(
           ...base,
           kind: 'identifier',
           text: node.text,
+          get fedFrom() {
+            const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+            const fn = declaration !== undefined && api.isParameter(declaration) ? declaration.parent : undefined;
+            const call = fn !== undefined && (api.isArrowFunction(fn) || api.isFunctionExpression(fn)) ? fn.parent : undefined;
+            if (fn === undefined || call === undefined || !api.isCallExpression(call) || !call.arguments.some((argument) => argument === fn)) return [];
+            const object = api.isPropertyAccessExpression(call.expression) || api.isElementAccessExpression(call.expression) ? [call.expression.expression] : [];
+            return [...object, ...call.arguments.filter((argument) => argument !== fn && !api.isSpreadElement(argument) && !api.isFunctionLike(argument))].map(part);
+          },
           get fromModule() {
             const short = node.parent;
             const named = api.isShorthandPropertyAssignment(short) ? checker.getShorthandAssignmentValueSymbol(short) : checker.getSymbolAtLocation(node);
