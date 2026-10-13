@@ -190,6 +190,10 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m83-object-given-as-this-arg.ts')).toEqual(['mut-from-readonly']);
   }, 180_000);
 
+  test('the eighteenth round: what a class of the project goes through when it is looped over', () => {
+    expect(refusedBy('m84-looped-over-a-class.ts')).toEqual(['no-param-mutation']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

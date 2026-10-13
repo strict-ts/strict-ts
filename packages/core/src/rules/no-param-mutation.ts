@@ -100,11 +100,11 @@ export const ownerOf = (
 ): Owner | undefined => {
   const { root, steps, lists } = rootOf(object);
   // A list of lists says `Mut<…>` at each level: of the lists it holds, and of what those hold.
-  const deep = root.kind === 'identifier' || root.kind === 'call' ? root.elementsDeep : [];
+  const deep = root.kind === 'identifier' || root.kind === 'call' || root.kind === 'new' ? root.elementsDeep : [];
   // The lists the object is inside of count here only when nothing but lists stands between it and the name.
   const into = lists + (steps === lists ? inLists : 0);
   const closedDeep: Owner | undefined = deep.slice(0, into).includes('readonly')
-    ? { kind: 'elements', name: root.kind === 'identifier' ? root.text : root.kind === 'call' && root.callee.kind === 'identifier' ? root.callee.text : root.kind === 'call' && root.callee.kind === 'property-access' ? root.callee.name : 'the call' }
+    ? { kind: 'elements', name: root.kind === 'identifier' ? root.text : root.kind === 'call' && root.callee.kind === 'identifier' ? root.callee.text : root.kind === 'call' && root.callee.kind === 'property-access' ? root.callee.name : root.kind === 'new' && root.callee.kind === 'identifier' ? root.callee.text : 'the call' }
     : undefined;
   // A parameter that does not ask for mutation is said so first: that is what there is to change.
   if (closedDeep !== undefined && !(root.kind === 'identifier' && root.parameter === 'readonly')) return closedDeep;
