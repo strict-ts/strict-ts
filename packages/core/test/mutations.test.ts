@@ -134,6 +134,13 @@ describe('the attacks on explicit mutability', () => {
     expect(refusedBy('m62-keys-and-iterators.ts')).toContain('no-param-mutation');
   }, 180_000);
 
+  test('the seventh round: an object that is not a name, a key, what the language calls by itself', () => {
+    expect(refusedBy('m63-an-object-that-is-not-a-name.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m64-mutator-by-a-key.ts')).toContain('no-param-mutation');
+    expect(refusedBy('m65-called-by-the-language.ts')).toContain('mut-from-readonly');
+    expect(refusedBy('m66-a-part-of-a-type-given-types.ts')).toEqual(['no-param-mutation']);
+  }, 180_000);
+
   test('one is accepted, and is outside the guarantee: a value changed by who made it while someone else reads it', () => {
     const accepted = Object.keys(attacks)
       .filter((name) => refusedBy(name).length === 0)

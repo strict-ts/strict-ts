@@ -9,6 +9,8 @@ import type { Callee, ExportedValue, SourceFile, Type, TypeProvider } from '../p
 import type { Alias, Node } from '../syntax.js';
 
 /** The methods that give back something their receiver holds. */
+/** The methods the language calls by itself, on whatever it converts, writes as JSON or awaits. */
+const PROTOCOLS: readonly string[] = ['toString', 'toLocaleString', 'valueOf', 'toJSON', 'then'];
 /** The collections of the library, and which of the types they are given is the type of what they hold. */
 const HOLDS: Readonly<Record<string, number>> = { Array: 0, ReadonlyArray: 0, Set: 0, ReadonlySet: 0, WeakSet: 0, Map: 1, ReadonlyMap: 1, WeakMap: 1, Record: 1 };
 /** The types of the library that are another view of the one they are given. */
@@ -297,7 +299,10 @@ export function createTypeScript6Provider(
     if (name !== undefined && SEEN_AS.includes(name) && first !== undefined) return elementsOf(first) === 'writable' || isUnderMut(written) ? 'writable' : 'readonly';
     // A list says it of what it holds; a map, of its values, which is what `get` and a loop over it hand out.
     const held = api.isArrayTypeNode(inner) ? inner.elementType : name !== undefined && api.isTypeReferenceNode(inner) ? inner.typeArguments?.[HOLDS[name] ?? -1] : undefined;
-    const says = held !== undefined ? mentionsMut(held) : name !== undefined && HOLDS[name] !== undefined ? false : mentionsMut(inner);
+    // A type of the project that is given types (`Pair<Cart, Mut<Cart>>`): nothing says which part is which, so
+    // every one of them has to say it.
+    const given = api.isTypeReferenceNode(inner) && !isMut(inner) ? (inner.typeArguments ?? []) : [];
+    const says = held !== undefined ? mentionsMut(held) : name !== undefined && HOLDS[name] !== undefined ? false : given.length > 0 ? given.every((one) => mentionsMut(one)) : mentionsMut(inner);
     return says || isUnderMut(written) ? 'writable' : 'readonly';
   };
   /** A number, a text, a boolean, nothing: there is nothing in it to write. */
@@ -1123,7 +1128,7 @@ export function createTypeScript6Provider(
         const isDeclared =
           api.findAncestor(node, (outer) => api.canHaveModifiers(outer) && (api.getModifiers(outer) ?? []).some((modifier) => modifier.kind === api.SyntaxKind.DeclareKeyword)) !== undefined;
         const isOverload = declares && body === undefined && !isAbstract && !isDeclared;
-        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined, get overridden() { return overriddenBy(node); } };
+        return { ...base, kind: 'function', hiddenDefaults: node.parameters.flatMap(hiddenDefaults).map(part), parameters: node.parameters.map((parameter) => part(parameter.name)), body: body === undefined ? undefined : part(body), isOverload, isConstructor: api.isConstructorDeclaration(node), name: node.name !== undefined && (api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) ? node.name.text : undefined, isProtocol: node.name !== undefined && ((api.isComputedPropertyName(node.name) && api.isPropertyAccessExpression(node.name.expression) && api.isIdentifier(node.name.expression.expression) && node.name.expression.expression.text === 'Symbol') || ((api.isIdentifier(node.name) || api.isStringLiteralLike(node.name)) && PROTOCOLS.includes(node.name.text))), get overridden() { return overriddenBy(node); } };
       }
       if (api.isIfStatement(node)) {
         return { ...base, kind: 'if', condition: part(node.expression), whenTrue: part(node.thenStatement), whenFalse: node.elseStatement === undefined ? undefined : part(node.elseStatement) };

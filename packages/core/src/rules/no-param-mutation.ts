@@ -16,6 +16,8 @@ const MUTATORS = new Set([
   'next',
   // The nodes of a page, its lists of classes, its headers and its forms.
   'append', 'prepend', 'appendChild', 'removeChild', 'replaceChildren', 'insertBefore', 'remove', 'toggle', 'removeAttribute',
+  // What is drawn on a canvas changes it, and so does what moves or keeps its state.
+  'fillRect', 'strokeRect', 'clearRect', 'fillText', 'strokeText', 'drawImage', 'putImageData', 'fill', 'stroke', 'clip', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc', 'arcTo', 'rect', 'ellipse', 'bezierCurveTo', 'quadraticCurveTo', 'save', 'restore', 'translate', 'rotate', 'scale', 'transform', 'resetTransform',
 ]);
 /** `setTime`, `setFullYear`, `setAttribute`: a method named for what it sets. */
 const SETTER = /^set[A-Z]/;
@@ -31,6 +33,17 @@ const DEPTH = 8;
 /** The name at the start of `a.b[c].d`, when there is one, and how many steps lead from it to the place. */
 const rootOf = (node: Node, steps = 0): { readonly root: Node; readonly steps: number } =>
   node.kind === 'property-access' || node.kind === 'element-access' ? rootOf(node.object, steps + 1) : { root: node, steps };
+
+/** The kinds of expression that are a root themselves: asked directly. */
+const ROOTS: readonly string[] = ['identifier', 'this', 'call', 'new', 'literal', 'function', 'string-literal', 'template'];
+/** What an expression that is no root stands for: the values it chooses between, or the one it is written around. */
+const through = (node: Node): readonly Node[] => {
+  if (ROOTS.includes(node.kind)) return [];
+  if (node.kind === 'conditional') return [node.whenTrue, node.whenFalse];
+  if (node.kind === 'binary') return ['??', '||', '&&'].includes(node.operator) ? [node.left, node.right] : node.operator === '=' || node.operator === ',' ? [node.right] : [];
+  // Parentheses, `await`, `!`: the one thing written inside. `satisfies` and `as`: the value, written first.
+  return node.children.length === 1 ? node.children : node.kind === 'as' || node.kind === 'other' ? node.children.slice(0, 1) : [];
+};
 
 /** Whose it is, when a written object is not the function's own to change. */
 export type Owner =
@@ -82,6 +95,10 @@ export const ownerOf = (
   if (root.kind === 'identifier' && isCopied(root)) return undefined;
   // The object a method is called on is what it receives too: Rust's `&self`, unless it says `this: Mut<…>`.
   if (root.kind === 'this' && root.receiver === 'readonly') return { kind: 'this' };
+  // An object that is one of several, or seen through something: `(flag ? x : y)`, `(x ?? y)`, `(kept = x)`,
+  // `(await p)`, `(x satisfies Cart)`. Each of them is asked.
+  const seenThrough = depth > DEPTH ? [] : through(root);
+  if (seenThrough.length > 0) return seenThrough.flatMap((one) => ownerOf(one, gives, isCopied, depth + 1, below + steps, isListOfCopies) ?? []).at(0);
   // What a call gave, written with no name for it.
   if (root.kind === 'call' && !gives(root)) return { kind: 'giver', call: root };
   /**
@@ -180,16 +197,16 @@ export const noParamMutation: Rule = {
         );
         return true;
       }
-      const through = owner.kind === 'parameter' && name !== owner.name ? `, through \`${name}\`` : owner.kind === 'this' && name !== '' ? `, through \`${name}\`` : '';
+      const alias = owner.kind === 'parameter' && name !== owner.name && name !== '' ? `, through \`${name}\`` : owner.kind === 'this' && name !== '' ? `, through \`${name}\`` : '';
       if (owner.kind === 'this') {
         report(
           at,
-          `\`this\` is mutated${how}${through}, in a function that does not say \`this: Mut<…>\`.`,
+          `\`this\` is mutated${how}${alias}, in a function that does not say \`this: Mut<…>\`.`,
           'Write `this: Mut<…>` as its first parameter, so that callers see it changes its object; or return a new value.',
         );
         return true;
       }
-      report(at, `Parameter \`${owner.name}\` is mutated${how}${through}.`, help);
+      report(at, `Parameter \`${owner.name}\` is mutated${how}${alias}.`, help);
       return true;
     };
     const lefts =
@@ -207,6 +224,19 @@ export const noParamMutation: Rule = {
         continue;
       }
       if ((written.kind === 'property-access' || written.kind === 'element-access') && refuse(node, written.object, '')) return;
+    }
+    // `list['push'](…)`: a method reached by a key. One the project wrote says itself whether it writes its
+    // object; of the library, a name that is written is read like any other, and one that is computed is not known.
+    if (node.kind === 'call' && node.callee.kind === 'element-access') {
+      const reached = typeOf(node.callee);
+      const index = node.callee.index;
+      // `list[Symbol.iterator]()` makes something that goes through the list, and changes nothing of it.
+      if (index.kind === 'property-access' && index.object.kind === 'identifier' && index.object.text === 'Symbol') return;
+      const key = index.kind === 'string-literal' ? index.text : undefined;
+      if (reached.mutableReceiver !== undefined || (!reached.isImplemented && (key === undefined || changes(key)) && !typeOf(node.callee.object).kinds.every((kind) => PRIMITIVES.includes(kind)))) {
+        refuse(node, node.callee.object, key === undefined ? ' by a method reached by a key that is computed' : ` by \`${key}\``);
+      }
+      return;
     }
     if (node.kind !== 'call' || node.callee.kind !== 'property-access') return;
     const { name, object } = node.callee;

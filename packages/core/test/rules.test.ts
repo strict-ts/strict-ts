@@ -2663,6 +2663,11 @@ describe('explicit mutability: what stays accepted', () => {
     expect(found(...lines.slice(0, 4), '  const first = state.carts[0];', '  if (first !== undefined) first.total = 0;', '  return 0;', '}')).toEqual(['10 no-param-mutation']);
   });
 
+  test('an object that is chosen among the function\'s own, a function called by a key, a canvas of its own', () => {
+    expect(found('export function pick(flag: boolean): number {', '  const x = { total: 1 };', '  const y = { total: 2 };', '  (flag ? x : y).total = 0;', '  const table = { double: (n: number): number => n * 2 };', '  return table["double"](x.total + y.total);', '}')).toEqual([]);
+    expect(found('export function draw(ctx: Mut<CanvasRenderingContext2D>): void {', '  ctx.save();', '  ctx.fillRect(0, 0, 1, 1);', '  ctx.restore();', '}')).toEqual([]);
+  });
+
   test('a method that says `this: Mut<…>` hands out its parts', () => {
     expect(found('export class Store {', '  private readonly carts: Mut<Mut<Cart>[]> = [];', '  all(this: Mut<Store>): readonly Mut<Cart>[] { return [...this.carts]; }', '  first(this: Mut<Store>): Mut<Cart> | undefined { return this.carts[0]; }', '}')).toEqual([]);
   });
