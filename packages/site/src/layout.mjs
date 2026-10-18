@@ -2,7 +2,7 @@
 // names the repository; nothing else of the site leads there.
 import { escape } from './markdown.mjs';
 
-export const REPOSITORY = 'https://git.cf.adserver.fr/Alex/strict-ts';
+export const REPOSITORY = 'https://git.cf.adserver.fr/strict-lang/strict-ts';
 export const PLAYGROUND = 'playground.html';
 
 /** The bar at the top: the entries of typescriptlang.org, for what this project has. */

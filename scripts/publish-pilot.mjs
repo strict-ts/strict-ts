@@ -37,7 +37,7 @@ export function manifestOf(own, version) {
     version,
     ...(dependencies === undefined ? {} : { dependencies }),
     ...(peerDependencies === undefined ? {} : { peerDependencies }),
-    repository: { type: 'git', url: 'https://git.cf.adserver.fr/Alex/strict-ts.git', directory: `packages/${own.name.slice('@strict-ts/'.length)}` },
+    repository: { type: 'git', url: 'https://git.cf.adserver.fr/strict-lang/strict-ts.git', directory: `packages/${own.name.slice('@strict-ts/'.length)}` },
   };
 }
 
