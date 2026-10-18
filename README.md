@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/logo.svg" alt="strict-ts" width="320"></p>
 
-[![CI](https://git.cf.adserver.fr/Alex/strict-ts/actions/workflows/ci.yml/badge.svg?branch=main)](https://git.cf.adserver.fr/Alex/strict-ts/actions)
+[![CI](https://git.cf.adserver.fr/strict-lang/strict-ts/actions/workflows/ci.yml/badge.svg?branch=main)](https://git.cf.adserver.fr/strict-lang/strict-ts/actions)
 
 # strict-ts
 
